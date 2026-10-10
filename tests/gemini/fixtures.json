@@ -1,0 +1,110 @@
+{
+  "_comment": "Gemini generateContent responses in the shape the API returns them (image bytes replaced with a 1x1 PNG). Used with a stubbed fetch; tests never call Google.",
+  "success": {
+    "candidates": [
+      {
+        "content": {
+          "role": "model",
+          "parts": [
+            { "text": "Here is a warm, natural-light photo of fresh date maamoul on a cream plate." },
+            { "inlineData": { "mimeType": "image/png", "data": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==" } }
+          ]
+        },
+        "finishReason": "STOP",
+        "index": 0
+      }
+    ],
+    "usageMetadata": { "promptTokenCount": 212, "candidatesTokenCount": 1290, "totalTokenCount": 1502 },
+    "modelVersion": "gemini-3.1-flash-image"
+  },
+  "successSnakeCase": {
+    "candidates": [
+      { "content": { "parts": [{ "inline_data": { "mime_type": "image/png", "data": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==" } }] }, "finishReason": "STOP" }
+    ]
+  },
+  "textOnly": {
+    "candidates": [{ "content": { "parts": [{ "text": "I can't create that image, but here is a description instead." }] }, "finishReason": "STOP" }]
+  },
+  "promptBlocked": {
+    "promptFeedback": { "blockReason": "PROHIBITED_CONTENT" }
+  },
+  "imageSafety": {
+    "candidates": [{ "content": { "parts": [] }, "finishReason": "IMAGE_SAFETY" }]
+  },
+  "errorDailyFreeTier": {
+    "error": {
+      "code": 429,
+      "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits.\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 100, model: gemini-3.1-flash-image\nPlease retry in 7h12m3s.",
+      "status": "RESOURCE_EXHAUSTED",
+      "details": [
+        {
+          "@type": "type.googleapis.com/google.rpc.QuotaFailure",
+          "violations": [
+            {
+              "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",
+              "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",
+              "quotaDimensions": { "location": "global", "model": "gemini-3.1-flash-image" },
+              "quotaValue": "100"
+            }
+          ]
+        },
+        { "@type": "type.googleapis.com/google.rpc.Help", "links": [{ "description": "Learn more about Gemini API quotas", "url": "https://ai.google.dev/gemini-api/docs/rate-limits" }] },
+        { "@type": "type.googleapis.com/google.rpc.RetryInfo", "retryDelay": "25923s" }
+      ]
+    }
+  },
+  "errorPerMinute": {
+    "error": {
+      "code": 429,
+      "message": "You exceeded your current quota, please check your plan and billing details.\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 10, model: gemini-3.1-flash-image\nPlease retry in 41.2s.",
+      "status": "RESOURCE_EXHAUSTED",
+      "details": [
+        {
+          "@type": "type.googleapis.com/google.rpc.QuotaFailure",
+          "violations": [
+            { "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests", "quotaId": "GenerateRequestsPerMinutePerProjectPerModel-FreeTier" }
+          ]
+        },
+        { "@type": "type.googleapis.com/google.rpc.RetryInfo", "retryDelay": "41s" }
+      ]
+    }
+  },
+  "errorNoFreeTier": {
+    "error": {
+      "code": 429,
+      "message": "You exceeded your current quota, please check your plan and billing details.\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3-pro-image",
+      "status": "RESOURCE_EXHAUSTED",
+      "details": [
+        {
+          "@type": "type.googleapis.com/google.rpc.QuotaFailure",
+          "violations": [{ "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_input_token_count", "quotaId": "GenerateContentInputTokensPerModelPerMinute-FreeTier" }]
+        }
+      ]
+    }
+  },
+  "errorInvalidKey": {
+    "error": {
+      "code": 400,
+      "message": "API key not valid. Please pass a valid API key.",
+      "status": "INVALID_ARGUMENT",
+      "details": [
+        { "@type": "type.googleapis.com/google.rpc.ErrorInfo", "reason": "API_KEY_INVALID", "domain": "googleapis.com", "metadata": { "service": "generativelanguage.googleapis.com" } }
+      ]
+    }
+  },
+  "errorPermission": {
+    "error": { "code": 403, "message": "Method doesn't allow unregistered callers (callers without established identity). Please use API Key or other form of API consumer identity to call this API.", "status": "PERMISSION_DENIED" }
+  },
+  "errorBilling": {
+    "error": { "code": 400, "message": "Imagen API is only accessible to billed users at this time.", "status": "FAILED_PRECONDITION" }
+  },
+  "errorRegion": {
+    "error": { "code": 400, "message": "User location is not supported for the API use.", "status": "FAILED_PRECONDITION" }
+  },
+  "errorModelNotFound": {
+    "error": { "code": 404, "message": "models/gemini-image-typo is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.", "status": "NOT_FOUND" }
+  },
+  "errorOverloaded": {
+    "error": { "code": 503, "message": "The model is overloaded. Please try again later.", "status": "UNAVAILABLE" }
+  }
+}

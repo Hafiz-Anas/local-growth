@@ -1,26 +1,218 @@
 @import "tailwindcss";
 
+/*
+ * Local Growth Engine — design tokens.
+ * Every color, radius, font size and layout dimension lives here.
+ * Raw tokens are CSS variables on :root / .dark; the @theme block maps them to
+ * Tailwind utilities (bg-background, text-muted, border-border, rounded-card …).
+ */
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Set on <html> before paint from the saved preference (see lib/sidebar.ts). */
+@custom-variant sidebar-collapsed (&:where([data-sidebar="collapsed"], [data-sidebar="collapsed"] *));
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Surfaces */
+  --lge-bg: #ffffff;
+  --lge-bg-secondary: #fafafa;
+  --lge-bg-elevated: #ffffff;
+  --lge-bg-hover: rgba(0, 0, 0, 0.05);
+  --lge-bg-input: #fafafa;
+  --lge-button-secondary: #efefef;
+  --lge-button-secondary-hover: #dbdbdb;
+
+  /* Text */
+  --lge-text: #000000;
+  --lge-text-secondary: #737373;
+  --lge-text-link: #00376b;
+  --lge-text-on-primary: #ffffff;
+
+  /* Lines */
+  --lge-border: #dbdbdb;
+  --lge-separator: #efefef;
+
+  /* Brand + status */
+  --lge-blue: #0095f6;
+  --lge-blue-hover: #1877f2;
+  --lge-blue-soft: rgba(0, 149, 246, 0.1);
+  --lge-red: #ed4956;
+  --lge-green: #2fa84f;
+  --lge-amber: #e8a400;
+  --lge-ig-1: #f58529;
+  --lge-ig-2: #dd2a7b;
+  --lge-ig-3: #8134af;
+  --lge-ig-4: #515bd4;
+  --lge-gradient: linear-gradient(45deg, var(--lge-ig-1) 0%, var(--lge-ig-2) 40%, var(--lge-ig-3) 75%, var(--lge-ig-4) 100%);
+
+  /* Data viz (single-hue sequential ramp on Instagram blue) */
+  --lge-chart-line: #0095f6;
+  --lge-chart-grid: #efefef;
+  --lge-heat-0: #f2f8fd;
+  --lge-heat-1: #cfe7fb;
+  --lge-heat-2: #94cbf7;
+  --lge-heat-3: #4daff7;
+  --lge-heat-4: #0095f6;
+  --lge-heat-5: #005fa3;
+
+  --lge-shadow-menu: 0 4px 12px rgba(0, 0, 0, 0.15);
+
+  /* Phone mockup frame on the login showcase */
+  --lge-device: #111111;
+}
+
+.dark {
+  --lge-bg: #000000;
+  --lge-bg-secondary: #121212;
+  --lge-bg-elevated: #262626;
+  --lge-bg-hover: rgba(255, 255, 255, 0.1);
+  --lge-bg-input: #121212;
+  --lge-button-secondary: #363636;
+  --lge-button-secondary-hover: #262626;
+
+  --lge-text: #f5f5f5;
+  --lge-text-secondary: #a8a8a8;
+  --lge-text-link: #e0f1ff;
+
+  --lge-border: #262626;
+  --lge-separator: #262626;
+
+  --lge-blue-soft: rgba(0, 149, 246, 0.18);
+  --lge-green: #4cc56f;
+
+  --lge-chart-grid: #262626;
+  --lge-heat-0: #0d1a24;
+  --lge-heat-1: #0c3352;
+  --lge-heat-2: #08548a;
+  --lge-heat-3: #0077c7;
+  --lge-heat-4: #2aa8ff;
+  --lge-heat-5: #8fd0ff;
+
+  --lge-shadow-menu: 0 4px 12px rgba(0, 0, 0, 0.6);
+
+  --lge-device: #2a2a2a;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background: var(--lge-bg);
+  --color-secondary-bg: var(--lge-bg-secondary);
+  --color-elevated: var(--lge-bg-elevated);
+  --color-hover: var(--lge-bg-hover);
+  --color-input: var(--lge-bg-input);
+  --color-button-secondary: var(--lge-button-secondary);
+  --color-button-secondary-hover: var(--lge-button-secondary-hover);
+
+  --color-foreground: var(--lge-text);
+  --color-muted: var(--lge-text-secondary);
+  --color-link: var(--lge-text-link);
+  --color-on-primary: var(--lge-text-on-primary);
+
+  --color-border: var(--lge-border);
+  --color-separator: var(--lge-separator);
+
+  --color-primary: var(--lge-blue);
+  --color-primary-hover: var(--lge-blue-hover);
+  --color-primary-soft: var(--lge-blue-soft);
+  --color-danger: var(--lge-red);
+  --color-success: var(--lge-green);
+  --color-warning: var(--lge-amber);
+  --color-ig-orange: var(--lge-ig-1);
+  --color-ig-pink: var(--lge-ig-2);
+  --color-ig-purple: var(--lge-ig-3);
+  --color-ig-indigo: var(--lge-ig-4);
+  --color-device: var(--lge-device);
+
+  /* Snackbar (same dark bar in both themes, like Instagram's) */
+  --color-snackbar: #262626;
+  --color-snackbar-link: #4cb5f9;
+  --color-snackbar-error: #ff6b6b;
+  --color-snackbar-success: #58c322;
+
+  --animate-toast-in: toast-in 180ms ease-out;
+
+  --font-sans: var(--font-inter), system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+  /* Type scale — 14px body, 12px secondary, 16–20px headings */
+  --text-caption: 12px;
+  --text-caption--line-height: 16px;
+  --text-body: 14px;
+  --text-body--line-height: 18px;
+  --text-title: 16px;
+  --text-title--line-height: 20px;
+  --text-heading: 20px;
+  --text-heading--line-height: 25px;
+  --text-display: 28px;
+  --text-display--line-height: 32px;
+
+  /* Radii */
+  --radius-button: 8px;
+  --radius-card: 8px;
+  --radius-panel: 12px;
+  --radius-pill: 9999px;
+
+  --shadow-menu: var(--lge-shadow-menu);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Layout tokens (used through arbitrary values, e.g. w-(--sidebar-width)) */
+:root {
+  --sidebar-width: 244px;
+  --sidebar-width-collapsed: 72px;
+  --topbar-height: 60px;
+  --tabbar-height: 50px;
+  --content-max-width: 975px;
 }
+
+@layer base {
+  * {
+    border-color: var(--lge-border);
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    background: var(--lge-bg);
+    color: var(--lge-text);
+    font-size: var(--text-body);
+    line-height: 18px;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  button {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: default;
+  }
+}
+
+@utility bg-ig-gradient {
+  background-image: var(--lge-gradient);
+}
+
+@utility text-ig-gradient {
+  background-image: var(--lge-gradient);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.heat-0 { background: var(--lge-heat-0); }
+.heat-1 { background: var(--lge-heat-1); }
+.heat-2 { background: var(--lge-heat-2); }
+.heat-3 { background: var(--lge-heat-3); }
+.heat-4 { background: var(--lge-heat-4); }
+.heat-5 { background: var(--lge-heat-5); }

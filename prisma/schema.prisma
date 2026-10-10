@@ -1,0 +1,662 @@
+// Local Growth Engine — database schema.
+// Run `npm run db:migrate` after changing this file, then `npm run db:seed`.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum Role {
+  ADMIN
+  USER
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum Plan {
+  STARTER
+  GROWTH
+  PRO
+}
+
+enum ConnectionStatus {
+  CONNECTED
+  EXPIRED
+  DISCONNECTED
+  /// Meta revoked or expired the token (Graph error 190): the user must reconnect.
+  NEEDS_RECONNECT
+}
+
+/// Which InstagramService implementation serves a connection (lib/services/instagram.ts).
+enum InstagramProvider {
+  MOCK
+  META
+}
+
+enum DraftStatus {
+  DRAFT
+  QUEUED
+  PUBLISHED
+  REJECTED
+}
+
+/// Where a post draft's image came from: AI image generation or the user's own upload.
+enum DraftImageSource {
+  GENERATED
+  UPLOADED
+}
+
+enum ScheduledPostStatus {
+  SCHEDULED
+  PUBLISHED
+  CANCELLED
+  FAILED
+}
+
+enum ExperimentStatus {
+  RUNNING
+  PAUSED
+  COMPLETED
+}
+
+enum ReplyDraftStatus {
+  PENDING
+  APPROVED
+  DISMISSED
+  POSTED
+}
+
+enum OnboardingStatus {
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum BusinessSource {
+  ADMIN_CREATED
+  SELF_SIGNUP
+}
+
+/// Result of InstagramService.lookupBusinessAccount for a competitor handle.
+enum CompetitorValidation {
+  READY
+  NOT_BUSINESS
+  PRIVATE
+  NOT_FOUND
+  OWN_ACCOUNT
+}
+
+enum BrandPostSource {
+  UPLOAD
+  INSTAGRAM
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+}
+
+enum PostPurpose {
+  MENU_PRODUCT
+  PROMOTION
+  SHOP_LOCATION
+  SERVICE
+  ANNOUNCEMENT
+  BEHIND_THE_SCENES
+  OTHER
+}
+
+enum BrandContextStatus {
+  BUILDING
+  READY
+  FAILED
+}
+
+enum OnboardingEventType {
+  STARTED
+  COMPLETED
+  BACK
+  ERROR
+  ABANDONED
+}
+
+// ─── Accounts ────────────────────────────────────────────────────────────────
+
+model User {
+  id            String     @id @default(cuid())
+  email         String     @unique
+  passwordHash  String
+  name          String
+  avatarUrl     String?
+  role          Role       @default(USER)
+  status        UserStatus @default(ACTIVE)
+  /// Null for admins; every USER manages exactly one business.
+  businessId    String?
+  /// { sidebarCollapsed: boolean, theme: "light" | "dark" | "system", language: "en" | "ar" }
+  uiPreferences Json       @default("{\"sidebarCollapsed\": false, \"theme\": \"system\", \"language\": \"en\"}")
+  /// { newComments, approvalNeeded, weeklyReport, competitorAlerts, experimentResults }: booleans
+  notificationPrefs Json   @default("{}")
+  /// Bumped when the password is reset or changed; sessions carrying an older value are rejected.
+  sessionVersion Int       @default(0)
+  /// Null until the address is confirmed through the emailed link (self sign-ups).
+  emailVerifiedAt DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @default(now()) @updatedAt
+  lastLoginAt   DateTime?
+
+  business                Business?                @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  passwordResetTokens     PasswordResetToken[]
+  emailVerificationTokens EmailVerificationToken[]
+  feedback                Feedback[]
+  activity            ActivityLog[]
+  postDrafts          PostDraft[]          @relation("DraftAuthor")
+  reviewedReplies     ReplyDraft[]         @relation("ReplyReviewer")
+
+  @@index([businessId])
+  @@index([role, status])
+}
+
+model Business {
+  id              String   @id @default(cuid())
+  name            String
+  /// Arabic display name (the UI is bilingual).
+  nameAr          String?
+  /// Null for a self sign-up until it connects Instagram in onboarding.
+  instagramHandle String?  @unique
+  category        String?
+  categoryAr      String?
+  location        String
+  locationAr      String?
+  avatarUrl       String?
+  plan            Plan     @default(STARTER)
+  timezone        String   @default("Asia/Kuwait")
+  createdAt       DateTime @default(now())
+  /// Set whenever this business's FeaturePermission rows change; live sessions refresh their feature list.
+  permissionsUpdatedAt DateTime @default(now())
+
+  // Onboarding profile (config/onboarding.ts) ---------------------------------
+  /// roastery | cafe | restaurant | bakery | sweets | retail | beauty | services | other
+  businessType      String?
+  businessTypeOther String?
+  description       String?
+  products          String[]
+  targetAudience    String?
+  /// Posting languages on Instagram: "ar", "en" or both. Not asked in onboarding — learned
+  /// from the captions when the brand profile is built; editable in Settings → Brand profile.
+  languages         String[]         @default(["ar", "en"])
+  /// Brand basics from onboarding step 5 (tone and words to use live on BrandVoice).
+  brandColors       String[]
+  logoUrl           String?
+  onboardingStatus  OnboardingStatus @default(COMPLETED)
+  /// 1–7: instagram, business, competitors, posts, brand, review, result (config/onboarding.ts).
+  onboardingStep    Int              @default(1)
+  onboardingInvitedAt DateTime?
+  source            BusinessSource   @default(ADMIN_CREATED)
+
+  users               User[]
+  brandPosts          BrandPost[]
+  brandContexts       BrandContext[]
+  onboardingEvents    OnboardingEvent[]
+  feedback            Feedback[]
+  permissions         FeaturePermission[]
+  instagramConnection InstagramConnection?
+  brandVoice          BrandVoice?
+  competitors         Competitor[]
+  postDrafts          PostDraft[]
+  scheduledPosts      ScheduledPost[]
+  experiments         PostingExperiment[]
+  engagementRules     EngagementRule[]
+  replyDrafts         ReplyDraft[]
+  activity            ActivityLog[]
+  instagramMedia      InstagramMedia[]
+  instagramComments   InstagramMediaComment[]
+  accountSnapshots    InstagramAccountSnapshot[]
+  integrationEvents   IntegrationEvent[]
+  metaPending         MetaPendingConnection?
+}
+
+/// One row per (business, feature key). A sub-feature ("engagement.dmRules") is
+/// only effective when its module ("engagement") is enabled — see lib/permissions.
+model FeaturePermission {
+  id         String  @id @default(cuid())
+  businessId String
+  featureKey String
+  enabled    Boolean @default(false)
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, featureKey])
+}
+
+model InstagramConnection {
+  id                   String           @id @default(cuid())
+  businessId           String           @unique
+  /// Mock connections only. Meta connections keep the account id inside `credentialsEncrypted`.
+  igUserId             String?
+  username             String
+  /// Mock token. AES-256-GCM ciphertext (lib/crypto.ts). Never returned by the API.
+  accessTokenEncrypted String?
+  /// When the user must log in again (Meta: the long-lived user token's expiry).
+  tokenExpiresAt       DateTime?
+  status               ConnectionStatus @default(DISCONNECTED)
+  /// When the current connection was made (null while disconnected).
+  connectedAt          DateTime?
+  lastSyncAt           DateTime?
+
+  provider             InstagramProvider @default(MOCK)
+  /// Meta only, AES-256-GCM JSON (lib/server/meta-credentials.ts): user token + expiry, Page id + token,
+  /// Instagram business account id, granted scopes. Never returned by the API, never logged.
+  credentialsEncrypted String?
+  /// HMAC of the Instagram business account id (lib/crypto.ts `lookupKey`): one account → one business.
+  igAccountKey         String?          @unique
+  /// Meta's data-access window for this login (90 days); shown to admins next to the token expiry.
+  dataAccessExpiresAt  DateTime?
+  /// Requested permissions the user didn't grant (or that a Graph call reported missing).
+  missingPermissions   String[]
+  /// Last synced public profile: { name, biography, website, pictureUrl, followers, follows, mediaCount }.
+  profile              Json?
+  /// Last synced account insights (lib/services/meta/mappers.ts → AccountInsights).
+  insights             Json?
+  /// Set while a sync runs (stale after 10 minutes) so two syncs don't overlap.
+  syncStartedAt        DateTime?
+  lastSyncError        String?
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+}
+
+/// A post of a Meta-connected account, stored by the sync so pages don't call Meta on every load.
+model InstagramMedia {
+  id               String   @id @default(cuid())
+  businessId       String
+  igMediaId        String
+  caption          String   @default("")
+  /// IMAGE | VIDEO | CAROUSEL_ALBUM
+  mediaType        String
+  /// FEED | REELS | STORY | AD
+  mediaProductType String?
+  /// Meta CDN URLs expire after a while; every sync refreshes them.
+  mediaUrl         String?
+  thumbnailUrl     String?
+  permalink        String?
+  postedAt         DateTime
+  likeCount        Int      @default(0)
+  commentsCount    Int      @default(0)
+  /// Post insights by metric name (reach, saved, views, shares, total_interactions). A missing key = not available.
+  insights         Json     @default("{}")
+  syncedAt         DateTime @default(now())
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, igMediaId])
+  @@index([businessId, postedAt])
+}
+
+/// A comment on one of the account's posts (Meta-connected accounts, refreshed by the sync).
+model InstagramMediaComment {
+  id          String   @id @default(cuid())
+  businessId  String
+  igCommentId String
+  igMediaId   String
+  username    String
+  text        String
+  likeCount   Int      @default(0)
+  postedAt    DateTime
+  syncedAt    DateTime @default(now())
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, igCommentId])
+  @@index([businessId, postedAt])
+}
+
+/// The account's public numbers, one row per day (the latest sync of the day wins) — the real follower history.
+model InstagramAccountSnapshot {
+  id         String   @id @default(cuid())
+  businessId String
+  /// YYYY-MM-DD in UTC.
+  date       String
+  followers  Int
+  follows    Int
+  mediaCount Int
+  takenAt    DateTime @default(now())
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, date])
+}
+
+/// A competitor's public numbers at each refresh (Meta business discovery) — real follower/engagement trends.
+model CompetitorSnapshot {
+  id             String   @id @default(cuid())
+  competitorId   String
+  followers      Int
+  mediaCount     Int
+  /// Percent: average (likes + comments) per recent post ÷ followers.
+  engagementRate Float
+  takenAt        DateTime @default(now())
+
+  competitor Competitor @relation(fields: [competitorId], references: [id], onDelete: Cascade)
+
+  @@index([competitorId, takenAt])
+}
+
+/// Every Meta Graph failure and connection milestone, for admins and lab testing. Never contains tokens.
+model IntegrationEvent {
+  id         String   @id @default(cuid())
+  businessId String?
+  provider   String   @default("meta")
+  /// error | warning | info
+  level      String   @default("error")
+  /// What was called, e.g. "GET /{ig-user}/media", "oauth.exchange", "sync".
+  call       String
+  /// Graph error code (with subcode as "190/463"), or our own code such as "metric_unavailable".
+  errorCode  String?
+  message    String
+  httpStatus Int?
+  details    Json     @default("{}")
+  createdAt  DateTime @default(now())
+
+  business Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, createdAt])
+  @@index([createdAt])
+}
+
+/// A Facebook login that found several Pages with Instagram accounts: kept until the user picks one (15 min).
+model MetaPendingConnection {
+  id                   String   @id @default(cuid())
+  businessId           String   @unique
+  userId               String
+  /// "onboarding" | "settings"
+  returnTo             String
+  /// AES-256-GCM JSON: user token + every candidate Page's token. Never sent to the browser.
+  credentialsEncrypted String
+  /// Non-secret choices for the picker: [{ pageId, pageName, igUserId, username, name, pictureUrl, followers }]
+  options              Json
+  expiresAt            DateTime
+  createdAt            DateTime @default(now())
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+}
+
+model BrandVoice {
+  businessId               String   @id
+  /// 0 = formal Arabic … 100 = casual Kuwaiti.
+  toneLevel                Int      @default(50)
+  defaultHashtags          String[]
+  brandWords               String[]
+  priceQuestionsToWhatsApp Boolean  @default(false)
+  whatsappNumber           String?
+  /// Post AI replies without manual approval (feature engagement.autoReply).
+  autoReply                Boolean  @default(false)
+  /// Words the AI must not use (onboarding brand basics).
+  wordsToAvoid             String[]
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+}
+
+// ─── Content & insights ──────────────────────────────────────────────────────
+
+model Competitor {
+  id             String    @id @default(cuid())
+  businessId     String
+  handle         String
+  /// Optional name shown instead of the Instagram profile name.
+  displayName    String?
+  /// Optional label, e.g. "main rival", "premium segment".
+  note           String?
+  avatarUrl      String?
+  followers      Int       @default(0)
+  /// Percent, e.g. 4.2
+  engagementRate Float     @default(0)
+  lastFetchedAt  DateTime?
+  /// Only READY accounts are tracked; the others stay listed in onboarding with the reason.
+  validationStatus CompetitorValidation @default(READY)
+  lastValidatedAt  DateTime?
+  /// Last business-discovery result (Meta-connected businesses), reused for 6 hours.
+  profileCache     Json?
+
+  business  Business             @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  snapshots CompetitorSnapshot[]
+
+  @@unique([businessId, handle])
+}
+
+// ─── Brand profile ───────────────────────────────────────────────────────────
+
+/// A post the business picked as an example of its content (5 in onboarding).
+model BrandPost {
+  id           String          @id @default(cuid())
+  businessId   String
+  source       BrandPostSource
+  /// Instagram media id when picked from the connected account.
+  igMediaId    String?
+  mediaUrl     String?
+  mediaType    MediaType       @default(IMAGE)
+  caption      String          @default("")
+  purpose      PostPurpose
+  /// Free text when purpose is OTHER.
+  purposeOther String?
+  /// "What should this post achieve?"
+  purposeNote  String?
+  order        Int             @default(0)
+  createdAt    DateTime        @default(now())
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, order])
+}
+
+/// What the AI learned about the brand. Every (re)build is a new version; old ones are kept.
+model BrandContext {
+  id              String             @id @default(cuid())
+  businessId      String
+  version         Int
+  status          BrandContextStatus @default(BUILDING)
+  summary         String             @default("")
+  /// { summary: string, traits: string[] }
+  visualStyle     Json               @default("{}")
+  /// { summary: string, traits: string[], hashtags: string[] }
+  captionStyle    Json               @default("{}")
+  /// [{ purpose, label, description }]
+  purposePatterns Json               @default("[]")
+  colors          String[]
+  logoUrl         String?
+  toneLevel       Int                @default(50)
+  wordsToUse      String[]
+  wordsToAvoid    String[]
+  editedByUser    Boolean            @default(false)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @default(now()) @updatedAt
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, version])
+}
+
+// ─── Onboarding instrumentation ──────────────────────────────────────────────
+
+model OnboardingEvent {
+  id         String              @id @default(cuid())
+  businessId String
+  /// signup | business | instagram | competitors | posts | brand | review | result
+  step       String
+  event      OnboardingEventType
+  details    Json                @default("{}")
+  /// Time spent on the step (COMPLETED, BACK, ABANDONED).
+  durationMs Int?
+  createdAt  DateTime            @default(now())
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, createdAt])
+  @@index([step, event])
+}
+
+/// "Report a problem" notes from the onboarding wizard.
+model Feedback {
+  id         String   @id @default(cuid())
+  businessId String
+  userId     String?
+  step       String
+  note       String
+  /// Browser, locale, theme, viewport and a summary of the step's state (no screenshots).
+  context    Json     @default("{}")
+  createdAt  DateTime @default(now())
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  user     User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([businessId, createdAt])
+}
+
+/// Platform-wide settings editable by admins (e.g. "selfSignupPlan").
+model SystemSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
+model PostDraft {
+  id         String      @id @default(cuid())
+  businessId String
+  /// Product category id from the generator (e.g. "nuts").
+  category   String
+  /// Occasion / angle id (e.g. "new_batch").
+  angle      String
+  caption    String
+  language   String      @default("ar")
+  status     DraftStatus @default(DRAFT)
+  /// The post's image (StorageService URL): AI-generated or uploaded, never both.
+  imageUrl    String?
+  imageSource DraftImageSource?
+  /// The prompt a GENERATED image was made from (kept for transparency).
+  imagePrompt String?
+  createdBy  String?
+  createdAt  DateTime    @default(now())
+
+  business       Business        @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  author         User?           @relation("DraftAuthor", fields: [createdBy], references: [id], onDelete: SetNull)
+  scheduledPosts ScheduledPost[]
+
+  @@index([businessId, status, createdAt])
+}
+
+model ScheduledPost {
+  id               String              @id @default(cuid())
+  businessId       String
+  draftId          String
+  mediaUrl         String?
+  scheduledFor     DateTime
+  status           ScheduledPostStatus @default(SCHEDULED)
+  /// Instagram media id once published.
+  publishedMediaId String?
+
+  business Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  draft    PostDraft @relation(fields: [draftId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, status, scheduledFor])
+}
+
+model PostingExperiment {
+  id          String           @id @default(cuid())
+  businessId  String
+  startDate   DateTime
+  dailyTarget Int
+  /// [{ id: "morning" | "afternoon" | "evening", startHour, endHour }]
+  windows     Json
+  status      ExperimentStatus @default(RUNNING)
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, status])
+}
+
+// ─── Engagement ──────────────────────────────────────────────────────────────
+
+model EngagementRule {
+  id             String   @id @default(cuid())
+  businessId     String
+  keywords       String[]
+  dmMessage      String
+  active         Boolean  @default(true)
+  timesTriggered Int      @default(0)
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId])
+}
+
+model ReplyDraft {
+  id                 String           @id @default(cuid())
+  businessId         String
+  /// Instagram comment id.
+  commentId          String
+  commentText        String
+  commenterUsername  String
+  commenterAvatarUrl String?
+  draftReply         String
+  status             ReplyDraftStatus @default(PENDING)
+  reviewedBy         String?
+  createdAt          DateTime         @default(now())
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  reviewer User?    @relation("ReplyReviewer", fields: [reviewedBy], references: [id], onDelete: SetNull)
+
+  @@unique([businessId, commentId])
+  @@index([businessId, status, createdAt])
+}
+
+// ─── Security & audit ────────────────────────────────────────────────────────
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  /// SHA-256 of the token sent by email. The raw token is never stored.
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+/// Same pattern as PasswordResetToken: only the SHA-256 of the emailed token is stored.
+model EmailVerificationToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model ActivityLog {
+  id         String   @id @default(cuid())
+  /// Null for platform-wide events.
+  businessId String?
+  /// Who did it. Kept nullable so the audit trail survives user deletion.
+  userId     String?
+  /// Dotted action name, e.g. "permissions.updated", "reply.approved".
+  action     String
+  details    Json     @default("{}")
+  createdAt  DateTime @default(now())
+
+  business Business? @relation(fields: [businessId], references: [id], onDelete: SetNull)
+  user     User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([businessId, createdAt])
+  @@index([createdAt])
+}

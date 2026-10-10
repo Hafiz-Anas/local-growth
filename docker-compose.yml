@@ -1,0 +1,23 @@
+# Local PostgreSQL for development: `docker compose up -d`
+# Matches DATABASE_URL in .env.example.
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: lge-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: lge
+      POSTGRES_PASSWORD: lge
+      POSTGRES_DB: local_growth_engine
+    ports:
+      - "5432:5432"
+    volumes:
+      - lge-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lge -d local_growth_engine"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  lge-pgdata:

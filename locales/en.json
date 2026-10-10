@@ -1,0 +1,1361 @@
+{
+  "common": {
+    "appName": "Local Growth Engine",
+    "from": "from",
+    "company": "Raid Technologies",
+    "save": "Save",
+    "saved": "Saved",
+    "cancel": "Cancel",
+    "edit": "Edit",
+    "add": "Add",
+    "remove": "Remove",
+    "close": "Close",
+    "dismiss": "Dismiss",
+    "on": "On",
+    "off": "Off",
+    "active": "Active",
+    "paused": "Paused",
+    "followers": "followers",
+    "following": "following",
+    "posts": "posts",
+    "like": "1 like",
+    "likes": "{count} likes",
+    "comments": "{count} comments",
+    "reach": "Reach",
+    "saves": "Saves",
+    "viewAll": "View all",
+    "search": "Search",
+    "best": "Best",
+    "aiGenerated": "AI-generated",
+    "mockData": "Mock data",
+    "verified": "Verified",
+    "reply": "Reply",
+    "seeTranslation": "See translation",
+    "saving": "Saving…",
+    "optional": "optional"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "competitors": "Competitor Insights",
+    "postGenerator": "Post Generator",
+    "experiment": "Posting Experiment",
+    "engagement": "Engagement",
+    "settings": "Settings",
+    "overview": "Overview",
+    "clients": "Clients",
+    "system": "System",
+    "onboarding": "Onboarding"
+  },
+  "plans": {
+    "starter": "Starter",
+    "growth": "Growth",
+    "pro": "Pro"
+  },
+  "connection": {
+    "connected": "Connected",
+    "needs_attention": "Needs attention",
+    "disconnected": "Disconnected"
+  },
+  "windows": {
+    "morning": "Morning",
+    "afternoon": "Afternoon",
+    "evening": "Evening · Diwaniya"
+  },
+  "topbar": {
+    "switchToDark": "Switch to dark mode",
+    "switchToLight": "Switch to light mode",
+    "language": "العربية",
+    "languageLabel": "Change language",
+    "settings": "Settings",
+    "logout": "Log out",
+    "signedInAs": "Signed in as",
+    "appearance": "Switch appearance",
+    "profile": "Profile"
+  },
+  "preview": {
+    "banner": "Admin preview — you're seeing exactly what {name} sees.",
+    "exit": "Exit preview",
+    "readOnly": "Preview is read-only — changes are made by the client."
+  },
+  "auth": {
+    "email": "Email",
+    "password": "Password",
+    "show": "Show",
+    "hide": "Hide",
+    "login": "Log in",
+    "loggingIn": "Logging in…",
+    "invalid": "Sorry, your password was incorrect. Please double-check your password.",
+    "missing": "Enter your email and password.",
+    "noAccount": "Don't have an account?",
+    "demoTitle": "Demo accounts",
+    "demoHint": "Tap an account to fill the form.",
+    "roleAdmin": "Admin",
+    "roleUser": "Client",
+    "forgot": "Forgot password?",
+    "contactUs": "Contact us",
+    "backToLogin": "Back to login",
+    "showcaseHeadline": "Grow your local business on Instagram",
+    "slides": {
+      "dashboard": "Your growth at a glance",
+      "replies": "AI replies you approve",
+      "experiment": "Find your best time to post"
+    },
+    "footer": {
+      "about": "About",
+      "help": "Help",
+      "privacy": "Privacy",
+      "terms": "Terms"
+    },
+    "copyright": "© 2026 Local Growth Engine from Raid Technologies",
+    "info": {
+      "contact": {
+        "title": "Need an account?",
+        "body": "Accounts are created by Raid Technologies — there’s no public sign-up. Ask your account manager to set one up for your business."
+      },
+      "about": {
+        "title": "About",
+        "body": "This page is coming soon."
+      },
+      "help": {
+        "title": "Help",
+        "body": "This page is coming soon."
+      },
+      "privacy": {
+        "title": "Privacy",
+        "body": "This page is coming soon."
+      },
+      "terms": {
+        "title": "Terms",
+        "body": "This page is coming soon."
+      }
+    },
+    "suspended": "Your account has been suspended. Contact your Raid Technologies account manager.",
+    "rateLimited": "Too many login attempts. Please wait 15 minutes and try again.",
+    "reset": {
+      "troubleTitle": "Trouble logging in?",
+      "troubleBody": "Enter your email and we'll send you a link to get back into your account.",
+      "sendLink": "Send reset link",
+      "sending": "Sending…",
+      "sentTitle": "Check your email",
+      "sentBody": "If an account exists for {email}, we've sent a link to reset your password. The link expires in 1 hour.",
+      "devHint": "Development mode: the reset link is printed in the server console.",
+      "resetTitle": "Create a new password",
+      "resetBody": "Your new password must be different from passwords you've used before.",
+      "newPassword": "New password",
+      "confirmPassword": "Confirm new password",
+      "rule": "At least 8 characters, with a letter and a number.",
+      "submit": "Reset password",
+      "saving": "Saving…",
+      "doneTitle": "Password changed",
+      "doneBody": "Your password has been reset. You can now log in with your new password.",
+      "invalidTitle": "This link isn't valid",
+      "invalidBody": "The reset link has expired or has already been used. Request a new one to continue.",
+      "requestNew": "Request a new link",
+      "errors": {
+        "invalidEmail": "Enter a valid email address.",
+        "weak": "Use at least 8 characters, with a letter and a number.",
+        "mismatch": "Passwords don't match.",
+        "rateLimited": "Too many attempts. Please try again in a few minutes.",
+        "generic": "Something went wrong. Please try again."
+      }
+    },
+    "sessionExpired": "Your session has expired or you were logged out. Please log in again.",
+    "signUp": "Sign up"
+  },
+  "notFound": {
+    "title": "Sorry, this page isn't available.",
+    "body": "The link you followed may be broken, or the page may have been removed.",
+    "back": "Go back to Local Growth Engine."
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "viewOnInstagram": "View on Instagram",
+    "editSettings": "Settings",
+    "last30": "Last 30 days",
+    "vsPrev": "vs previous 30 days",
+    "metrics": {
+      "reach": "Accounts reached",
+      "engagementRate": "Engagement rate",
+      "followerGrowth": "Net followers",
+      "profileVisits": "Profile visits"
+    },
+    "followerChart": "Follower growth",
+    "followerChartHint": "Total followers per day",
+    "topPost": "Top performing post",
+    "tiles": {
+      "commentsHandled": "Comments handled today",
+      "awaiting": "Replies awaiting approval",
+      "nextWindow": "Next suggested posting window",
+      "review": "Review",
+      "lift": "{lift} more reach"
+    },
+    "notAvailable": "Not available yet for this account"
+  },
+  "competitors": {
+    "title": "Competitor Insights",
+    "subtitle": "See what's working for similar businesses near you.",
+    "publicNote": "Insights come from public Instagram business profiles only. Private accounts are never tracked.",
+    "tracked": "Tracked accounts",
+    "engagement": "engagement",
+    "perWeek": "{count} posts/week",
+    "notable": "Notable",
+    "audioHint": "Most-used in Reels across Kuwait",
+    "trendingAudio": "Trending audio",
+    "reels": "{count} reels",
+    "trendingTags": "Trending hashtags & keywords",
+    "hashtag": "Hashtag",
+    "keyword": "Keyword",
+    "updated": "Updated {time}",
+    "postsCount": "{count} posts",
+    "emptyTitle": "No accounts tracked yet",
+    "emptyHint": "Add a competitor's Instagram handle to compare followers, engagement and standout posts.",
+    "noTrends": "No trends to show yet.",
+    "invalidHandle": "Use a valid Instagram handle: letters, numbers, dots and underscores.",
+    "added": "Now tracking @{handle}",
+    "removed": "Stopped tracking @{handle}",
+    "addCompetitor": "Add competitor",
+    "menu": "Options for {name}",
+    "menuDelete": "Delete",
+    "form": {
+      "addTitle": "Add competitor",
+      "editTitle": "Edit competitor",
+      "description": "Track a public Instagram business account.",
+      "handle": "Instagram handle",
+      "handleHint": "Public business accounts only, e.g. alyasmin.roastery",
+      "handleEditHint": "Changing the handle starts tracking that account instead.",
+      "displayName": "Display name",
+      "displayNamePlaceholder": "Shown instead of their profile name",
+      "note": "Note",
+      "notePlaceholder": "e.g. Main rival, Premium segment",
+      "optional": "optional",
+      "submit": "Add competitor",
+      "adding": "Adding…",
+      "updated": "{name} updated",
+      "alreadyTracked": "You're already tracking @{handle}.",
+      "ownAccount": "That's your own account — pick a competitor's handle.",
+      "noSuchAccount": "We couldn't find a public business or creator account with that handle. Personal and private accounts can't be read.",
+      "limitReached": "You're tracking the maximum of 10 competitors. Remove one to add another.",
+      "connectFirst": "Connect your Instagram account first — we look competitors up through it."
+    },
+    "removeDialog": {
+      "title": "Remove {name} from tracking?",
+      "body": "We'll stop tracking this competitor and remove it from your insights. You can add it again any time.",
+      "confirm": "Remove",
+      "removing": "Removing…"
+    },
+    "card": {
+      "spike": "Recent spike",
+      "topPost": "Top post",
+      "noPosts": "No recent posts yet",
+      "engagement": "Engagement",
+      "open": "View details for {name}",
+      "followers": "Followers"
+    },
+    "detail": {
+      "back": "Competitor Insights",
+      "goneTitle": "Not tracked anymore",
+      "goneHint": "This competitor was removed or doesn't exist.",
+      "postsPerWeek": "Posts / week",
+      "topPost": "Top post",
+      "engagement": "Engagement over time",
+      "engagementHint": "Weekly engagement rate, last 12 weeks.",
+      "recentPosts": "Recent posts"
+    }
+  },
+  "generator": {
+    "title": "Post Generator",
+    "subtitle": "Turn a product and an angle into ready-to-review captions.",
+    "category": "Product category",
+    "occasion": "Occasion / angle",
+    "vocabulary": "Brand vocabulary",
+    "vocabularyHint": "Words the AI weaves into your captions.",
+    "addWord": "Add word",
+    "wordPlaceholder": "e.g. محمص يومياً",
+    "generate": "Generate drafts",
+    "drafts": "Drafts",
+    "aiNotice": "These drafts are AI-generated. Review and edit them before publishing.",
+    "regenerate": "Regenerate",
+    "addToQueue": "Add to queue",
+    "addedToQueue": "Added to queue",
+    "empty": "Pick a category and an angle, then generate drafts.",
+    "english": "English",
+    "arabic": "Arabic",
+    "likedBy": "Liked by {name} and others",
+    "queuedFor": "Added to the queue for {time}",
+    "discard": "Discard",
+    "occasionFromBrand": "Purposes from your own posts are marked.",
+    "brandProfile": "Writing with your brand profile (v{version}).",
+    "brandProfileEdit": "Edit",
+    "image": {
+      "generate": "Generate image",
+      "regenerate": "Regenerate image",
+      "upload": "Upload image",
+      "replace": "Replace",
+      "remove": "Remove",
+      "hint": "Add an image: let AI create one from your brand profile and caption, or upload your own.",
+      "generating": "Creating image…",
+      "uploading": "Uploading…",
+      "aiLabel": "AI-generated image, review before use",
+      "altGenerated": "AI-generated image for this post",
+      "altUploaded": "Your image for this post",
+      "mockNote": "Test mode: “Generate image” makes a placeholder in your brand colours.",
+      "unavailable": "Image generation unavailable: {reason}",
+      "reasons": {
+        "daily_limit": "today’s free image limit has been reached. Try again tomorrow, or upload your own image.",
+        "rate_limited": "too many images were requested just now. Wait a minute and try again.",
+        "billing": "the image model needs billing enabled on the Google AI account.",
+        "invalid_key": "the Gemini API key is missing, invalid or not allowed to use image generation.",
+        "not_configured": "it isn’t set up yet (no Gemini API key).",
+        "region": "it isn’t offered in this region.",
+        "model_unavailable": "the selected image model isn’t available.",
+        "blocked": "the image was blocked by safety filters. Try editing the caption.",
+        "no_image": "no image came back. Try again.",
+        "request_rejected": "the request was rejected. Try again.",
+        "unavailable": "the image service didn’t answer. Try again in a moment."
+      },
+      "errors": {
+        "type": "Use a JPG, PNG or WebP image.",
+        "size": "That image is too large. Images can be up to {max} MB.",
+        "empty": "That file is empty. Choose another image."
+      }
+    }
+  },
+  "experiment": {
+    "title": "Posting Experiment",
+    "question": "Is your posting strategy working?",
+    "subtitle": "We rotate your posts across three time windows and compare reach against your usual baseline.",
+    "live": "Live experiment",
+    "daysSampled": "{count} days sampled",
+    "ofDays": "of {count}",
+    "dailyTarget": "Daily target",
+    "postsPerDay": "{count} posts/day",
+    "postsSampled": "Posts sampled",
+    "avgReach": "Avg. reach",
+    "vsBaseline": "vs baseline",
+    "baseline": "Baseline reach: {value}",
+    "opportunity": "Opportunity found",
+    "opportunityBody": "Posts in the {window} window reached {lift} more accounts than your baseline.",
+    "sampleSize": "Sample size",
+    "samplePosts": "{count} posts",
+    "confidence": "Confidence",
+    "apply": "Apply to schedule",
+    "applied": "Applied to schedule",
+    "lowConfidence": "Keep the experiment running — results aren't conclusive yet.",
+    "heatmap": "When your audience is active",
+    "heatmapHint": "Average engagement by day and hour, Kuwait time.",
+    "less": "Less",
+    "more": "More",
+    "days": [
+      "Sun",
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri",
+      "Sat"
+    ],
+    "queue": "Scheduled posts",
+    "queueEmpty": "No posts scheduled yet. Add drafts from the Post Generator.",
+    "fromGenerator": "From Post Generator",
+    "manual": "Manual",
+    "appliedToast": "{count} upcoming posts moved to the {window} window",
+    "noneTitle": "No experiment yet",
+    "noneHint": "Your account manager will start a posting experiment for your account.",
+    "queueEmptyTitle": "Nothing scheduled",
+    "status": {
+      "running": "Running",
+      "paused": "Paused",
+      "completed": "Completed"
+    }
+  },
+  "engagement": {
+    "title": "Engagement",
+    "subtitle": "Comments, DMs and AI replies in one place.",
+    "stats": {
+      "commentsToday": "Comments today",
+      "dmsSent": "DMs sent",
+      "awaiting": "Awaiting approval",
+      "activeRules": "Active rules"
+    },
+    "rules": {
+      "title": "Comment-to-DM rules",
+      "subtitle": "When a comment contains a keyword, the customer gets a DM automatically.",
+      "add": "New rule",
+      "editTitle": "Edit rule",
+      "newTitle": "New rule",
+      "keywords": "Keyword triggers",
+      "keywordsHint": "Separate keywords with commas.",
+      "message": "DM message",
+      "triggered": "Triggered {count} times",
+      "pause": "Pause",
+      "resume": "Resume",
+      "empty": "No rules yet. Create one to answer common questions in DMs.",
+      "delete": "Delete rule",
+      "emptyTitle": "No DM rules yet"
+    },
+    "queue": {
+      "title": "AI reply queue",
+      "subtitle": "Drafted replies to new comments. Nothing is posted until you approve it.",
+      "dismiss": "Dismiss",
+      "approve": "Approve & post",
+      "aiDraft": "AI draft",
+      "on": "on",
+      "empty": "You're all caught up.",
+      "emptyHint": "New comments will appear here with a drafted reply.",
+      "kuwaiti": "Kuwaiti Arabic",
+      "english": "English",
+      "whatsapp": "WhatsApp link",
+      "posted": "Reply posted"
+    },
+    "controls": {
+      "title": "Reply settings",
+      "manualApproval": "Manual approval",
+      "manualApprovalHint": "Every AI reply waits for your approval before it's posted.",
+      "autoReply": "Auto-reply",
+      "autoReplyHint": "Post AI replies without waiting for review.",
+      "confirmTitle": "Turn on auto-reply?",
+      "confirmBody": "AI replies will be posted publicly on your behalf without review. You can turn this off at any time.",
+      "confirm": "Turn on",
+      "priceWhatsapp": "Answer price questions on WhatsApp",
+      "priceWhatsappHint": "Reply with your WhatsApp order link instead of posting prices publicly.",
+      "manualApprovalLocked": "Every AI reply waits for your approval on your plan."
+    },
+    "whatsappReply": {
+      "en": "Hi! 🤍 We've sent you our prices — order easily on WhatsApp: {link}",
+      "ar": "هلا والله 🤍 أرسلنا لك الأسعار — تقدر تطلب على الواتساب: {link}"
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "instagram": {
+      "title": "Instagram account",
+      "connectedSince": "Connected since {date}",
+      "reconnect": "Reconnect",
+      "connect": "Connect Instagram",
+      "connecting": "Connecting…",
+      "needsAttention": "Your access will expire soon. Reconnect to keep publishing and replying.",
+      "disconnected": "Connect your Instagram professional account to start publishing and replying.",
+      "scopes": "Access: publish content, read insights, manage comments and messages.",
+      "disconnect": "Disconnect",
+      "disconnectTitle": "Disconnect Instagram?",
+      "disconnectBody": "Replies, competitor tracking and auto-replies stop until you connect again. Your drafts and settings are kept.",
+      "connectedToast": "Instagram connected"
+    },
+    "voice": {
+      "title": "Brand voice",
+      "tone": "Tone",
+      "formal": "Formal Arabic",
+      "casual": "Casual Kuwaiti",
+      "example": "Example",
+      "exampleFormal": "أهلاً بكم، يسعدنا خدمتكم. المنتج متوفر الآن.",
+      "exampleBalanced": "هلا فيكم! المنتج متوفر الحين 🤍",
+      "exampleCasual": "هلا والله! وصل الحين، لا يفوتكم 🔥",
+      "hashtags": "Default hashtags",
+      "hashtagPlaceholder": "#hashtag",
+      "brandWords": "Brand words",
+      "brandWordPlaceholder": "Add a word",
+      "whatsapp": "WhatsApp number",
+      "whatsappHint": "Used for price replies and DM rules that send customers to WhatsApp."
+    },
+    "notifications": {
+      "title": "Notifications",
+      "newComments": "New comments",
+      "newCommentsHint": "When customers comment on your posts.",
+      "approvalNeeded": "Replies need approval",
+      "approvalNeededHint": "When AI drafts are waiting for you.",
+      "weeklyReport": "Weekly report",
+      "weeklyReportHint": "A summary of reach and growth every Sunday.",
+      "competitorAlerts": "Competitor alerts",
+      "competitorAlertsHint": "When a tracked account has a breakout post.",
+      "experimentResults": "Experiment results",
+      "experimentResultsHint": "When a posting experiment finds an opportunity."
+    },
+    "preferences": {
+      "title": "Language & appearance",
+      "language": "Language",
+      "theme": "Theme",
+      "light": "Light",
+      "dark": "Dark",
+      "system": "System",
+      "time": "Kuwait time",
+      "timezone": "Asia/Kuwait · GMT+3"
+    },
+    "photo": {
+      "title": "Profile photo",
+      "change": "Change photo",
+      "hint": "JPG, PNG or WebP, up to 2 MB. Square photos look best.",
+      "invalidType": "Choose a JPG, PNG or WebP image.",
+      "tooLarge": "That photo is larger than 2 MB.",
+      "updated": "Profile photo updated",
+      "uploading": "Uploading…"
+    },
+    "password": {
+      "title": "Change password",
+      "hint": "You'll stay logged in here; other devices are logged out.",
+      "current": "Current password",
+      "submit": "Change password",
+      "changed": "Password changed. Other devices have been logged out.",
+      "wrongCurrent": "Your current password is incorrect.",
+      "same": "Choose a password different from your current one."
+    }
+  },
+  "admin": {
+    "overview": {
+      "title": "Overview",
+      "subtitle": "All clients at a glance.",
+      "activeClients": "Active clients",
+      "connectedAccounts": "Connected accounts",
+      "postsThisWeek": "Posts this week",
+      "commentsHandled": "Comments handled",
+      "awaiting": "Awaiting approval",
+      "clients": "Clients",
+      "activity": "Recent activity",
+      "lastActivity": "Active {time} ago"
+    },
+    "clients": {
+      "title": "Clients & permissions",
+      "subtitle": "Manage which features each client can see.",
+      "business": "Business",
+      "email": "Email",
+      "plan": "Plan",
+      "status": "Status",
+      "features": "Features",
+      "manage": "Manage",
+      "searchPlaceholder": "Search clients",
+      "noResults": "No clients match your search.",
+      "enabledCount": "{count}/{total} on",
+      "emptyTitle": "No clients yet",
+      "emptyHint": "Create the first business to get started.",
+      "noHandle": "Instagram not connected"
+    },
+    "permissions": {
+      "back": "Clients",
+      "title": "Permissions",
+      "subtitle": "Turned-off features disappear from this client's app completely — navigation, widgets and pages.",
+      "presets": "Quick presets",
+      "presetsHint": "Applies a default combination. You can still fine-tune each toggle.",
+      "preview": "Preview as this client",
+      "plan": "Plan",
+      "enabledCount": "{count} of {total} features on",
+      "moduleOff": "Module is off — its sub-features are hidden.",
+      "alwaysOn": "Always available",
+      "liveNote": "Changes apply instantly.",
+      "saveError": "Couldn't save your change. It has been undone — please try again."
+    },
+    "system": {
+      "title": "System",
+      "subtitle": "Integration health and usage.",
+      "igApi": "Instagram Graph API",
+      "webhooks": "Webhooks",
+      "latency": "Latency",
+      "uptime": "Uptime (30d)",
+      "lastEvent": "Last event",
+      "delivered": "Delivered today",
+      "failed": "Failed today",
+      "rateLimits": "Rate-limit usage",
+      "rateLimitsHint": "Instagram API calls per client in the current hour.",
+      "calls": "{used} / {limit} calls",
+      "resets": "Resets at {time}",
+      "status": {
+        "operational": "Operational",
+        "degraded": "Degraded",
+        "down": "Down"
+      },
+      "mockNote": "All values on this page are mock data.",
+      "selfSignup": "Default plan for self sign-ups",
+      "selfSignupHint": "New businesses from the public sign-up start on this plan and its preset features. You can still change each client's features.",
+      "selfSignupSaved": "New sign-ups will start on the {plan} plan.",
+      "instagram": {
+        "title": "Instagram",
+        "hint": "How clients connect Instagram during onboarding.",
+        "require": "Require Instagram connection to finish onboarding",
+        "requireHint": "When on, new clients can't skip the Instagram step or finish setup without a working connection.",
+        "saved": "Instagram setting saved.",
+        "flow": {
+          "meta": "New connections use Meta (Facebook Login for Business)",
+          "mock": "New connections use the mock (INSTAGRAM_PROVIDER=mock)",
+          "meta_unavailable": "INSTAGRAM_PROVIDER=meta, but Meta isn't configured — connecting is off"
+        },
+        "graphVersion": "Graph API {version}",
+        "missing": "missing in .env: {list}"
+      }
+    },
+    "console": "Client management console",
+    "activity": {
+      "emptyTitle": "No activity yet",
+      "emptyHint": "Actions by clients and admins will show up here.",
+      "system": "Platform",
+      "byAdmin": "by {name}",
+      "loadMore": "Load more"
+    },
+    "newClient": {
+      "open": "New client",
+      "title": "New client",
+      "name": "Business name",
+      "handle": "Instagram handle",
+      "location": "Location",
+      "planHint": "The plan's preset sets which features are on. You can fine-tune them afterwards.",
+      "owner": "Create login",
+      "ownerHint": "The account the business uses to sign in.",
+      "ownerName": "Name",
+      "ownerPassword": "Temporary password",
+      "submit": "Create client",
+      "created": "{name} created",
+      "taken": "That Instagram handle or email is already in use.",
+      "required": "Fill in the business name, handle and location."
+    },
+    "users": {
+      "title": "Logins",
+      "hint": "People who sign in to manage this business.",
+      "emptyTitle": "No logins",
+      "emptyHint": "This business has no login yet.",
+      "suspendedBadge": "Suspended",
+      "lastLogin": "Last login",
+      "neverLoggedIn": "Never logged in",
+      "actions": "Actions for {name}",
+      "sendLink": "Email a reset link",
+      "setPassword": "Set new password",
+      "setPasswordTitle": "Set new password",
+      "setPasswordBody": "{name} will be logged out everywhere and must use this password to log in.",
+      "passwordSet": "Password set for {name}. They've been logged out everywhere.",
+      "linkSent": "Reset link sent to {email}",
+      "suspend": "Suspend",
+      "reactivate": "Reactivate",
+      "suspendTitle": "Suspend {name}?",
+      "suspendBody": "They're logged out right away and can't log in until you reactivate them. Their data is kept.",
+      "suspended": "{name} suspended",
+      "reactivated": "{name} reactivated"
+    },
+    "delete": {
+      "zone": "Danger zone",
+      "zoneHint": "Permanently remove this business from the platform.",
+      "open": "Delete business",
+      "title": "Delete {name}?",
+      "body": "This permanently deletes the business and can't be undone:",
+      "users": "{count} login(s) — they can no longer sign in",
+      "content": "All drafts, scheduled posts, DM rules, AI replies, competitors and brand voice",
+      "connection": "The Instagram connection and its saved access",
+      "typeToConfirm": "To confirm, type",
+      "confirm": "Delete permanently",
+      "done": "{name} was deleted"
+    },
+    "onboarding": {
+      "title": "Onboarding",
+      "selfSignup": "Signed up on their own",
+      "adminCreated": "Created by Raid's team",
+      "invitedAt": "invited",
+      "invite": "Send onboarding invite",
+      "inviteTitle": "Send onboarding invite?",
+      "inviteBody": "The client's users will be taken through the setup wizard (brand, competitors, posts) on their next visit, and get an email with a login link.",
+      "inviteSent": "Invite sent to {count} user(s).",
+      "noUsers": "Add a login for this client first.",
+      "details": "See onboarding details",
+      "readOnly": "read-only",
+      "noBrand": "No brand profile built yet."
+    },
+    "integration": {
+      "title": "Instagram integration",
+      "hint": "Connection details and every Meta API error for this client. Tokens are never shown.",
+      "log": "Integration log",
+      "noEvents": "No integration events yet.",
+      "showAll": "Show all {count}",
+      "none": "—",
+      "neverExpires": "Doesn't expire",
+      "provider": "Provider",
+      "providers": {
+        "meta": "Meta (real)",
+        "mock": "Mock (demo data)"
+      },
+      "account": "Account",
+      "page": "Facebook Page",
+      "connectedAt": "Connected",
+      "tokenExpires": "Token expires",
+      "dataAccessExpires": "Data access expires",
+      "lastSync": "Last sync",
+      "lastSyncError": "Last sync problem",
+      "scopes": "Granted permissions",
+      "notGranted": "Not granted",
+      "missingCount": "{count} permission(s) missing",
+      "status": {
+        "connected": "Connected",
+        "needs_reconnect": "Needs reconnect",
+        "expired": "Expired",
+        "disconnected": "Not connected"
+      },
+      "levels": {
+        "error": "Error",
+        "warning": "Warning",
+        "info": "Info"
+      }
+    },
+    "profile": {
+      "title": "Profile",
+      "subtitle": "Your own account: photo, password, language and appearance."
+    }
+  },
+  "features": {
+    "modules": {
+      "dashboard": "Dashboard widgets",
+      "competitors": "Competitor Insights",
+      "postGenerator": "Post Generator",
+      "experiment": "Posting Experiment",
+      "engagement": "Engagement",
+      "settings": "Settings"
+    },
+    "moduleHints": {
+      "dashboard": "Widgets on the client's home screen.",
+      "competitors": "Tracked competitors and trends.",
+      "postGenerator": "AI caption drafts.",
+      "experiment": "Posting-time experiments and scheduling.",
+      "engagement": "Comment-to-DM rules and AI replies.",
+      "settings": "Business settings the client can edit."
+    },
+    "items": {
+      "dashboard_profileHeader": "Profile header",
+      "dashboard_keyMetrics": "Key metrics",
+      "dashboard_followerGrowth": "Follower growth chart",
+      "dashboard_topPost": "Top performing post",
+      "dashboard_quickTiles": "Quick tiles",
+      "competitors_accounts": "Competitor accounts",
+      "competitors_trendingAudio": "Trending audio",
+      "competitors_trendingHashtags": "Trending hashtags & keywords",
+      "postGenerator_brandVocabulary": "Brand vocabulary",
+      "postGenerator_regenerate": "Regenerate drafts",
+      "postGenerator_addToQueue": "Add to queue",
+      "experiment_windows": "Window comparison & opportunities",
+      "experiment_heatmap": "Activity heatmap",
+      "experiment_scheduleQueue": "Scheduled posts queue",
+      "engagement_dmRules": "Comment-to-DM rules",
+      "engagement_aiReplies": "AI reply queue",
+      "engagement_autoReply": "Auto-reply",
+      "engagement_whatsappPricing": "WhatsApp price replies",
+      "settings_brandVoice": "Brand voice"
+    }
+  },
+  "roles": {
+    "admin": "Administrator",
+    "user": "Business account"
+  },
+  "sidebar": {
+    "collapse": "Collapse",
+    "expand": "Expand"
+  },
+  "errors": {
+    "generic": "Something went wrong. Please try again.",
+    "validation_error": "Some details aren't valid. Check the form and try again.",
+    "validation_fields": "Some details aren't valid ({fields}). Check them and try again.",
+    "unauthorized": "Your session has expired. Please log in again.",
+    "forbidden": "You don't have access to this.",
+    "not_found": "This item isn't available anymore. It may have been removed, or this feature was turned off for your account.",
+    "conflict": "That change conflicts with the current state — it may already have been done. Refresh and try again.",
+    "rate_limited": "Too many attempts. Please wait a few minutes and try again.",
+    "invalid_token": "This link is invalid or has expired.",
+    "invalid_password": "Your current password is incorrect.",
+    "payload_too_large": "That file is too large. Photos can be up to 2 MB.",
+    "unsupported_media_type": "That file type isn't supported. Use a JPG, PNG or WebP image.",
+    "instagram_not_connected": "This needs your Instagram account. Connect it in Settings and try again.",
+    "instagram_error": "Instagram didn't accept the request. Please try again in a moment.",
+    "network_error": "You seem to be offline. Check your connection and try again.",
+    "internal_error": "Something went wrong on our side. Please try again.",
+    "ai_error": "We couldn't build your brand profile just now. Please try again in a moment.",
+    "instagram_permission": "Instagram didn't give us permission for this. Reconnect Instagram and allow it.",
+    "instagram_unavailable": "Connecting Instagram is temporarily unavailable. Please try again later.",
+    "image_unavailable": "Image generation is unavailable right now. Please try again later."
+  },
+  "states": {
+    "loadFailed": "Couldn't load this",
+    "retry": "Try again",
+    "noChartData": "Follower history will appear here after the first sync."
+  },
+  "instagramPrompt": {
+    "title": "Connect Instagram",
+    "connect": "Connect Instagram",
+    "notNow": "Not now"
+  },
+  "activity": {
+    "permissions_updated": "had {count} feature(s) changed",
+    "permissions_preset_applied": "had the {preset} preset applied",
+    "business_plan_changed": "moved to the {to} plan",
+    "business_created": "was added to the platform",
+    "business_updated": "had its details updated",
+    "business_deleted": "was deleted",
+    "user_created": "got a new login",
+    "user_updated": "had a login updated",
+    "user_suspended": "had a login suspended",
+    "user_reactivated": "had a login reactivated",
+    "user_password_reset": "reset a password with an email link",
+    "user_password_changed": "changed a password",
+    "admin_user_password_reset": "had a password set by an admin",
+    "admin_user_reset_link_sent": "was sent a password reset link",
+    "user_avatar_updated": "updated the profile photo",
+    "reply_approved": "approved and posted an AI reply",
+    "reply_dismissed": "dismissed a comment",
+    "dm_rule_created": "created a DM rule",
+    "dm_rule_updated": "edited a DM rule",
+    "dm_rule_paused": "paused a DM rule",
+    "dm_rule_activated": "turned on a DM rule",
+    "dm_rule_deleted": "deleted a DM rule",
+    "dm_rule_triggered": "sent DMs from a rule",
+    "post_queued": "scheduled a post",
+    "post_rescheduled": "rescheduled a post",
+    "post_cancelled": "removed a scheduled post",
+    "post_published": "published a post",
+    "drafts_generated": "generated {count} caption drafts",
+    "competitor_added": "started tracking @{handle}",
+    "competitor_removed": "stopped tracking @{handle}",
+    "brand_voice_updated": "updated the brand voice",
+    "engagement_settings_updated": "changed engagement settings",
+    "experiment_window_applied": "applied the {window} window to {moved} posts",
+    "experiment_finished": "finished a posting experiment",
+    "instagram_connected": "connected Instagram",
+    "instagram_disconnected": "disconnected Instagram",
+    "instagram_connection_issue": "has an Instagram connection issue",
+    "competitor_updated": "updated competitor @{handle}",
+    "business_self_signup": "signed up on their own",
+    "onboarding_completed": "finished onboarding",
+    "onboarding_invited": "was invited to onboarding",
+    "onboarding_instagram_skipped": "skipped connecting Instagram in onboarding",
+    "user_email_verified": "verified an email address",
+    "brand_post_added": "added a brand post",
+    "brand_post_updated": "edited a brand post",
+    "brand_post_replaced": "replaced a brand post's media",
+    "brand_post_removed": "removed a brand post",
+    "brand_basics_updated": "updated brand basics",
+    "brand_logo_updated": "uploaded a logo",
+    "brand_logo_removed": "removed the logo",
+    "brand_context_built": "built brand profile version {version}",
+    "brand_context_edited": "edited the brand profile",
+    "settings_self_signup_plan_changed": "Self sign-ups now start on the {to} plan"
+  },
+  "signup": {
+    "tagline": "Sign up to grow your local business on Instagram.",
+    "name": "Full name",
+    "businessName": "Business name",
+    "rules": {
+      "length": "At least 8 characters",
+      "letter": "Contains a letter",
+      "number": "Contains a number",
+      "personal": "Doesn't contain your name or email"
+    },
+    "ruleMet": "(done)",
+    "ruleNotMet": "(not yet)",
+    "strength": {
+      "weak": "Weak",
+      "fair": "Fair",
+      "good": "Good",
+      "strong": "Strong"
+    },
+    "terms": "By signing up, you agree to our Terms and Privacy Policy. We'll email you a link to verify your address.",
+    "submit": "Sign up",
+    "creating": "Creating your account…",
+    "errors": {
+      "invalid": "Some details aren't right yet. Check the highlighted fields.",
+      "email_taken": "An account with this email already exists. Log in instead, or reset your password:",
+      "rate_limited": "Too many sign-up attempts from this network. Please wait 15 minutes and try again.",
+      "generic": "Something went wrong creating your account. Please try again."
+    },
+    "haveAccount": "Have an account?"
+  },
+  "verifyEmail": {
+    "verified": {
+      "title": "Email verified",
+      "body": "Thanks — your email address is confirmed."
+    },
+    "already_verified": {
+      "title": "Already verified",
+      "body": "This email address was already confirmed. You're all set."
+    },
+    "invalid": {
+      "title": "This link isn't valid",
+      "body": "The verification link has expired or was replaced by a newer one. Log in and use “Resend” in the banner to get a new link."
+    },
+    "continue": "Continue",
+    "banner": {
+      "title": "Verify your email.",
+      "body": "We sent you a link to confirm your address.",
+      "bodyWithEmail": "We sent a link to {email}.",
+      "resend": "Resend",
+      "resent": "Sent",
+      "sent": "We've sent a new verification link."
+    }
+  },
+  "welcome": {
+    "title": "Welcome to Local Growth Engine, {name}!",
+    "body": "Your brand profile is ready. Captions and replies will now follow your style.",
+    "features": "Included in your plan",
+    "connectTitle": "Connect Instagram to see your real numbers",
+    "connectBody": "Your dashboard, competitor insights and posting all need your Instagram account."
+  },
+  "businessTypes": {
+    "roastery": "Roastery",
+    "cafe": "Café",
+    "restaurant": "Restaurant",
+    "bakery": "Bakery",
+    "sweets": "Sweets & Dates",
+    "retail": "Retail / Boutique",
+    "beauty": "Beauty / Salon",
+    "services": "Services",
+    "other": "Other"
+  },
+  "purposes": {
+    "menu_product": "Menu / Product",
+    "promotion": "Promotion / Discount",
+    "shop_location": "Shop / Location",
+    "service": "Service",
+    "announcement": "Announcement / New arrival",
+    "behind_the_scenes": "Behind the scenes",
+    "other": "Other"
+  },
+  "onboarding": {
+    "back": "Back",
+    "continue": "Continue",
+    "progressLabel": "Setup progress",
+    "stepOf": "Step {n} of {total} · {name}",
+    "almostDone": "Almost done · Your brand profile",
+    "logoutHint": "Signed in as {name}. Your progress is saved.",
+    "steps": {
+      "business": {
+        "short": "Your business",
+        "title": "Tell us about your business",
+        "helper": "This helps us write posts and replies that sound like you."
+      },
+      "instagram": {
+        "short": "Instagram",
+        "title": "Connect your Instagram",
+        "helper": "Start here — connecting lets us read your posts and post for you. You can skip this for now."
+      },
+      "competitors": {
+        "short": "Competitors",
+        "title": "Your competitors",
+        "helper": "Add at least {min} Instagram accounts you compete with. We'll watch what works for them."
+      },
+      "posts": {
+        "short": "Your posts",
+        "title": "Pick {count} posts that show your brand",
+        "helper": "Choose posts you're proud of and tell us what each one is for."
+      },
+      "brand": {
+        "short": "Brand basics",
+        "title": "Brand basics",
+        "helper": "Just the essentials — you can change all of this later in Settings."
+      },
+      "review": {
+        "short": "Review",
+        "title": "Review & build",
+        "helper": "Check everything, then we'll build your brand profile."
+      },
+      "result": {
+        "short": "Brand profile",
+        "title": "Here's what we learned about your brand",
+        "helper": "Edit anything that doesn't sound right, then confirm."
+      }
+    },
+    "blockers": {
+      "business_incomplete": "Fill in your business details first.",
+      "not_enough_competitors": "Add at least 5 competitors we can read before continuing.",
+      "posts_incomplete": "Add all 5 posts before continuing.",
+      "brand_context_missing": "Build your brand profile first.",
+      "out_of_order": "Finish the current step first.",
+      "instagram_required": "Connect Instagram to continue."
+    },
+    "report": {
+      "link": "Report a problem",
+      "title": "Report a problem",
+      "body": "Tell us what went wrong or what was confusing on this step. Our team reads every report.",
+      "placeholder": "What happened? What did you expect?",
+      "privacy": "We'll attach this step, your language, theme and screen size — no screenshots.",
+      "send": "Send report",
+      "sent": "Thanks — we got your report."
+    },
+    "business": {
+      "type": "Business type",
+      "typeOther": "Your business type",
+      "typeOtherPlaceholder": "e.g. Florist",
+      "location": "Location",
+      "locationHint": "Area and city your customers know you by.",
+      "locationPlaceholder": "e.g. Shuwaikh, Kuwait City",
+      "description": "What do you sell?",
+      "descriptionHint": "One or two sentences, as you'd explain it to a new customer.",
+      "descriptionPlaceholder": "e.g. Freshly roasted nuts, Arabic coffee and Kuwaiti sweets, delivered across Kuwait.",
+      "products": "Main products or services",
+      "productsHint": "Add each one separately — they become the categories in the Post Generator.",
+      "productPlaceholder": "e.g. Saffron cashews",
+      "audience": "Target audience",
+      "audienceHint": "Who are your best customers?",
+      "audiencePlaceholder": "e.g. Families in Kuwait City, gift shoppers",
+      "errors": {
+        "type": "Choose your business type (and describe it if you picked Other).",
+        "location": "Add your location.",
+        "description": "Tell us briefly what you sell.",
+        "products": "Add at least one product or service."
+      }
+    },
+    "instagram": {
+      "why": "Connecting lets us read your posts and insights and publish for you. We never post without your approval.",
+      "handle": "Your Instagram username",
+      "connect": "Connect Instagram",
+      "connected": "Connected",
+      "skip": "Skip for now",
+      "blocked": "Connect Instagram, or skip for now.",
+      "handleTaken": "This Instagram account is already connected to another business. Contact us if it's yours.",
+      "mockNote": "Test mode: the connection is simulated and approved immediately.",
+      "later": "You can connect or change the account any time in Settings → Instagram.",
+      "metaWhy": "Connect with Facebook to import your Instagram profile, recent posts and insights. We never post without your approval.",
+      "required": "Connecting Instagram is required to finish setting up.",
+      "requiredHelper": "Connect your Instagram business account to continue — it lets us read your posts and post for you."
+    },
+    "competitors": {
+      "displayName": "Display name (optional)",
+      "checking": "Checking…",
+      "tip": "Public business and creator accounts work best.",
+      "duplicate": "This account is already on your list.",
+      "limit": "You can list up to {max} accounts. Remove one to add another.",
+      "readyCount": "{ready} of {min} ready",
+      "needMore": "Add {count} more account(s) we can read.",
+      "emptyTitle": "No competitors yet",
+      "emptyHint": "Add the first Instagram account you compete with.",
+      "followers": "{count} followers",
+      "remove": "Remove @{handle}",
+      "status": {
+        "ready": "Ready",
+        "not_business": "Not a business account",
+        "private": "Private",
+        "not_found": "Not found",
+        "own_account": "Your own account"
+      },
+      "reasons": {
+        "not_business": "This is a personal account, so Instagram doesn't share its data with us. Business and creator accounts work.",
+        "private": "This account is private, so we can't see its posts. Try another competitor.",
+        "not_found": "We couldn't find a public business or creator account with this username. Check the spelling — personal and private accounts can't be read.",
+        "own_account": "This is your own account — add a competitor instead."
+      }
+    },
+    "posts": {
+      "needMore": "Add {count} more post(s).",
+      "hint": "Tap a post to change it, its purpose or its note.",
+      "skip": "Skip for now"
+    },
+    "brand": {
+      "colorsSuggested": "Suggested from your posts — tap a colour to change it.",
+      "colorsEdited": "Your brand colours.",
+      "useSuggestions": "Use suggestions",
+      "extracting": "Finding colours in your posts…",
+      "noSuggestions": "We couldn't read colours from your posts (videos are skipped). Add your colours with +.",
+      "logoHint": "JPG, PNG or WebP, up to 2 MB.",
+      "uploadLogo": "Upload",
+      "replaceLogo": "Replace",
+      "removeLogo": "Remove logo",
+      "logoErrors": {
+        "type": "Use a JPG, PNG or WebP image.",
+        "size": "The logo must be 2 MB or smaller."
+      },
+      "wordsToUseHint": "Phrases that sound like you, e.g. “roasted daily”.",
+      "wordsToAvoidHint": "Words you never want in your captions, e.g. “cheap”.",
+      "wordPlaceholder": "Add a word",
+      "avoidPlaceholder": "Add a word to avoid"
+    },
+    "review": {
+      "build": "Build my brand profile",
+      "editSection": "Edit {section}",
+      "instagramSkipped": "Skipped — you can connect later in Settings.",
+      "postsSkipped": "Skipped — you can add example posts later in Settings → Brand profile.",
+      "noColors": "No colours chosen.",
+      "logoAdded": "Added",
+      "noLogo": "None",
+      "failedTitle": "We couldn't build your profile",
+      "failedBody": "The AI didn't finish. Your answers are saved — try again, or report the problem.",
+      "buildingTitle": "Building your brand profile…",
+      "building": {
+        "reading": "Reading your posts…",
+        "colors": "Looking at your colours…",
+        "captions": "Learning how you write…",
+        "purposes": "Understanding what each post is for…"
+      }
+    },
+    "result": {
+      "confirm": "Confirm and finish",
+      "missingTitle": "No brand profile yet",
+      "missingHint": "Go back to Review and build it."
+    }
+  },
+  "brand": {
+    "tone": {
+      "formal": "Formal",
+      "balanced": "Balanced",
+      "casual": "Casual"
+    },
+    "basics": {
+      "colors": "Brand colours",
+      "logo": "Logo",
+      "wordsToUse": "Words to use",
+      "wordsToAvoid": "Words to avoid"
+    },
+    "colors": {
+      "edit": "Change colour {color}",
+      "remove": "Remove colour {color}",
+      "add": "Add a colour"
+    },
+    "posts": {
+      "title": "Brand posts",
+      "hint": "Examples of your content. The AI learns your style from them (up to {max}).",
+      "postN": "Post {n}",
+      "addSlot": "Add post {n}",
+      "add": "Add post",
+      "empty": "No brand posts yet.",
+      "rebuildHint": "Changed your posts? Rebuild the profile so the AI picks it up."
+    },
+    "postDialog": {
+      "addTitle": "Add post {n}",
+      "editTitle": "Edit post {n}",
+      "description": "Choose a post from Instagram or upload one, then say what it's for.",
+      "source": "Where's the post from?",
+      "fromInstagram": "From Instagram",
+      "upload": "Upload",
+      "notConnectedTitle": "Instagram isn't connected",
+      "notConnectedBody": "Upload the post instead, or connect Instagram (step 1 or Settings) to pick from your posts.",
+      "uploadInstead": "Upload instead",
+      "noMedia": "We didn't find any posts on your account yet.",
+      "pickHint": "Pick one of your recent posts.",
+      "alreadyAdded": "Added",
+      "chooseFile": "Choose a photo or video",
+      "fileHint": "JPG, PNG or WebP up to 8 MB · MP4 up to 50 MB",
+      "currentFile": "Current file",
+      "replaceFile": "Replace",
+      "fileErrors": {
+        "type": "That file type isn't supported. Use a JPG, PNG or WebP image, or an MP4 video.",
+        "image_size": "Images can be up to 8 MB.",
+        "video_size": "Videos can be up to 50 MB."
+      },
+      "caption": "Caption",
+      "captionPlaceholder": "The caption as posted (or as you'd write it)",
+      "purpose": "What is this post for?",
+      "purposeHint": "Pick the closest one.",
+      "otherLabel": "Purpose",
+      "otherPlaceholder": "Describe the purpose",
+      "note": "What should this post achieve?",
+      "notePlaceholder": "e.g. Get people to order the new gift box",
+      "missing": "Still needed: {fields}.",
+      "missingFields": {
+        "media": "a photo or video",
+        "purpose": "a purpose",
+        "purposeOther": "a description of the purpose"
+      },
+      "needsInstagram": "Connect Instagram to pick from your posts, or upload instead.",
+      "uploading": "Uploading…"
+    },
+    "context": {
+      "summary": "Brand summary",
+      "visualStyle": "Visual style",
+      "captionStyle": "Caption style",
+      "purposes": "How you use each type of post",
+      "purposesHint": "One card for each purpose in your example posts.",
+      "logoUsed": "Logo",
+      "tone": "Tone",
+      "hashtags": "Hashtags",
+      "traits": "Traits",
+      "traitPlaceholder": "Add a trait",
+      "saved": "Brand profile updated."
+    },
+    "profile": {
+      "title": "Brand profile",
+      "hint": "What the AI knows about your brand.",
+      "version": "Version {version}",
+      "edited": "edited by you",
+      "rebuild": "Rebuild",
+      "rebuilt": "Brand profile rebuilt (version {version}).",
+      "rebuildTitle": "Rebuild your brand profile?",
+      "rebuildBody": "The AI reads your business details, posts and basics again and creates a new version. Your edits stay in the previous version.",
+      "lastFailed": "The last rebuild (version {version}) didn't finish. Try again.",
+      "emptyTitle": "No brand profile yet",
+      "emptyHint": "Add a few example posts below, then build your profile.",
+      "emptyHintReady": "Build it from your example posts — it takes a few seconds."
+    },
+    "language": {
+      "title": "Posting language",
+      "hint": "The language(s) your captions are written in. We learned this from your posts — change it if it is wrong.",
+      "ar": "Arabic",
+      "en": "English",
+      "both": "Both",
+      "saved": "Posting language saved."
+    }
+  },
+  "adminOnboarding": {
+    "title": "Onboarding",
+    "subtitle": "Self sign-ups and invited clients: where they are, how long each step takes, and what goes wrong.",
+    "totals": {
+      "signups": "Self sign-ups",
+      "completed": "Completed",
+      "inProgress": "In progress",
+      "withErrors": "With errors",
+      "feedback": "Problem reports"
+    },
+    "funnel": "Funnel",
+    "funnelHint": "How many self sign-ups reached each step.",
+    "funnelSteps": {
+      "signup": "Signed up",
+      "business": "Your business",
+      "instagram": "Instagram",
+      "competitors": "Competitors",
+      "posts": "Your posts",
+      "brand": "Brand basics",
+      "review": "Review",
+      "result": "Brand profile",
+      "completed": "Finished"
+    },
+    "eventSteps": {
+      "signup": "Sign-up",
+      "business": "Your business",
+      "instagram": "Instagram",
+      "competitors": "Competitors",
+      "posts": "Your posts",
+      "brand": "Brand basics",
+      "review": "Review",
+      "result": "Brand profile"
+    },
+    "businesses": "Businesses",
+    "emptyTitle": "No sign-ups yet",
+    "emptyHint": "Businesses that sign up on their own (or that you invite) appear here.",
+    "selfSignup": "Self sign-up",
+    "invited": "Invited",
+    "onboarded": "Onboarded",
+    "unverified": "email not verified",
+    "signedUp": "signed up",
+    "lastSeen": "last active",
+    "completed": "Completed",
+    "atStep": "Step {n}/{total} · {name}",
+    "errorCount": "{count} error(s)",
+    "feedbackCount": "{count} report(s)",
+    "timePerStep": "Time per step",
+    "errors": "Errors",
+    "noErrors": "No errors.",
+    "feedback": "Problem reports",
+    "noFeedback": "No reports.",
+    "openClient": "Open client →",
+    "kinds": {
+      "validation": "Form error",
+      "competitor_lookup": "Competitor check",
+      "invalid_handle": "Invalid handle",
+      "upload": "Upload failed",
+      "upload_rejected": "File rejected",
+      "post_form": "Post incomplete",
+      "logo_upload": "Logo upload failed",
+      "logo_rejected": "Logo rejected",
+      "connect": "Instagram connection",
+      "build_brand_context": "Brand profile build",
+      "step": "Couldn't continue",
+      "error": "Error"
+    },
+    "reasons": {
+      "business_incomplete": "business details incomplete",
+      "not_enough_competitors": "fewer than 5 ready competitors",
+      "posts_incomplete": "not all 5 posts added",
+      "brand_context_missing": "brand profile not built",
+      "out_of_order": "out of order",
+      "not_business": "not a business account",
+      "private": "private account",
+      "not_found": "not found",
+      "own_account": "own account",
+      "lookup_failed": "Instagram didn't answer",
+      "handle_taken": "handle used by another business",
+      "connect_failed": "connection failed",
+      "payload_too_large": "file too large",
+      "unsupported_media_type": "unsupported file type",
+      "validation_error": "invalid input",
+      "type": "unsupported file type",
+      "image_size": "image over 8 MB",
+      "video_size": "video over 50 MB",
+      "size": "over 2 MB",
+      "ai_error": "AI failed",
+      "internal_error": "server error",
+      "auto_login_failed": "automatic login after sign-up failed",
+      "cancelled": "Facebook login cancelled",
+      "no_account": "no Instagram business account found",
+      "taken": "account connected to another business",
+      "declined": "permissions declined",
+      "expired": "login took too long",
+      "error": "Meta connection error",
+      "unavailable": "Meta not configured",
+      "instagram_required": "Instagram connection required",
+      "not_connected": "Instagram not connected",
+      "permission_missing": "Instagram permission missing",
+      "rate_limited": "Instagram rate limit"
+    }
+  },
+  "instagramConnect": {
+    "continueWithFacebook": "Continue with Facebook",
+    "reconnect": "Reconnect Instagram",
+    "redirecting": "Opening Facebook…",
+    "connectHint": "You'll log in with Facebook and choose the Facebook Page linked to your Instagram Business or Creator account. We never post without your approval.",
+    "unavailable": "Connecting Instagram is temporarily unavailable. Please try again later.",
+    "outcomes": {
+      "connected": "Instagram connected.",
+      "connectedAs": "Instagram connected — @{username}.",
+      "cancelled": "No problem — Instagram wasn't connected. You can connect it whenever you're ready.",
+      "taken": "This Instagram account is already connected to another business on Local Growth Engine. Contact us if it's yours.",
+      "declined": "Facebook didn't give us access to your Instagram account. Connect again and keep the permissions switched on.",
+      "expired": "That took a little too long. Please connect again.",
+      "error": "We couldn't connect Instagram this time. Please try again.",
+      "unavailable": "Connecting Instagram is temporarily unavailable. Please try again later.",
+      "no_account": "We couldn't find an Instagram business account.",
+      "pick": "Choose which Instagram account to connect."
+    },
+    "noAccount": {
+      "title": "We couldn't find an Instagram business account",
+      "body": "To connect, your Instagram account must be a Business or Creator account linked to a Facebook Page you manage.",
+      "step1": "In the Instagram app, open Settings → Account type and tools → Switch to professional account (Business or Creator).",
+      "step2": "Link it to a Facebook Page: Edit profile → Page → Connect or create a Page.",
+      "step3": "Come back and tap Try again. When Facebook asks, select that Page and its Instagram account.",
+      "tryAgain": "Try again"
+    },
+    "picker": {
+      "title": "Choose an Instagram account",
+      "body": "Your Facebook login manages several Instagram accounts. Pick the one for this business.",
+      "page": "Page: {name}",
+      "followers": "{count} followers",
+      "connect": "Connect",
+      "expired": "This choice has expired. Close this and connect Instagram again."
+    },
+    "permissions": {
+      "title": "Some permissions are missing.",
+      "body": "Instagram didn't allow access to {list}. Those features won't work until you reconnect and allow them.",
+      "reconnect": "Reconnect and allow"
+    },
+    "banner": {
+      "reconnectTitle": "Instagram needs reconnecting.",
+      "reconnectBody": "Your Instagram login expired or was removed, so we can't update your data or reply for you.",
+      "permissionsTitle": "Instagram permissions are missing.",
+      "permissionsBody": "Allow access to {list} to use every feature.",
+      "action": "Reconnect Instagram"
+    },
+    "sync": {
+      "now": "Sync now",
+      "syncing": "Syncing…",
+      "lastSynced": "Last synced {time}",
+      "never": "Not synced yet",
+      "done": "Instagram data updated.",
+      "partial": "Synced, but some data didn't come through. See the note below.",
+      "errors": {
+        "token_invalid": "Instagram login expired",
+        "permission": "a permission is missing",
+        "rate_limited": "Instagram asked us to slow down — we'll try again later",
+        "transient": "Instagram didn't answer",
+        "failed": "the last sync didn't finish"
+      }
+    },
+    "notes": {
+      "publishing": "Publishing will be available after hosting. Until then, publishing is simulated.",
+      "dms": "DM automation is simulated until it runs on a public HTTPS domain (Instagram webhooks).",
+      "trends": "Trending audio and hashtags aren't available from Instagram's API, so these lists stay empty for your account."
+    },
+    "permissionNames": {
+      "instagram_basic": "your profile and posts",
+      "instagram_content_publish": "publishing posts",
+      "instagram_manage_comments": "reading and replying to comments",
+      "instagram_manage_insights": "insights",
+      "instagram_manage_messages": "messages",
+      "pages_show_list": "your Facebook Pages",
+      "pages_read_engagement": "your Page's content",
+      "business_management": "your business portfolio"
+    }
+  }
+}

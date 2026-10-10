@@ -1,0 +1,206 @@
+{
+  "_comment": "Sample Graph API responses in the shapes Meta documents (ids, tokens and names are made up). Used by tests/meta/*.test.ts.",
+
+  "oauthAccessToken": { "access_token": "EAAshortlivedTOKENxxxxxxxxxxxxxxxxxxxxxxxxxx", "token_type": "bearer", "expires_in": 5183944 },
+  "oauthLongLived": { "access_token": "EAAlonglivedTOKENyyyyyyyyyyyyyyyyyyyyyyyyyyy", "token_type": "bearer", "expires_in": 5183944 },
+
+  "debugTokenValid": {
+    "data": {
+      "app_id": "3457472907767619",
+      "type": "USER",
+      "application": "Local Growth Engine",
+      "data_access_expires_at": 1799452800,
+      "expires_at": 1796860800,
+      "is_valid": true,
+      "issued_at": 1791676800,
+      "scopes": ["instagram_basic", "instagram_content_publish", "instagram_manage_comments", "instagram_manage_insights", "pages_show_list", "pages_read_engagement", "business_management", "public_profile"],
+      "user_id": "10229999999999999"
+    }
+  },
+  "debugTokenOtherApp": {
+    "data": { "app_id": "999999999999999", "type": "USER", "is_valid": true, "scopes": ["instagram_basic", "pages_show_list"], "user_id": "10229999999999999", "expires_at": 1796860800 }
+  },
+  "debugTokenExpired": {
+    "data": {
+      "app_id": "3457472907767619",
+      "is_valid": false,
+      "error": { "code": 190, "message": "Error validating access token: Session has expired on Thursday, 08-Oct-26 10:00:00 PDT.", "subcode": 463 },
+      "scopes": [],
+      "user_id": "10229999999999999"
+    }
+  },
+  "debugTokenNoNeverExpires": {
+    "data": { "app_id": "3457472907767619", "is_valid": true, "expires_at": 0, "data_access_expires_at": 1799452800, "scopes": ["instagram_basic", "pages_show_list"], "user_id": "10229999999999999" }
+  },
+
+  "meAccountsSingle": {
+    "data": [
+      {
+        "id": "112233445566778",
+        "name": "Al-bait Coffee",
+        "access_token": "EAApageTOKENaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "instagram_business_account": {
+          "id": "17841400000000001",
+          "username": "albait.kw",
+          "name": "Al-bait",
+          "profile_picture_url": "https://scontent.cdninstagram.com/v/t51/albait.jpg",
+          "followers_count": 1840,
+          "media_count": 212
+        }
+      }
+    ],
+    "paging": { "cursors": { "before": "QVFIUmFiYz", "after": "QVFIUmFiYz" } }
+  },
+  "meAccountsMultiple": {
+    "data": [
+      {
+        "id": "112233445566778",
+        "name": "Al-bait Coffee",
+        "access_token": "EAApageTOKENaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "instagram_business_account": { "id": "17841400000000001", "username": "albait.kw", "name": "Al-bait", "profile_picture_url": "https://scontent.cdninstagram.com/v/t51/albait.jpg", "followers_count": 1840, "media_count": 212 }
+      },
+      { "id": "223344556677889", "name": "Old Event Page", "access_token": "EAApageTOKENbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" },
+      {
+        "id": "334455667788990",
+        "name": "Al-bait Sweets",
+        "access_token": "EAApageTOKENcccccccccccccccccccccccccccccc",
+        "instagram_business_account": { "id": "17841400000000002", "username": "albait.sweets", "name": "Al-bait Sweets", "followers_count": 96, "media_count": 14 }
+      }
+    ],
+    "paging": { "cursors": { "before": "QVFIUmFiYz", "after": "QVFIUmRlZg" } }
+  },
+  "meAccountsNone": {
+    "data": [{ "id": "223344556677889", "name": "Old Event Page", "access_token": "EAApageTOKENbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" }],
+    "paging": { "cursors": { "before": "QVFI", "after": "QVFI" } }
+  },
+  "meAccountsEmpty": { "data": [] },
+
+  "errorTokenExpired": {
+    "error": {
+      "message": "Error validating access token: Session has expired on Thursday, 08-Oct-26 10:00:00 PDT. The current time is Thursday, 08-Oct-26 11:00:00 PDT.",
+      "type": "OAuthException",
+      "code": 190,
+      "error_subcode": 463,
+      "fbtrace_id": "AbCdEfGh123"
+    }
+  },
+  "errorTokenRevoked": {
+    "error": { "message": "Error validating access token: The user has not authorized application 3457472907767619.", "type": "OAuthException", "code": 190, "error_subcode": 458, "fbtrace_id": "ArEv0k3" }
+  },
+  "errorRateLimit": { "error": { "message": "(#4) Application request limit reached", "type": "OAuthException", "is_transient": true, "code": 4, "fbtrace_id": "AxYz987" } },
+  "errorBucRateLimit": {
+    "error": { "message": "(#80002) There have been too many calls to this Instagram account. Wait a bit and try again.", "type": "OAuthException", "code": 80002, "fbtrace_id": "AqRs456" }
+  },
+  "errorPermission": {
+    "error": { "message": "(#200) Requires instagram_manage_comments permission to manage the object", "type": "OAuthException", "code": 200, "fbtrace_id": "ApErm111" }
+  },
+  "errorPermissionUnnamed": { "error": { "message": "(#10) Application does not have permission for this action", "type": "OAuthException", "code": 10, "fbtrace_id": "ApErm222" } },
+  "errorBusinessDiscoveryNotFound": {
+    "error": {
+      "message": "Invalid user id",
+      "type": "OAuthException",
+      "code": 110,
+      "error_subcode": 2207013,
+      "is_transient": false,
+      "error_user_title": "Cannot find User",
+      "error_user_msg": "The user with username: nosuchshop.kw cannot be found.",
+      "fbtrace_id": "AnF0und"
+    }
+  },
+  "errorInvalidMetric": {
+    "error": { "message": "(#100) metric[5] must be one of the following values: reach, follower_count, website_clicks, online_followers, accounts_engaged, total_interactions, likes, comments, shares, saves, replies, follows_and_unfollows, profile_links_taps, views", "type": "OAuthException", "code": 100, "fbtrace_id": "AmEtr1c" }
+  },
+  "errorFollowerCountSmall": {
+    "error": { "message": "(#100) Insufficient followers: the account needs at least 100 followers for this metric.", "type": "OAuthException", "code": 100, "fbtrace_id": "AsMa11" }
+  },
+  "errorServer": { "error": { "message": "An unexpected error has occurred. Please retry your request later.", "type": "OAuthException", "is_transient": true, "code": 2, "fbtrace_id": "ASrv500" } },
+
+  "businessDiscoveryReady": {
+    "business_discovery": {
+      "id": "17841400000009999",
+      "username": "rival.cafe",
+      "name": "Rival Cafe",
+      "profile_picture_url": "https://scontent.cdninstagram.com/v/t51/rival.jpg",
+      "followers_count": 10000,
+      "media_count": 340,
+      "media": {
+        "data": [
+          { "id": "18000000000000001", "caption": "New beans!", "media_type": "IMAGE", "media_url": "https://scontent.cdninstagram.com/v/1.jpg", "permalink": "https://www.instagram.com/p/AAA/", "like_count": 300, "comments_count": 20, "timestamp": "2026-10-06T09:00:00+0000" },
+          { "id": "18000000000000002", "caption": "Reel", "media_type": "VIDEO", "media_url": "https://scontent.cdninstagram.com/v/2.mp4", "thumbnail_url": "https://scontent.cdninstagram.com/v/2.jpg", "permalink": "https://www.instagram.com/reel/BBB/", "like_count": 150, "comments_count": 10, "timestamp": "2026-10-01T18:00:00+0000" },
+          { "id": "18000000000000003", "caption": "Carousel", "media_type": "CAROUSEL_ALBUM", "media_url": "https://scontent.cdninstagram.com/v/3.jpg", "permalink": "https://www.instagram.com/p/CCC/", "like_count": 50, "comments_count": 0, "timestamp": "2026-09-24T12:00:00+0000" }
+        ]
+      }
+    },
+    "id": "17841400000000001"
+  },
+
+  "profile": {
+    "username": "albait.kw",
+    "name": "Al-bait",
+    "profile_picture_url": "https://scontent.cdninstagram.com/v/t51/albait.jpg",
+    "followers_count": 1840,
+    "follows_count": 310,
+    "media_count": 212,
+    "biography": "Specialty coffee in Kuwait",
+    "website": "https://albait.example",
+    "id": "17841400000000001"
+  },
+  "mediaPage1": {
+    "data": [
+      { "id": "17900000000000001", "caption": "Weekend special", "media_type": "IMAGE", "media_product_type": "FEED", "media_url": "https://scontent.cdninstagram.com/v/m1.jpg", "permalink": "https://www.instagram.com/p/M1/", "timestamp": "2026-10-07T17:30:00+0000", "like_count": 120, "comments_count": 9 },
+      { "id": "17900000000000002", "media_type": "VIDEO", "media_product_type": "REELS", "media_url": "https://scontent.cdninstagram.com/v/m2.mp4", "thumbnail_url": "https://scontent.cdninstagram.com/v/m2.jpg", "permalink": "https://www.instagram.com/reel/M2/", "timestamp": "2026-10-05T08:00:00+0000", "like_count": 340, "comments_count": 21 }
+    ],
+    "paging": { "cursors": { "before": "QVFIa", "after": "QVFIb" }, "next": "https://graph.facebook.com/v26.0/17841400000000001/media?access_token=EAApageTOKENaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&after=QVFIb" }
+  },
+  "mediaPage2": {
+    "data": [
+      { "id": "17900000000000003", "caption": "Carousel", "media_type": "CAROUSEL_ALBUM", "media_product_type": "FEED", "media_url": "https://scontent.cdninstagram.com/v/m3.jpg", "permalink": "https://www.instagram.com/p/M3/", "timestamp": "2026-09-30T12:00:00+0000", "like_count": 80, "comments_count": 0 }
+    ],
+    "paging": { "cursors": { "before": "QVFIb", "after": "QVFIc" } }
+  },
+
+  "insightsAccountTotal": {
+    "data": [
+      { "name": "reach", "period": "day", "title": "Accounts reached", "total_value": { "value": 5200 }, "id": "17841400000000001/insights/reach/day" },
+      { "name": "views", "period": "day", "title": "Views", "total_value": { "value": 18400 }, "id": "17841400000000001/insights/views/day" },
+      { "name": "accounts_engaged", "period": "day", "title": "Accounts engaged", "total_value": { "value": 610 }, "id": "17841400000000001/insights/accounts_engaged/day" },
+      { "name": "total_interactions", "period": "day", "title": "Content interactions", "total_value": { "value": 940 }, "id": "17841400000000001/insights/total_interactions/day" },
+      { "name": "profile_links_taps", "period": "day", "title": "Profile link taps", "total_value": { "value": 75 }, "id": "17841400000000001/insights/profile_links_taps/day" }
+    ]
+  },
+  "insightsFollowerCount": {
+    "data": [
+      {
+        "name": "follower_count",
+        "period": "day",
+        "values": [
+          { "value": 4, "end_time": "2026-10-05T07:00:00+0000" },
+          { "value": 7, "end_time": "2026-10-06T07:00:00+0000" },
+          { "value": 2, "end_time": "2026-10-07T07:00:00+0000" }
+        ],
+        "title": "Follower Count",
+        "id": "17841400000000001/insights/follower_count/day"
+      }
+    ]
+  },
+  "insightsOnlineFollowers": {
+    "data": [
+      {
+        "name": "online_followers",
+        "period": "lifetime",
+        "values": [
+          { "value": { "0": 10, "1": 5, "20": 80, "21": 100 }, "end_time": "2026-10-04T07:00:00+0000" },
+          { "value": { "0": 20, "20": 60, "21": 40 }, "end_time": "2026-10-05T07:00:00+0000" }
+        ],
+        "title": "Online Followers",
+        "id": "17841400000000001/insights/online_followers/lifetime"
+      }
+    ]
+  },
+  "insightsPost": {
+    "data": [
+      { "name": "reach", "period": "lifetime", "values": [{ "value": 900 }], "id": "17900000000000001/insights/reach/lifetime" },
+      { "name": "saved", "period": "lifetime", "values": [{ "value": 31 }], "id": "17900000000000001/insights/saved/lifetime" }
+    ]
+  }
+}
