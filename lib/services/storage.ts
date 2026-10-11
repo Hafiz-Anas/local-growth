@@ -1,34 +1,19 @@
 import "server-only";
-import { randomUUID } from "node:crypto";
 import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { del, head, put } from "@vercel/blob";
+import { VercelBlobStorageService } from "./blob-storage";
+import { CONTENT_TYPES, KEY_PATTERN, newStorageKey, type StorageService, type StoredFile } from "./storage-core";
 
 /**
  * File storage. Routes depend on this interface only; pick the implementation
- * with STORAGE_PROVIDER ("local" writes to UPLOAD_DIR — add an S3/R2 class and
- * a case below to move uploads to object storage).
+ * with STORAGE_PROVIDER: "local" writes to UPLOAD_DIR (development, one
+ * server), "vercel-blob" writes to a public Vercel Blob store (production on
+ * Vercel, see blob-storage.ts and DEPLOY.md).
  */
-export interface StoredFile {
-  /** Storage key, e.g. "avatars/3f2c….webp". */
-  key: string;
-  /** Public URL to put in avatarUrl etc. */
-  url: string;
-}
+export { CONTENT_TYPES, type StorageService, type StoredFile };
 
-export interface StorageService {
-  save(file: { data: Buffer; contentType: string; prefix: string; extension: string }): Promise<StoredFile>;
-  delete(key: string): Promise<void>;
-  /** The stored bytes, or null when missing (used server-side, e.g. colour extraction). */
-  read(key: string): Promise<Buffer | null>;
-  getUrl(key: string): string;
-  /** The key behind a URL this service produced, or null for any other URL (e.g. seeded /avatars/*.svg). */
-  keyFromUrl(url: string): string | null;
-}
-
-const KEY_PATTERN = /^[a-z0-9-]+\/[a-f0-9-]{36}\.[a-z0-9]{2,5}$/;
 const LOCAL_URL_PREFIX = "/api/uploads/";
-
-export const CONTENT_TYPES: Record<string, string> = { jpg: "image/jpeg", png: "image/png", webp: "image/webp", mp4: "video/mp4" };
 
 function uploadRoot() {
   return path.resolve(process.cwd(), process.env.UPLOAD_DIR ?? "./uploads");
@@ -46,7 +31,7 @@ function localPath(key: string): string {
 /** Writes to the local disk (UPLOAD_DIR); files are served by app/api/uploads/[...key]. */
 export class LocalStorageService implements StorageService {
   async save({ data, prefix, extension }: { data: Buffer; contentType: string; prefix: string; extension: string }) {
-    const key = `${prefix}/${randomUUID()}.${extension}`;
+    const key = newStorageKey(prefix, extension);
     const full = localPath(key);
     await mkdir(path.dirname(full), { recursive: true });
     await writeFile(full, data);
@@ -97,6 +82,13 @@ export function getStorageService(): StorageService {
     case "local":
       instance = new LocalStorageService();
       break;
+    case "vercel-blob": {
+      // Connecting a Blob store to the Vercel project adds BLOB_READ_WRITE_TOKEN (or BLOB_STORE_ID for OIDC).
+      const token = process.env.BLOB_READ_WRITE_TOKEN;
+      if (!token && !process.env.BLOB_STORE_ID) throw new Error('STORAGE_PROVIDER is "vercel-blob" but BLOB_READ_WRITE_TOKEN is not set.');
+      instance = new VercelBlobStorageService({ client: { put, del, head }, token });
+      break;
+    }
     default:
       throw new Error(`Unknown STORAGE_PROVIDER "${provider}".`);
   }

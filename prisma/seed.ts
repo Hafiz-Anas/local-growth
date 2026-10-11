@@ -19,6 +19,13 @@ import { CLIENT_DATA } from "../mock-data/client-data";
 import { MOCK_CLIENTS } from "../mock-data/clients";
 import { MOCK_PERMISSIONS } from "../mock-data/permissions";
 import type { ActivityKind, Client } from "../types";
+import { describeDatabase, isProductionTarget } from "../scripts/db-target";
+
+// The seed wipes every table: it must never run against production (Neon / Vercel).
+if (isProductionTarget(process.env.DATABASE_URL)) {
+  console.error(`Refusing to seed ${describeDatabase(process.env.DATABASE_URL)}: it looks like a production database. The seed is for local development only.`);
+  process.exit(1);
+}
 
 const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }) });
 

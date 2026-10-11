@@ -119,7 +119,7 @@ All variables are listed in `.env.example`.
 | `INSTAGRAM_PROVIDER` | How new Instagram connections are made: `mock` or `meta` (existing connections keep their provider) |
 | `META_APP_ID`, `META_APP_SECRET`, `META_REDIRECT_URI`, `META_GRAPH_VERSION` | Meta app for Facebook Login / Graph API (see [Meta / Instagram integration](#meta--instagram-integration)); Meta stays off while the secret is empty |
 | `AI_PROVIDER` | Caption/reply generation (`mock`) |
-| `STORAGE_PROVIDER`, `UPLOAD_DIR` | File storage (`local`) and its folder |
+| `STORAGE_PROVIDER`, `UPLOAD_DIR` | File storage (`local` with its folder, or `vercel-blob` + `BLOB_READ_WRITE_TOKEN` in production) |
 | `RATE_LIMIT_STORE` | Rate-limit store (`memory`) |
 | `DEMO_ACCOUNTS_ENABLED` | Show demo logins on the login page |
 
@@ -240,8 +240,12 @@ Real Instagram data comes through **"Instagram API with Facebook Login"** (Faceb
 | Instagram posts in the post picker for mock connections | Generated posts with stand-in images from `public/mock-media` (`node scripts/generate-mock-media.mjs`) | Real for Meta connections (synced posts) |
 | Product catalogue for the Post Generator | `lib/services/catalog.ts` reads `mock-data/`; other businesses use their onboarding products and post purposes | A table or the AI provider |
 | Email | `ConsoleEmailService` prints messages (reset links) to the server log | Implement `EmailService` (SMTP, Resend, SES …), set `EMAIL_PROVIDER` |
-| File storage | `LocalStorageService` writes to `UPLOAD_DIR`, served by `/api/uploads/*` | Implement `StorageService` for S3/R2, set `STORAGE_PROVIDER` |
+| File storage | `LocalStorageService` writes to `UPLOAD_DIR`, served by `/api/uploads/*`; `VercelBlobStorageService` for production | Set `STORAGE_PROVIDER="vercel-blob"` (see [DEPLOY.md](DEPLOY.md)) |
 | Rate limits | In-memory (`RATE_LIMIT_STORE="memory"`) — resets on restart, single instance only | Add a Redis `RateLimiter` |
+
+## Deploying
+
+Production runs on Vercel with Neon PostgreSQL and Vercel Blob. See [DEPLOY.md](DEPLOY.md) for setup, environment variables, migrations (`prisma migrate deploy` only, never the seed) and `npm run create-admin`.
 
 ## Troubleshooting
 
