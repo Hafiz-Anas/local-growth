@@ -57,6 +57,8 @@ enum DraftImageSource {
 
 enum ScheduledPostStatus {
   SCHEDULED
+  /// Claimed by "Publish now" or the publish cron; Instagram calls in progress.
+  PUBLISHING
   PUBLISHED
   CANCELLED
   FAILED
@@ -540,6 +542,8 @@ model PostDraft {
   imageSource DraftImageSource?
   /// The prompt a GENERATED image was made from (kept for transparency).
   imagePrompt String?
+  /// Why the last publish attempt failed (a reason code, see lib/server/publishing.ts); cleared on success.
+  publishError String?
   createdBy  String?
   createdAt  DateTime    @default(now())
 
@@ -559,11 +563,17 @@ model ScheduledPost {
   status           ScheduledPostStatus @default(SCHEDULED)
   /// Instagram media id once published.
   publishedMediaId String?
+  /// When the current/last publish attempt claimed the post (stale PUBLISHING rows are recovered by the cron).
+  publishStartedAt DateTime?
+  publishedAt      DateTime?
+  /// Reason code when status is FAILED (see lib/server/publishing.ts).
+  failureReason    String?
 
   business Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
   draft    PostDraft @relation(fields: [draftId], references: [id], onDelete: Cascade)
 
   @@index([businessId, status, scheduledFor])
+  @@index([status, scheduledFor])
 }
 
 model PostingExperiment {

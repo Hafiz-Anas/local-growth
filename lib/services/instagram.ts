@@ -2,6 +2,7 @@ import "server-only";
 import type { CompetitorPost, TrendingAudio, TrendingTag, FollowerPoint, MetricValue, WindowResult, PostWindow, ServiceHealth } from "@/types";
 import type { CompetitorValidation, InstagramProfileDto, MediaDto } from "@/types";
 import { MetaInstagramService } from "./instagram.meta";
+import type { PublishFailureReason } from "./meta/publish";
 import { MockInstagramService } from "./instagram.mock";
 
 /**
@@ -118,6 +119,12 @@ export interface InstagramService {
   getComments(account: InstagramAccount): Promise<InstagramComment[]>;
   replyToComment(account: InstagramAccount, commentId: string, text: string): Promise<{ id: string }>;
   sendDM(account: InstagramAccount, username: string, text: string): Promise<{ id: string }>;
+  /**
+   * Publishes one image with its caption. The real implementation needs `mediaUrl`
+   * to be a public HTTPS JPEG (lib/server/publishing.ts prepares one) and throws
+   * InstagramPublishError, InstagramNotConnectedError, InstagramPermissionError
+   * or InstagramRateLimitedError.
+   */
   publishPost(account: InstagramAccount, post: { caption: string; mediaUrl: string | null }): Promise<{ mediaId: string }>;
   /** Public profile of another account; null when it doesn't exist. */
   getCompetitorProfile(account: InstagramAccount, handle: string): Promise<CompetitorProfile | null>;
@@ -151,6 +158,20 @@ export class InstagramNotConnectedError extends Error {
 export class InstagramPermissionError extends Error {
   constructor(readonly permissions: string[]) {
     super(`Instagram permission missing: ${permissions.join(", ") || "unknown"}.`);
+  }
+}
+
+/**
+ * Thrown by `publishPost` when Instagram won't publish this post. `image_not_public`:
+ * the image URL isn't public HTTPS (e.g. STORAGE_PROVIDER=local), so Meta can't fetch it.
+ */
+export class InstagramPublishError extends Error {
+  constructor(
+    readonly reason: PublishFailureReason | "image_not_public",
+    /** Meta's own wording (English), for the integration log. */
+    readonly detail = "",
+  ) {
+    super(`Instagram couldn't publish the post (${reason}).`);
   }
 }
 

@@ -38,10 +38,23 @@ export function errorMessage(error: unknown, t: Translate): string {
         : [];
       return fields.length ? t("errors.validation_fields", { fields: fields.join(", ") }) : t("errors.validation_error");
     }
+    if (error.code === "publish_failed") return publishReasonText(publishReasonOf(error), t);
     if (KNOWN.has(error.code)) return t(`errors.${error.code}`);
     return error.status >= 500 ? t("errors.internal_error") : t("errors.generic");
   }
   return t("errors.generic");
+}
+
+function publishReasonOf(error: ApiClientError): string | null {
+  const detail = Array.isArray(error.details) ? (error.details as Array<{ path?: string; message?: string }>).find((d) => d.path === "reason") : undefined;
+  return detail?.message ?? null;
+}
+
+/** Why a post couldn't be published (reason codes from lib/server/publishing.ts, also stored on drafts as publishError). */
+export function publishReasonText(reason: string | null, t: Translate): string {
+  const key = `publish.errors.${reason}`;
+  const text = reason ? t(key) : key;
+  return text === key ? t("publish.errors.failed") : text;
 }
 
 export function isInstagramNotConnected(error: unknown): boolean {

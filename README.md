@@ -208,9 +208,11 @@ Real Instagram data comes through **"Instagram API with Facebook Login"** (Faceb
 | — | `PRIVATE` and `NOT_BUSINESS` are never returned for Meta lookups: business/creator accounts can't be private, and personal accounts are indistinguishable from missing ones (they remain for the mock) |
 | Token, permission, rate-limit or server errors | Not a status: the request fails with a reconnect / permission / "try again" message |
 
-**Still simulated with a Meta connection** (labelled in the app): publishing — Meta downloads media from a public HTTPS URL and uploads are on local disk (the real `publishImage` code is ready for when a public `StorageService` exists); DM automation — needs webhooks on a public HTTPS domain; trending audio/hashtags — not in the Graph API.
+**Publishing** (single image + caption; no carousels, video, reels or stories yet): "Publish now" on a draft or a queued post, and queued posts at their time through `GET /api/cron/publish` (needs `CRON_SECRET`, see DEPLOY.md). `lib/server/publishing.ts` claims the post, converts the image to a JPEG Instagram accepts (centre-cropped to 4:5–1.91:1, `lib/services/images/instagram-fit.ts`), stores that copy publicly, then `lib/services/meta/publish.ts` creates the container, polls `status_code` until `FINISHED` (60 s timeout) and publishes it. Needs `STORAGE_PROVIDER=vercel-blob` (Meta downloads the image) and the `instagram_content_publish` permission. Failures get a reason code (no image, image rejected, daily limit, token revoked, …): the user sees it in their language, and it's logged to the integration log and kept on the draft.
 
-**Tests:** `npm test` runs the mapping and client tests in `tests/meta/` against recorded sample responses (`tests/meta/fixtures.json`: success, several Pages, no Page, expired token, rate limits, permission errors, business discovery not found, unsupported metrics).
+**Still simulated with a Meta connection** (labelled in the app): DM automation — needs webhooks on a public HTTPS domain; trending audio/hashtags — not in the Graph API.
+
+**Tests:** `npm test` runs the mapping and client tests in `tests/meta/` against recorded sample responses (`tests/meta/fixtures.json`: success, several Pages, no Page, expired token, rate limits, permission errors, business discovery not found, unsupported metrics), plus the publishing flow (`tests/meta/publish.test.ts`) and image fitting (`tests/images/`).
 
 ## What's real and what's mocked
 
@@ -224,7 +226,7 @@ Real Instagram data comes through **"Instagram API with Facebook Login"** (Faceb
 - Profile photo upload (JPG/PNG/WebP, 2 MB, type checked from the file's contents)
 - Preferences (theme, language, sidebar) and notification settings saved per user
 - Instagram access tokens encrypted at rest (AES-256-GCM)
-- Real Instagram via Meta (Facebook Login for Business): connect, profile, posts, insights, comments and replies, competitor business discovery with history — see [Meta / Instagram integration](#meta--instagram-integration)
+- Real Instagram via Meta (Facebook Login for Business): connect, profile, posts, insights, comments and replies, competitor business discovery with history, publishing single-image posts (now or scheduled) — see [Meta / Instagram integration](#meta--instagram-integration)
 - Admin activity log for every admin action and most user actions
 - Public sign-up with email verification (hashed single-use tokens, 48 h), self-onboarding wizard with saved progress, brand posts (uploads type-checked from content), server-side colour extraction, versioned brand contexts, onboarding events and problem reports
 
@@ -233,7 +235,7 @@ Real Instagram data comes through **"Instagram API with Facebook Login"** (Faceb
 | Area | Mock today | To go live |
 |---|---|---|
 | Instagram for demo/mock connections — profile numbers, insights, comments, trends, competitor profiles | `MockInstagramService` serves `mock-data/` (new businesses get empty data); mock "connect" approves instantly | Connect through Facebook (`INSTAGRAM_PROVIDER=meta`): `MetaInstagramService` is real |
-| Instagram with a Meta connection — publishing, DM automation, trends, API health | Publishing and DMs simulated (need public HTTPS hosting / webhooks); no trends; health is mock | Public `StorageService` (publishing code is ready), webhooks |
+| Instagram with a Meta connection — DM automation, trends, API health | DMs simulated (need webhooks); no trends; health is mock | Webhooks |
 | AI captions and reply drafts | `MockAIService` fills caption templates with brand words and the brand context | Implement `AIService` (e.g. Claude), set `AI_PROVIDER` |
 | Brand profile (`buildBrandContext`) | Template sentences built from the onboarding answers | Same interface, real model |
 | Competitor validation (`lookupBusinessAccount`) for mock connections | Handle prefixes decide the status (see *Self-onboarding*) | Real for Meta connections (business discovery) |

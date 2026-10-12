@@ -215,32 +215,3 @@ export async function postCommentReply(client: GraphClient, commentId: string, t
 export async function businessDiscovery(client: GraphClient, igUserId: string, token: string, handle: string): Promise<DiscoveryResult> {
   return client.get<DiscoveryResult>(igUserId, { fields: businessDiscoveryFields(handle) }, { call: "GET /{ig-user}?fields=business_discovery", token, scopes: ["instagram_basic", "pages_read_engagement"], quiet: true });
 }
-
-/**
- * Publishes one image. Meta downloads `imageUrl` itself, so it must be a public
- * HTTPS URL — local uploads (/api/uploads/…) can't be published until a public
- * StorageService exists. Videos/reels need status polling; add when needed.
- */
-export async function publishImage(client: GraphClient, igUserId: string, token: string, post: { imageUrl: string; caption: string }): Promise<{ mediaId: string }> {
-  const container = await client.post<{ id: string }>(
-    `${igUserId}/media`,
-    { image_url: post.imageUrl, caption: post.caption },
-    { call: "POST /{ig-user}/media", token, scopes: ["instagram_content_publish"] },
-  );
-  const published = await client.post<{ id: string }>(
-    `${igUserId}/media_publish`,
-    { creation_id: container.id },
-    { call: "POST /{ig-user}/media_publish", token, scopes: ["instagram_content_publish"] },
-  );
-  return { mediaId: published.id };
-}
-
-export function isPublicHttpsUrl(url: string | null): url is string {
-  if (!url) return false;
-  try {
-    const u = new URL(url);
-    return u.protocol === "https:" && !["localhost", "127.0.0.1", "::1"].includes(u.hostname);
-  } catch {
-    return false;
-  }
-}

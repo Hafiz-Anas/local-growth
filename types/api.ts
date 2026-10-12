@@ -227,6 +227,8 @@ export interface PostDraftDto {
   icon: MediaIcon;
   /** The post's image: AI-generated (labelled in the preview) or uploaded by the user. */
   image: { url: string; source: "generated" | "uploaded" } | null;
+  /** Why the last attempt to publish it failed (a PublishReason), until it's published. */
+  publishError: string | null;
 }
 
 export interface GeneratorOptionsDto {
@@ -241,7 +243,7 @@ export interface GeneratorOptionsDto {
   imageProvider: "mock" | "gemini";
 }
 
-export type ScheduledPostStatus = "scheduled" | "published" | "cancelled" | "failed";
+export type ScheduledPostStatus = "scheduled" | "publishing" | "published" | "cancelled" | "failed";
 
 export interface ScheduledPostDto {
   id: string;

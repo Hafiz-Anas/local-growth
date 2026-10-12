@@ -6,6 +6,7 @@ import type { InstagramProfileDto, MediaDto, MediaIcon } from "@/types";
 import {
   InstagramNotConnectedError,
   InstagramPermissionError,
+  InstagramPublishError,
   InstagramRateLimitedError,
   type ApiHealth,
   type BusinessAccountLookup,
@@ -18,8 +19,9 @@ import {
   type InstagramTrends,
   type RateLimitUsage,
 } from "./instagram";
-import { businessDiscovery, isPublicHttpsUrl, postCommentReply, publishImage } from "./meta/api";
+import { businessDiscovery, postCommentReply } from "./meta/api";
 import { MetaApiError, isMetaError } from "./meta/errors";
+import { MetaPublishError, isPublicHttpsUrl, publishImage } from "./meta/publish";
 import { accountMetric, engagementMetric, followerGrowthMetric, followerSeries, heatmapOf, opportunityOf, windowResults, type SyncedPost } from "./meta/insights";
 import { displayUrl, mapDiscoveryOutcome, type AccountInsights, type DiscoveredProfile, type StoredProfile } from "./meta/mappers";
 
@@ -28,12 +30,11 @@ import { displayUrl, mapDiscoveryOutcome, type AccountInsights, type DiscoveredP
  *
  * Reads (profile, media, insights, comments) come from the database, filled by
  * the sync (lib/server/instagram-sync.ts) — pages never call Meta on load.
- * Live calls: replying to a comment, business discovery (competitors) and publishing.
+ * Live calls: replying to a comment, business discovery (competitors) and
+ * publishing (single image + caption, lib/services/meta/publish.ts).
  *
  * Still simulated, and labelled in the UI:
  *  - DMs: need webhooks on a public HTTPS domain → `sendDM` uses the mock.
- *  - Publishing: Meta fetches the image from a public HTTPS URL; local uploads
- *    aren't public, so `publishPost` uses the mock unless the URL is public.
  *  - Trends: the Graph API has no trending audio/hashtags → empty.
  */
 
@@ -91,7 +92,7 @@ function toCompetitorProfile(p: DiscoveredProfile): CompetitorProfile {
 }
 
 export class MetaInstagramService implements InstagramService {
-  /** Used for what Meta can't do yet (DMs, publishing from local storage) and for platform health. */
+  /** Used for what Meta can't do yet (DMs) and for platform health. */
   constructor(private readonly mock: InstagramService) {}
 
   private async synced(businessId: string) {
@@ -207,14 +208,13 @@ export class MetaInstagramService implements InstagramService {
 
   async publishPost(account: InstagramAccount, post: { caption: string; mediaUrl: string | null }) {
     const { igUserId, token } = requireConnection(account);
-    if (!isPublicHttpsUrl(post.mediaUrl)) {
-      // Meta downloads the media from a public HTTPS URL; local uploads aren't reachable yet.
-      console.info("[instagram:meta] publishing is simulated until media is hosted at a public HTTPS URL.");
-      return this.mock.publishPost(account, post);
-    }
+    // Meta downloads the image itself, so it must be public HTTPS (Vercel Blob, not local uploads).
+    if (!isPublicHttpsUrl(post.mediaUrl)) throw new InstagramPublishError("image_not_public");
     try {
-      return await publishImage(graphFor(account.businessId), igUserId, token, { imageUrl: post.mediaUrl, caption: post.caption });
+      const { mediaId } = await publishImage(graphFor(account.businessId), igUserId, token, { imageUrl: post.mediaUrl, caption: post.caption });
+      return { mediaId };
     } catch (error) {
+      if (error instanceof MetaPublishError) throw new InstagramPublishError(error.reason, error.detail);
       translate(error);
     }
   }

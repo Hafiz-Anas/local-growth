@@ -110,6 +110,7 @@ export const DRAFT_SELECT = {
   createdAt: true,
   imageUrl: true,
   imageSource: true,
+  publishError: true,
   author: { select: { id: true, name: true } },
 } satisfies Prisma.PostDraftSelect;
 
@@ -125,6 +126,7 @@ export function toDraft(row: Prisma.PostDraftGetPayload<{ select: typeof DRAFT_S
     createdAt: row.createdAt.toISOString(),
     createdBy: row.author,
     image: row.imageUrl && row.imageSource ? { url: row.imageUrl, source: row.imageSource === "GENERATED" ? "generated" : "uploaded" } : null,
+    publishError: row.publishError,
   };
 }
 

@@ -1,8 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { CalendarDays, Check, FlaskConical, Lightbulb, Loader2, Target, Trash2 } from "lucide-react";
-import { useFeature } from "@/components/providers/active-client-provider";
+import { CalendarDays, Check, FlaskConical, Lightbulb, Loader2, Send, Target, Trash2 } from "lucide-react";
+import { useActiveClient, useFeature } from "@/components/providers/active-client-provider";
 import { ChangeIndicator } from "@/components/shared/change-indicator";
 import { MediaPlaceholder } from "@/components/shared/media";
 import { SectionTitle } from "@/components/shared/page-header";
@@ -10,6 +11,7 @@ import { EmptyState, ErrorState, Skeleton, SkeletonCard } from "@/components/sha
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/ui/dialog";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn, formatDateTime, formatNumber, formatPct, hourLabel } from "@/lib/utils";
 import { apiFetch } from "@/lib/api/client";
@@ -26,6 +28,18 @@ export function ExperimentView() {
   const queryClient = useQueryClient();
   const experiment = useExperiment();
   const scheduled = useScheduled(showQueue);
+  const { client } = useActiveClient();
+  const [confirmPublish, setConfirmPublish] = useState<string | null>(null);
+
+  const publish = useAction({
+    mutationFn: (id: string) => apiFetch<{ published: boolean; mediaId: string }>(`/api/scheduled-posts/${id}/publish`, { method: "POST" }),
+    onSuccess: () => notify.success(t("publish.published")),
+    // On failure the post stays in the queue at its time; either way, refresh the queue and drafts.
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: qk.scheduled });
+      queryClient.invalidateQueries({ queryKey: qk.drafts });
+    },
+  });
 
   const apply = useAction({
     mutationFn: (window: PostWindow) =>
@@ -192,7 +206,17 @@ export function ExperimentView() {
                   <Badge variant={post.window === opportunity?.window ? "blue" : "neutral"} className="hidden sm:inline-flex">
                     {t(`windows.${post.window}`)}
                   </Badge>
-                  <Button variant="ghost" size="icon-sm" onClick={() => remove.mutate(post.id)} aria-label={t("common.remove")}>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => setConfirmPublish(post.id)}
+                    disabled={publish.isPending}
+                    aria-label={t("publish.now")}
+                    title={t("publish.now")}
+                  >
+                    {publish.isPending && publish.variables === post.id ? <Loader2 className="animate-spin" /> : <Send strokeWidth={1.75} />}
+                  </Button>
+                  <Button variant="ghost" size="icon-sm" onClick={() => remove.mutate(post.id)} disabled={publish.isPending && publish.variables === post.id} aria-label={t("common.remove")}>
                     <Trash2 strokeWidth={1.75} />
                   </Button>
                 </li>
@@ -201,6 +225,16 @@ export function ExperimentView() {
           )}
         </section>
       )}
+
+      <ConfirmDialog
+        open={confirmPublish !== null}
+        onOpenChange={(open) => !open && setConfirmPublish(null)}
+        title={t("publish.confirmTitle")}
+        description={t("publish.confirmBody", { handle: client.handle })}
+        confirmLabel={t("publish.confirm")}
+        cancelLabel={t("common.cancel")}
+        onConfirm={() => confirmPublish && publish.mutate(confirmPublish)}
+      />
     </div>
   );
 }

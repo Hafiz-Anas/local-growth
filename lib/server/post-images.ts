@@ -20,7 +20,7 @@ import { readUpload } from "./uploads";
  * A post draft's image: AI-generated (ImageService) or uploaded by the user.
  * A draft has at most one; each replaces the other. Files go through the
  * StorageService like other media, and the old file is deleted once nothing
- * uses it. Queued posts get the new image too. Nothing here publishes.
+ * uses it. Queued posts get the new image too. Publishing is lib/server/publishing.ts.
  */
 
 const STORAGE_PREFIX = "post-images";
@@ -44,7 +44,8 @@ async function setDraftImage(
   const row = await db.$transaction(async (tx) => {
     const updated = await tx.postDraft.update({
       where: { id: draft.id },
-      data: { imageUrl: image?.url ?? null, imageSource: image?.source ?? null, imagePrompt: image?.prompt ?? null },
+      // A new image may fix the last publish failure (no image, rejected image), so its note goes.
+      data: { imageUrl: image?.url ?? null, imageSource: image?.source ?? null, imagePrompt: image?.prompt ?? null, publishError: null },
       select: DRAFT_SELECT,
     });
     await tx.scheduledPost.updateMany({ where: { businessId, draftId: draft.id, status: "SCHEDULED" }, data: { mediaUrl: image?.url ?? null } });

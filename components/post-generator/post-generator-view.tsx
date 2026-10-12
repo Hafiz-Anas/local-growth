@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
-import { Check, Loader2, Palette, Pencil, RefreshCw, Sparkles, CalendarPlus, X } from "lucide-react";
+import { AlertCircle, Check, Loader2, Palette, Pencil, RefreshCw, Send, Sparkles, CalendarPlus, X } from "lucide-react";
 import { WINDOW_START_HOUR } from "@/config/schedule";
 import { useActiveClient, useFeature } from "@/components/providers/active-client-provider";
 import { PageHeader } from "@/components/shared/page-header";
@@ -12,8 +12,10 @@ import { ErrorState, Skeleton } from "@/components/shared/states";
 import { TagInput } from "@/components/shared/tag-input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { apiFetch } from "@/lib/api/client";
+import { publishReasonText } from "@/lib/api/errors";
 import { qk, useAction, useDrafts, useGeneratorOptions, useScheduled } from "@/lib/api/queries";
 import { useI18n } from "@/lib/i18n/provider";
 import { nextSlot } from "@/lib/time";
@@ -59,6 +61,7 @@ export function PostGeneratorView() {
   const [vocabularyEdit, setVocabularyEdit] = useState<string[] | null>(null);
   const [editing, setEditing] = useState<{ id: string; text: string } | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [confirmPublish, setConfirmPublish] = useState<string | null>(null);
 
   const replaceDraft = (draft: PostDraftDto) => queryClient.setQueryData<PostDraftDto[]>(qk.drafts, (list) => list?.map((d) => (d.id === draft.id ? draft : d)));
   const images = useDraftImages((draft) => {
@@ -132,6 +135,20 @@ export function PostGeneratorView() {
     },
   });
 
+  const publish = useAction({
+    mutationFn: (id: string) => apiFetch<{ published: boolean; mediaId: string }>(`/api/post-drafts/${id}/publish`, { method: "POST" }),
+    onSuccess: (_result, id) => {
+      queryClient.setQueryData<PostDraftDto[]>(qk.drafts, (list) => list?.map((d) => (d.id === id ? { ...d, status: "published" } : d)));
+      notify.success(t("publish.published"));
+    },
+    // Success or not, the draft and the queue changed on the server (a failed draft carries its reason).
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: qk.drafts });
+      queryClient.invalidateQueries({ queryKey: qk.scheduled });
+      queryClient.invalidateQueries({ queryKey: qk.experiment });
+    },
+  });
+
   if (options.isPending) return <GeneratorSkeleton />;
   if (options.isError) return <ErrorState error={options.error} onRetry={() => options.refetch()} />;
 
@@ -155,7 +172,6 @@ export function PostGeneratorView() {
   return (
     <div>
       <PageHeader title={t("generator.title")} subtitle={t("generator.subtitle")} />
-      {client.instagramProvider === "meta" && <p className="-mt-2 mb-4 rounded-card bg-secondary-bg px-3 py-2 text-caption text-muted">{t("instagramConnect.notes.publishing")}</p>}
 
       <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
         <Card className="h-fit lg:sticky lg:top-[calc(var(--topbar-height)+24px)]">
@@ -302,6 +318,12 @@ export function PostGeneratorView() {
                     }
                     footer={
                       <>
+                        {draft.publishError && (
+                          <p role="alert" className="flex items-start gap-1.5 border-t border-separator px-3 py-2 text-caption text-danger">
+                            <AlertCircle className="mt-px size-3.5 shrink-0" aria-hidden="true" />
+                            <span>{t("publish.failedNote", { reason: publishReasonText(draft.publishError, t) })}</span>
+                          </p>
+                        )}
                         <DraftImageToolbar draft={draft} images={images} disabled={isEditing} />
                         <div className="flex divide-x divide-separator rtl:divide-x-reverse border-t border-separator">
                           <FooterAction icon={Pencil} label={t("common.edit")} onClick={() => setEditing({ id: draft.id, text: draft.caption })} disabled={isEditing} />
@@ -324,6 +346,16 @@ export function PostGeneratorView() {
                               primary
                             />
                           )}
+                          {canQueue && (
+                            <FooterAction
+                              icon={publish.isPending && publish.variables === draft.id ? Loader2 : Send}
+                              spin={publish.isPending && publish.variables === draft.id}
+                              label={publish.isPending && publish.variables === draft.id ? t("publish.publishing") : t("publish.short")}
+                              onClick={() => setConfirmPublish(draft.id)}
+                              disabled={isEditing || publish.isPending}
+                              primary
+                            />
+                          )}
                         </div>
                       </>
                     }
@@ -334,6 +366,16 @@ export function PostGeneratorView() {
           )}
         </section>
       </div>
+
+      <ConfirmDialog
+        open={confirmPublish !== null}
+        onOpenChange={(open) => !open && setConfirmPublish(null)}
+        title={t("publish.confirmTitle")}
+        description={t("publish.confirmBody", { handle: client.handle })}
+        confirmLabel={t("publish.confirm")}
+        cancelLabel={t("common.cancel")}
+        onConfirm={() => confirmPublish && publish.mutate(confirmPublish)}
+      />
     </div>
   );
 }
@@ -401,13 +443,15 @@ function FooterAction({
       type="button"
       onClick={onClick}
       disabled={disabled}
+      title={label}
       className={cn(
         "flex min-h-14 min-w-0 flex-1 flex-col items-center justify-center gap-1 px-1.5 py-2 text-[11px] leading-3 font-semibold transition-colors hover:bg-hover disabled:opacity-60",
         primary ? "text-primary" : "text-foreground",
       )}
     >
       <Icon className={cn("size-4 shrink-0", spin && "animate-spin")} aria-hidden="true" />
-      <span className="max-w-full truncate">{label}</span>
+      {/* Up to two lines: five actions share a narrow card. */}
+      <span className="line-clamp-2 max-w-full text-center break-words hyphens-auto">{label}</span>
     </button>
   );
 }

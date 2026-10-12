@@ -51,6 +51,7 @@ Set these under **Project → Settings → Environment Variables**, scoped to **
 | `IMAGE_PROVIDER` | `gemini` (or `mock` for placeholder images) |
 | `GEMINI_API_KEY` | Google AI Studio key (needed when `IMAGE_PROVIDER="gemini"`) |
 | `RATE_LIMIT_STORE` | `memory` |
+| `CRON_SECRET` | New random secret (same command as `AUTH_SECRET`). Turns on scheduled publishing; see *Publishing to Instagram* below. Mark it **Sensitive**. |
 
 Optional: `GEMINI_IMAGE_MODEL`, and `META_OAUTH_RESPONSE_TYPE` (defaults to `code`).
 
@@ -101,6 +102,19 @@ https://<your-domain>/api/integrations/instagram/callback
 
 It must exactly match `META_REDIRECT_URI`. Also add your domain under **App settings → Basic → App domains**. Keep the `http://localhost:3000/...` URI if you still connect Instagram locally.
 
+### Publishing to Instagram
+
+Publishing uses the Instagram Graph API's single-image flow (create a container from the image URL and caption, wait until Instagram has processed it, then publish it). It needs:
+
+- **The `instagram_content_publish` permission.** The app already requests it at login. Businesses that connected before it was granted must reconnect. Until Meta approves it in **App Review** (Advanced Access), it only works for people with a role on the Meta app (admins, developers, testers) and their Instagram accounts.
+- **Public images.** `STORAGE_PROVIDER=vercel-blob` on a public Blob store. Instagram only accepts JPEGs between 4:5 and 1.91:1, so at publish time the app stores a converted, centre-cropped JPEG copy under `ig-publish/`, passes its URL to Meta, and deletes it afterwards.
+- **"Publish now"** (on a draft in the Post Generator, or a queued post) works as soon as Instagram is connected.
+- **Scheduled publishing** needs something to call `GET /api/cron/publish` with `Authorization: Bearer <CRON_SECRET>`, ideally every 5 minutes:
+  - **Vercel Pro:** add `"crons": [{ "path": "/api/cron/publish", "schedule": "*/5 * * * *" }]` to `vercel.json`. Vercel sends the `CRON_SECRET` header itself.
+  - **Vercel Hobby:** crons can run at most once a day there (and a more frequent schedule fails the deploy), so use an external scheduler instead, e.g. [cron-job.org](https://cron-job.org): URL `https://<your-domain>/api/cron/publish`, every 5 minutes, header `Authorization: Bearer <CRON_SECRET>`.
+
+  A post more than 6 hours late (scheduler down) isn't published late. It fails as "missed" and goes back to the drafts.
+
 ## 6. Create the first admin
 
 Production has no users, and the seed never runs there. Create one admin from your machine against Neon. The script inserts that one user, refuses to run if the email already exists, and never changes or deletes anything else. The password is read without echo and is never printed or logged.
@@ -142,3 +156,4 @@ Then sign in at `https://<your-domain>/login`.
 | **Local file storage** | The disk is read-only and per-instance. With `STORAGE_PROVIDER="vercel-blob"`, nothing writes to disk. `/api/uploads/*` only serves `local` files and just returns 404 on Vercel. | **Yes**, as long as `STORAGE_PROVIDER` is `vercel-blob`. |
 | **Mock-media colour extraction** | Reads `public/mock-media/*.svg` from disk for demo (`mock`) Instagram data. Those files may not be inside the function bundle, so it falls back to no colours. | **Yes.** It's demo-only, and the failure is silent. |
 | **Prisma client** | One client per function instance over Neon's pooler (PgBouncer). | **Yes.** |
+| **Publishing** | "Publish now" waits for Instagram inside the request (usually a few seconds, up to about 1 minute; `maxDuration` is 120 s). The cron publishes due posts one by one for up to 4 minutes per run, and the rest wait for the next run. | **Yes.** A run that dies mid-publish leaves the post "interrupted" (failed, with a note to check Instagram) instead of risking a double post. |

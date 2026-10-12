@@ -27,6 +27,8 @@ export type ApiErrorCode =
   | "ai_error"
   | "image_unavailable"
   | "email_unavailable"
+  /** details: [{ path: "reason", message: PublishReason }] (lib/server/publishing.ts) */
+  | "publish_failed"
   | "internal_error";
 
 /** Throw from route code (or guards); `handler()` turns it into the JSON error response. */

@@ -27,7 +27,7 @@ export const POST = handler(async (request) => {
   assertFuture(scheduledFor);
 
   const scheduled = await db.$transaction(async (tx) => {
-    await tx.postDraft.update({ where: { id: draftId }, data: { status: "QUEUED" } });
+    await tx.postDraft.update({ where: { id: draftId }, data: { status: "QUEUED", publishError: null } });
     const post = await tx.scheduledPost.create({ data: { businessId, draftId, scheduledFor, mediaUrl: mediaUrl ?? null }, select: SCHEDULED_SELECT });
     await logActivity({ businessId, userId: session.userId, action: "post.queued", details: { draftId, scheduledFor: scheduledFor.toISOString() } }, tx);
     return post;

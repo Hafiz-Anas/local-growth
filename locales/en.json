@@ -321,6 +321,35 @@
       }
     }
   },
+  "publish": {
+    "now": "Publish now",
+    "short": "Publish",
+    "confirmTitle": "Publish to Instagram now?",
+    "confirmBody": "The image and caption go live on @{handle} right away. You can delete the post on Instagram afterwards, but not from here.",
+    "confirm": "Publish",
+    "publishing": "Publishing…",
+    "published": "Published to Instagram.",
+    "failedNote": "Couldn't publish: {reason}",
+    "errors": {
+      "no_image": "Add an image first — Instagram needs one to publish a post.",
+      "caption_too_long": "The caption is too long for Instagram (2,200 characters max). Shorten it and try again.",
+      "too_many_hashtags": "Instagram allows up to 30 hashtags. Remove some and try again.",
+      "image_unreadable": "We couldn't read this image. Upload or generate it again.",
+      "image_not_public": "Publishing isn't set up on this server: images must be stored publicly (Vercel Blob).",
+      "image_unreachable": "Instagram couldn't download the image. Try again in a moment.",
+      "media_rejected": "Instagram didn't accept this image. Try a different image.",
+      "processing_timeout": "Instagram is still processing the image. Try again in a minute.",
+      "daily_limit": "This account reached Instagram's daily publishing limit. Try again tomorrow.",
+      "uncertain": "We couldn't confirm whether the post went out. Check Instagram before trying again.",
+      "not_connected": "Instagram isn't connected. Reconnect it in Settings and try again.",
+      "permission": "Instagram didn't give permission to publish. Reconnect Instagram and allow publishing.",
+      "rate_limited": "Instagram asked us to slow down. Try again in a few minutes.",
+      "feature_disabled": "Publishing is turned off for your plan.",
+      "missed_window": "The scheduled time passed while publishing was unavailable, so it wasn't posted late.",
+      "interrupted": "Publishing was interrupted. Check Instagram before trying again.",
+      "failed": "Something went wrong while publishing. Please try again."
+    }
+  },
   "experiment": {
     "title": "Posting Experiment",
     "question": "Is your posting strategy working?",
@@ -802,6 +831,7 @@
     "post_rescheduled": "rescheduled a post",
     "post_cancelled": "removed a scheduled post",
     "post_published": "published a post",
+    "post_publish_failed": "couldn't publish a post",
     "drafts_generated": "generated {count} caption drafts",
     "competitor_added": "started tracking @{handle}",
     "competitor_removed": "stopped tracking @{handle}",
@@ -1347,7 +1377,7 @@
       }
     },
     "notes": {
-      "publishing": "Publishing will be available after hosting. Until then, publishing is simulated.",
+      "publishing": "Posts are published to Instagram as one image with its caption. Images are converted to JPEG and centre-cropped if their shape is outside what Instagram allows (4:5 to 1.91:1).",
       "dms": "DM automation is simulated until it runs on a public HTTPS domain (Instagram webhooks).",
       "trends": "Trending audio and hashtags aren't available from Instagram's API, so these lists stay empty for your account."
     },
