@@ -26,7 +26,7 @@ import { WizardProvider } from "./wizard-context";
  * current step, so leaving and logging in again resumes in the same place.
  * Step openings and page closes are reported for the admin Onboarding page.
  */
-export function OnboardingWizard({ userName }: { userName: string }) {
+export function OnboardingWizard({ userName, verificationUnsent = false }: { userName: string; verificationUnsent?: boolean }) {
   const { t } = useI18n();
   const query = useOnboardingState();
   const step = query.data?.step ?? null;
@@ -54,7 +54,7 @@ export function OnboardingWizard({ userName }: { userName: string }) {
 
   return (
     <div className="flex min-h-dvh flex-col">
-      {query.data && !query.data.emailVerified && <VerifyEmailBanner email={query.data.email} />}
+      {query.data && !query.data.emailVerified && <VerifyEmailBanner email={query.data.email} sendFailed={verificationUnsent} />}
       <header className="sticky top-0 z-20 border-b border-border bg-background">
         <div className="mx-auto flex h-14 w-full max-w-[680px] items-center gap-2 px-4">
           <span className="inline-flex items-center gap-2">

@@ -23,6 +23,7 @@ import { apiFetch } from "@/lib/api/client";
 import { qk, useAction, useBrandVoice, useConnection, useNotifications } from "@/lib/api/queries";
 import { useMounted } from "@/lib/hooks";
 import { useI18n } from "@/lib/i18n/provider";
+import { normalizeTheme } from "@/lib/theme-script";
 import { cn, formatDateTime, timeAgo } from "@/lib/utils";
 import { notify } from "@/store/ui-store";
 import type { BrandVoiceDto, InstagramConnectionDto, MeDto, NotificationPrefs } from "@/types";
@@ -387,12 +388,11 @@ export function PreferencesCard() {
           <span className="text-body font-semibold">{t("settings.preferences.theme")}</span>
           <Segmented
             label={t("settings.preferences.theme")}
-            value={mounted ? (theme ?? "system") : "system"}
+            value={mounted ? normalizeTheme(theme) : "dark"}
             onChange={setTheme}
             options={[
               { value: "light", label: t("settings.preferences.light") },
               { value: "dark", label: t("settings.preferences.dark") },
-              { value: "system", label: t("settings.preferences.system") },
             ]}
           />
         </div>

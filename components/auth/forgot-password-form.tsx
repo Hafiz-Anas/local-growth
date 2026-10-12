@@ -8,7 +8,7 @@ import { emailSchema } from "@/lib/validation/auth";
 import { AuthCard, FloatingInput } from "./auth-parts";
 
 type Status = "idle" | "sending" | "sent";
-type FormError = "invalidEmail" | "rateLimited" | "generic";
+type FormError = "invalidEmail" | "rateLimited" | "emailUnavailable" | "generic";
 
 /** Step 1 of the reset flow: ask for the email, then confirm a link was sent. */
 export function ForgotPasswordForm({ showDevHint }: { showDevHint: boolean }) {
@@ -31,7 +31,7 @@ export function ForgotPasswordForm({ showDevHint }: { showDevHint: boolean }) {
         body: JSON.stringify({ email: parsed.data }),
       });
       if (res.ok) return setStatus("sent");
-      setError(res.status === 429 ? "rateLimited" : "generic");
+      setError(res.status === 429 ? "rateLimited" : res.status === 503 ? "emailUnavailable" : "generic");
     } catch {
       setError("generic");
     }

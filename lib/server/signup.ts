@@ -2,6 +2,7 @@ import "server-only";
 import { hashPassword } from "@/lib/auth/password";
 import { db } from "@/lib/db";
 import { Prisma, type Plan } from "@/lib/generated/prisma/client";
+import { EmailSendError } from "@/lib/services/email";
 import { logActivity } from "./activity";
 import { sendVerificationEmail } from "./email-verification";
 import { recordEvent } from "./onboarding";
@@ -23,9 +24,10 @@ export class EmailTakenError extends Error {}
  * Public sign-up: a USER and their Business (self sign-up, onboarding in
  * progress) on the admin-configured default plan, with that plan's preset
  * permissions. Sends the verification link; the user can onboard before
- * clicking it. Throws EmailTakenError for an address that already has an account.
+ * clicking it (`emailSent` is false when that email failed). Throws
+ * EmailTakenError for an address that already has an account.
  */
-export async function createSelfSignup(input: SignupInput, baseUrl: string): Promise<{ userId: string; businessId: string }> {
+export async function createSelfSignup(input: SignupInput, baseUrl: string): Promise<{ userId: string; businessId: string; emailSent: boolean }> {
   if (await db.user.findUnique({ where: { email: input.email }, select: { id: true } })) throw new EmailTakenError();
   const plan = await getSelfSignupPlan();
   const passwordHash = await hashPassword(input.password);
@@ -53,7 +55,7 @@ export async function createSelfSignup(input: SignupInput, baseUrl: string): Pro
           passwordHash,
           role: "USER",
           businessId: business.id,
-          uiPreferences: { sidebarCollapsed: false, theme: "system", language: input.language },
+          uiPreferences: { sidebarCollapsed: false, theme: "dark", language: input.language },
         },
         select: { id: true },
       });
@@ -67,7 +69,14 @@ export async function createSelfSignup(input: SignupInput, baseUrl: string): Pro
     throw error;
   }
 
-  // A failed email shouldn't undo the account — the banner offers "Resend".
-  await sendVerificationEmail(created.userId, baseUrl).catch((e) => console.error("[signup] verification email failed", e));
-  return created;
+  // A failed email shouldn't undo the account — the banner says so and offers "Resend".
+  // (EmailSendError is already logged without secrets by the email service.)
+  const emailSent = await sendVerificationEmail(created.userId, baseUrl).then(
+    () => true,
+    (error) => {
+      if (!(error instanceof EmailSendError)) console.error("[signup] verification email failed", error);
+      return false;
+    },
+  );
+  return { ...created, emailSent };
 }

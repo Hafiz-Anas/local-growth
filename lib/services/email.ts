@@ -1,37 +1,16 @@
 import "server-only";
+import { createResendClient, ResendEmailService } from "./mail/resend";
+import type { EmailService, EmailVerificationEmail, OnboardingInviteEmail, PasswordResetEmail } from "./mail/types";
 
 /**
  * Outgoing email. Routes and services depend on this interface only; pick the
- * implementation with EMAIL_PROVIDER. Add an SMTP/Resend/SES class here and a
- * case in `getEmailService()` to send real mail.
+ * implementation with EMAIL_PROVIDER: "console" (default, prints to the server
+ * log) or "resend" (RESEND_API_KEY + EMAIL_FROM). Templates and the Resend
+ * client are pure code in `lib/services/mail/` (tested in tests/email/).
+ * Every implementation throws EmailSendError on failure; `handler()` turns it
+ * into a friendly `email_unavailable` response.
  */
-export interface PasswordResetEmail {
-  to: string;
-  name: string;
-  resetUrl: string;
-  expiresAt: Date;
-}
-
-export interface EmailVerificationEmail {
-  to: string;
-  name: string;
-  verifyUrl: string;
-  expiresAt: Date;
-}
-
-/** Sent when an admin asks an existing client to set up their brand profile. */
-export interface OnboardingInviteEmail {
-  to: string;
-  name: string;
-  businessName: string;
-  loginUrl: string;
-}
-
-export interface EmailService {
-  sendPasswordReset(message: PasswordResetEmail): Promise<void>;
-  sendEmailVerification(message: EmailVerificationEmail): Promise<void>;
-  sendOnboardingInvite(message: OnboardingInviteEmail): Promise<void>;
-}
+export * from "./mail/types";
 
 /** Development: prints each message (with its link) to the server console. */
 export class ConsoleEmailService implements EmailService {
@@ -64,6 +43,14 @@ export function getEmailService(): EmailService {
     case "console":
       instance = new ConsoleEmailService();
       break;
+    case "resend": {
+      const apiKey = process.env.RESEND_API_KEY?.trim();
+      instance = new ResendEmailService({
+        client: apiKey ? createResendClient({ apiKey, apiBase: process.env.RESEND_API_BASE }) : null,
+        from: process.env.EMAIL_FROM,
+      });
+      break;
+    }
     default:
       throw new Error(`Unknown EMAIL_PROVIDER "${provider}".`);
   }

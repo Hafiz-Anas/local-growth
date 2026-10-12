@@ -12,7 +12,7 @@ import {
 } from "@/config/onboarding";
 import { db } from "@/lib/db";
 import type { CompetitorValidation as DbCompetitorValidation, OnboardingEventType as DbEventType, Prisma } from "@/lib/generated/prisma/client";
-import { getEmailService } from "@/lib/services/email";
+import { EmailSendError, emailLocale, getEmailService } from "@/lib/services/email";
 import { getInstagramService } from "@/lib/services/instagram";
 import type {
   AdminOnboardingBusinessDto,
@@ -354,7 +354,7 @@ export async function addOnboardingCompetitor(businessId: string, handle: string
 export async function inviteToOnboarding(businessId: string, actorId: string, baseUrl: string) {
   const business = await db.business.findUnique({
     where: { id: businessId },
-    select: { name: true, onboardingStatus: true, users: { where: { role: "USER", status: "ACTIVE" }, select: { email: true, name: true } } },
+    select: { name: true, onboardingStatus: true, users: { where: { role: "USER", status: "ACTIVE" }, select: { email: true, name: true, uiPreferences: true } } },
   });
   if (!business) throw notFound("Business");
   if (business.users.length === 0) throw new ApiError(409, "conflict", "This business has no login to invite.", [{ path: "users", message: "no_users" }]);
@@ -367,10 +367,17 @@ export async function inviteToOnboarding(businessId: string, actorId: string, ba
     await logActivity({ businessId, userId: actorId, action: "onboarding.invited", details: { recipients: business.users.length } }, tx);
   });
   const loginUrl = new URL("/login", baseUrl).toString();
+  // The invite itself is saved; a failed email (already logged) only lowers the count the admin sees.
+  let emailed = 0;
   for (const user of business.users) {
-    await getEmailService().sendOnboardingInvite({ to: user.email, name: user.name, businessName: business.name, loginUrl });
+    try {
+      await getEmailService().sendOnboardingInvite({ to: user.email, name: user.name, locale: emailLocale(user.uiPreferences), businessName: business.name, loginUrl });
+      emailed++;
+    } catch (error) {
+      if (!(error instanceof EmailSendError)) throw error;
+    }
   }
-  return { recipients: business.users.length };
+  return { recipients: business.users.length, emailed };
 }
 
 const FUNNEL_STEPS = [...EVENT_STEPS, "completed"] as const;

@@ -2,7 +2,8 @@ import type { FeatureKey } from "./permissions";
 
 export type Role = "admin" | "user";
 
-export type ThemePreference = "light" | "dark" | "system";
+/** Dark is the default; the old "system" value is read as dark (normalizeTheme). */
+export type ThemePreference = "light" | "dark";
 
 /** Stored in `User.uiPreferences`. */
 export interface UiPreferences {

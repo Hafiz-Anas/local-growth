@@ -1,17 +1,18 @@
 import "server-only";
 import { randomToken, sha256 } from "@/lib/crypto";
 import { db } from "@/lib/db";
-import { getEmailService } from "@/lib/services/email";
+import { emailLocale, getEmailService } from "@/lib/services/email";
 import { setPassword } from "./passwords";
 
 const TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
 
 /**
- * Starts a reset for the email if it belongs to an active user. Always resolves
- * the same way so callers can't tell whether the account exists.
+ * Starts a reset for the email if it belongs to an active user. Resolves the
+ * same way whether or not the account exists; throws EmailSendError only when
+ * the provider fails (the link stays unsent, the user can ask again).
  */
 export async function requestPasswordReset(email: string, baseUrl: string): Promise<void> {
-  const user = await db.user.findUnique({ where: { email }, select: { id: true, name: true, email: true, status: true } });
+  const user = await db.user.findUnique({ where: { email }, select: { id: true, name: true, email: true, status: true, uiPreferences: true } });
   if (!user || user.status !== "ACTIVE") return;
 
   const token = randomToken();
@@ -24,7 +25,7 @@ export async function requestPasswordReset(email: string, baseUrl: string): Prom
 
   const resetUrl = new URL("/reset-password", baseUrl);
   resetUrl.searchParams.set("token", token);
-  await getEmailService().sendPasswordReset({ to: user.email, name: user.name, resetUrl: resetUrl.toString(), expiresAt });
+  await getEmailService().sendPasswordReset({ to: user.email, name: user.name, locale: emailLocale(user.uiPreferences), resetUrl: resetUrl.toString(), expiresAt });
 }
 
 async function findUsableToken(token: string) {
@@ -57,7 +58,7 @@ export async function completePasswordReset(token: string, password: string): Pr
   return true;
 }
 
-/** Public base URL for links in emails. */
+/** Public base URL for links in emails: AUTH_URL (the live domain in production), else the request origin. */
 export function appBaseUrl(request: Request): string {
   return process.env.AUTH_URL ?? new URL(request.url).origin;
 }

@@ -21,6 +21,7 @@ const KNOWN = new Set([
   "instagram_error",
   "ai_error",
   "image_unavailable",
+  "email_unavailable",
   "network_error",
   "internal_error",
 ]);

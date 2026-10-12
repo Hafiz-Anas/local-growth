@@ -156,7 +156,8 @@
         "weak": "Use at least 8 characters, with a letter and a number.",
         "mismatch": "Passwords don't match.",
         "rateLimited": "Too many attempts. Please try again in a few minutes.",
-        "generic": "Something went wrong. Please try again."
+        "generic": "Something went wrong. Please try again.",
+        "emailUnavailable": "We couldn't send the reset email right now. Please try again in a few minutes."
       }
     },
     "sessionExpired": "Your session has expired or you were logged out. Please log in again.",
@@ -476,7 +477,6 @@
       "theme": "Theme",
       "light": "Light",
       "dark": "Dark",
-      "system": "System",
       "time": "Kuwait time",
       "timezone": "Asia/Kuwait · GMT+3"
     },
@@ -651,7 +651,8 @@
       "noUsers": "Add a login for this client first.",
       "details": "See onboarding details",
       "readOnly": "read-only",
-      "noBrand": "No brand profile built yet."
+      "noBrand": "No brand profile built yet.",
+      "inviteEmailFailed": "Invite saved, but the email couldn't be sent to {count} user(s). They'll still see the setup when they log in."
     },
     "integration": {
       "title": "Instagram integration",
@@ -760,7 +761,8 @@
     "ai_error": "We couldn't build your brand profile just now. Please try again in a moment.",
     "instagram_permission": "Instagram didn't give us permission for this. Reconnect Instagram and allow it.",
     "instagram_unavailable": "Connecting Instagram is temporarily unavailable. Please try again later.",
-    "image_unavailable": "Image generation is unavailable right now. Please try again later."
+    "image_unavailable": "Image generation is unavailable right now. Please try again later.",
+    "email_unavailable": "We couldn't send the email right now. Please try again in a few minutes."
   },
   "states": {
     "loadFailed": "Couldn't load this",
@@ -874,9 +876,10 @@
       "title": "Verify your email.",
       "body": "We sent you a link to confirm your address.",
       "bodyWithEmail": "We sent a link to {email}.",
-      "resend": "Resend",
+      "resend": "Resend verification email",
       "resent": "Sent",
-      "sent": "We've sent a new verification link."
+      "sent": "We've sent a new verification link.",
+      "notSent": "We couldn't send your verification email. Use “Resend verification email” to try again."
     }
   },
   "welcome": {
@@ -1356,6 +1359,36 @@
       "pages_show_list": "your Facebook Pages",
       "pages_read_engagement": "your Page's content",
       "business_management": "your business portfolio"
+    }
+  },
+  "email": {
+    "common": {
+      "greeting": "Hi {name},",
+      "buttonFallback": "If the button doesn't work, copy and paste this link into your browser:",
+      "expiresHours": "This link expires in {count} hours.",
+      "expiresMinutes": "This link expires in {count} minutes.",
+      "footer": "{product} · by {company}"
+    },
+    "verify": {
+      "subject": "Confirm your email for {product}",
+      "preheader": "One click to confirm your email address.",
+      "body": "Thanks for signing up for {product}. Please confirm your email address so we can keep your account secure.",
+      "button": "Verify email",
+      "ignore": "If you didn't create an account, you can safely ignore this email."
+    },
+    "reset": {
+      "subject": "Reset your {product} password",
+      "preheader": "Use this link to choose a new password.",
+      "body": "We received a request to reset the password for your {product} account. Click the button below to choose a new one.",
+      "button": "Reset password",
+      "ignore": "If you didn't ask to reset your password, you can ignore this email — your password won't change."
+    },
+    "invite": {
+      "subject": "Set up the brand profile for {business}",
+      "preheader": "Your {product} account is ready for a quick setup.",
+      "body": "You've been invited to set up the brand profile for {business} on {product}.",
+      "body2": "It only takes a few minutes. Once it's done, your captions and replies will follow your brand's style.",
+      "button": "Log in to get started"
     }
   }
 }

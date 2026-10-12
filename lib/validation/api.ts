@@ -9,6 +9,7 @@ import {
   ONBOARDING_STEPS,
   POST_PURPOSES,
 } from "@/config/onboarding";
+import { normalizeTheme } from "@/lib/theme-script";
 import { emailSchema, newPasswordSchema } from "./auth";
 
 /** Input schemas for the API routes (shared with the UI for form validation). */
@@ -28,14 +29,15 @@ export const handleSchema = z
 
 export const uiPreferencesSchema = z.object({
   sidebarCollapsed: z.boolean().default(false),
-  theme: z.enum(["light", "dark", "system"]).default("system"),
+  // "system" (the old default) and anything missing are read as dark.
+  theme: z.enum(["light", "dark", "system"]).default("dark").transform(normalizeTheme),
   language: z.enum(["en", "ar"]).default("en"),
 });
 
 export const uiPreferencesPatchSchema = z
   .object({
     sidebarCollapsed: z.boolean(),
-    theme: z.enum(["light", "dark", "system"]),
+    theme: z.enum(["light", "dark", "system"]).transform(normalizeTheme),
     language: z.enum(["en", "ar"]),
   })
   .partial()

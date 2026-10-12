@@ -4,7 +4,9 @@ import { requireSession } from "@/lib/auth/server";
 
 export const metadata: Metadata = { title: "Set up your business" };
 
-export default async function OnboardingPage() {
+export default async function OnboardingPage({ searchParams }: PageProps<"/onboarding">) {
   const session = await requireSession();
-  return <OnboardingWizard userName={session.name} />;
+  // Set by sign-up when the verification email could not be sent.
+  const verificationUnsent = (await searchParams).verification === "unsent";
+  return <OnboardingWizard userName={session.name} verificationUnsent={verificationUnsent} />;
 }

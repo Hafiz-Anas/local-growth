@@ -1,8 +1,10 @@
 import type { Metadata, Viewport } from "next";
+import { cookies } from "next/headers";
 import { Inter } from "next/font/google";
 import { AppProviders } from "@/components/providers/app-providers";
 import { SIDEBAR_INIT_SCRIPT } from "@/lib/sidebar-script";
-import { SITE } from "@/config/site";
+import { THEME_INIT_SCRIPT, normalizeTheme } from "@/lib/theme-script";
+import { COOKIES, SITE } from "@/config/site";
 import { directionOf } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n/server";
 import "./globals.css";
@@ -15,26 +17,29 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#000000" },
-  ],
+  // Dark by default (see lib/theme-script.ts).
+  themeColor: "#000000",
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   const locale = await getLocale();
+  // Rendered on the server too, so even the HTML before any script runs has the right theme.
+  const theme = normalizeTheme((await cookies()).get(COOKIES.theme)?.value);
   return (
-    <html lang={locale} dir={directionOf(locale)} className={inter.variable} suppressHydrationWarning>
+    <html lang={locale} dir={directionOf(locale)} className={`${inter.variable} ${theme}`} style={{ colorScheme: theme }} suppressHydrationWarning>
       {/*
         Browser extensions add attributes to <head> and <body> before hydration (e.g. LocatorJS's
         data-locator-hook-status-message, ColorZilla's cz-shortcut-listen). This only silences
         attribute mismatches on these two elements, not in their children.
       */}
       <head suppressHydrationWarning>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <script dangerouslySetInnerHTML={{ __html: SIDEBAR_INIT_SCRIPT }} />
       </head>
       <body suppressHydrationWarning>
-        <AppProviders locale={locale}>{children}</AppProviders>
+        <AppProviders locale={locale} theme={theme}>
+          {children}
+        </AppProviders>
       </body>
     </html>
   );

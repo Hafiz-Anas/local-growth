@@ -6,7 +6,8 @@ import { apiFetch } from "@/lib/api/client";
 import { useMounted } from "@/lib/hooks";
 import { useI18n } from "@/lib/i18n/provider";
 import { setSidebarCollapsed, useSidebarCollapsed } from "@/lib/sidebar";
-import type { ThemePreference, UiPreferences } from "@/types";
+import { normalizeTheme } from "@/lib/theme-script";
+import type { UiPreferences } from "@/types";
 
 /**
  * Keeps theme, language and sidebar state in the user's account.
@@ -27,14 +28,14 @@ export function PreferencesSync({ saved }: { saved: UiPreferences }) {
   useEffect(() => {
     if (!mounted || applied.current) return;
     applied.current = true;
-    if (saved.theme !== theme) setTheme(saved.theme);
+    if (normalizeTheme(saved.theme) !== theme) setTheme(normalizeTheme(saved.theme));
     if (saved.sidebarCollapsed !== collapsed) setSidebarCollapsed(saved.sidebarCollapsed);
     if (saved.language !== locale) setLocale(saved.language);
   }, [mounted, saved, theme, collapsed, locale, setTheme, setLocale]);
 
   useEffect(() => {
     if (!applied.current || !theme) return;
-    const current: UiPreferences = { theme: theme as ThemePreference, language: locale, sidebarCollapsed: collapsed };
+    const current: UiPreferences = { theme: normalizeTheme(theme), language: locale, sidebarCollapsed: collapsed };
     const patch = Object.fromEntries(
       (Object.keys(current) as Array<keyof UiPreferences>).filter((k) => current[k] !== lastSaved.current[k]).map((k) => [k, current[k]]),
     );

@@ -9,8 +9,11 @@ import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 import { notify } from "@/store/ui-store";
 
-/** Shown until the address is verified; "Resend" emails a new link. */
-export function VerifyEmailBanner({ email, className }: { email?: string; className?: string }) {
+/**
+ * Shown until the address is verified; "Resend verification email" sends a new
+ * link (3 per 15 minutes). `sendFailed`: sign-up could not send the first email.
+ */
+export function VerifyEmailBanner({ email, sendFailed = false, className }: { email?: string; sendFailed?: boolean; className?: string }) {
   const { t } = useI18n();
   const [sent, setSent] = useState(false);
   const resend = useMutation<{ sent: boolean }, ApiClientError>({
@@ -28,7 +31,11 @@ export function VerifyEmailBanner({ email, className }: { email?: string; classN
       <MailWarning className="size-4 shrink-0 text-warning" aria-hidden="true" />
       <p className="min-w-0 flex-1">
         <span className="font-semibold">{t("verifyEmail.banner.title")}</span>{" "}
-        {email ? t("verifyEmail.banner.bodyWithEmail", { email }) : t("verifyEmail.banner.body")}
+        {sendFailed && !sent
+          ? t("verifyEmail.banner.notSent")
+          : email
+            ? t("verifyEmail.banner.bodyWithEmail", { email })
+            : t("verifyEmail.banner.body")}
       </p>
       <button
         type="button"

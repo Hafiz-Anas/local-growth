@@ -8,6 +8,7 @@ import { HOME_BY_ROLE } from "@/config/navigation";
 import { COOKIES } from "@/config/site";
 import { db } from "@/lib/db";
 import { getLocale } from "@/lib/i18n/server";
+import { normalizeTheme } from "@/lib/theme-script";
 import { SIGNUP_LIMIT, clientIp, getRateLimiter } from "@/lib/server/rate-limit";
 import { EmailTakenError, createSelfSignup } from "@/lib/server/signup";
 import { recordError } from "@/lib/server/onboarding";
@@ -40,11 +41,13 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
     throw error;
   }
   const user = await db.user.findUnique({ where: { email: email.toLowerCase() }, select: { role: true, uiPreferences: true } });
-  // The saved language applies from the first page; theme and sidebar are applied in the browser.
-  const language = (user?.uiPreferences as { language?: unknown } | null)?.language;
-  if (language === "en" || language === "ar") {
-    (await cookies()).set(COOKIES.locale, language, { path: "/", maxAge: 60 * 60 * 24 * 365, sameSite: "lax" });
+  // The saved language and theme apply from the first page (no flash); the sidebar is applied in the browser.
+  const prefs = user?.uiPreferences as { language?: unknown; theme?: unknown } | null;
+  const store = await cookies();
+  if (prefs?.language === "en" || prefs?.language === "ar") {
+    store.set(COOKIES.locale, prefs.language, { path: "/", maxAge: 60 * 60 * 24 * 365, sameSite: "lax" });
   }
+  store.set(COOKIES.theme, normalizeTheme(prefs?.theme), { path: "/", maxAge: 60 * 60 * 24 * 365, sameSite: "lax" });
   // Straight to the role's home page (redirecting via "/" left the address bar on "/").
   redirect(HOME_BY_ROLE[user?.role === "ADMIN" ? "admin" : "user"]);
 }
@@ -85,8 +88,9 @@ export async function signupAction(_prev: SignupState, formData: FormData): Prom
 
   const origin = process.env.AUTH_URL ?? `${requestHeaders.get("x-forwarded-proto") ?? "http"}://${requestHeaders.get("host")}`;
   let businessId: string;
+  let emailSent: boolean;
   try {
-    ({ businessId } = await createSelfSignup({ ...parsed.data, language: await getLocale() }, origin));
+    ({ businessId, emailSent } = await createSelfSignup({ ...parsed.data, language: await getLocale() }, origin));
   } catch (error) {
     if (error instanceof EmailTakenError) return { error: "email_taken", fields: ["email"], values };
     console.error("[signup] failed", error);
@@ -102,7 +106,7 @@ export async function signupAction(_prev: SignupState, formData: FormData): Prom
     if (error instanceof AuthError) redirect("/login");
     throw error;
   }
-  redirect("/onboarding");
+  redirect(emailSent ? "/onboarding" : "/onboarding?verification=unsent");
 }
 
 export async function logoutAction() {

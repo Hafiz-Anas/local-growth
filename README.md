@@ -115,7 +115,7 @@ All variables are listed in `.env.example`.
 | `AUTH_SECRET` | Signs/encrypts the session cookie (Auth.js) |
 | `AUTH_URL` | Public URL of the app — used in password-reset links |
 | `ENCRYPTION_KEY` | 32-byte base64 key for AES-256-GCM encryption of Instagram tokens |
-| `EMAIL_PROVIDER`, `EMAIL_FROM` | Email implementation (`console`) and sender |
+| `EMAIL_PROVIDER`, `EMAIL_FROM`, `RESEND_API_KEY` | Email implementation (`console` or `resend`), sender, and Resend key (see DEPLOY.md) |
 | `INSTAGRAM_PROVIDER` | How new Instagram connections are made: `mock` or `meta` (existing connections keep their provider) |
 | `META_APP_ID`, `META_APP_SECRET`, `META_REDIRECT_URI`, `META_GRAPH_VERSION` | Meta app for Facebook Login / Graph API (see [Meta / Instagram integration](#meta--instagram-integration)); Meta stays off while the secret is empty |
 | `AI_PROVIDER` | Caption/reply generation (`mock`) |
@@ -239,7 +239,7 @@ Real Instagram data comes through **"Instagram API with Facebook Login"** (Faceb
 | Competitor validation (`lookupBusinessAccount`) for mock connections | Handle prefixes decide the status (see *Self-onboarding*) | Real for Meta connections (business discovery) |
 | Instagram posts in the post picker for mock connections | Generated posts with stand-in images from `public/mock-media` (`node scripts/generate-mock-media.mjs`) | Real for Meta connections (synced posts) |
 | Product catalogue for the Post Generator | `lib/services/catalog.ts` reads `mock-data/`; other businesses use their onboarding products and post purposes | A table or the AI provider |
-| Email | `ConsoleEmailService` prints messages (reset links) to the server log | Implement `EmailService` (SMTP, Resend, SES …), set `EMAIL_PROVIDER` |
+| Email | `ConsoleEmailService` prints messages (reset links) to the server log; `EMAIL_PROVIDER="resend"` sends real HTML + text emails (EN/AR) through Resend | Set `RESEND_API_KEY` and a verified `EMAIL_FROM` |
 | File storage | `LocalStorageService` writes to `UPLOAD_DIR`, served by `/api/uploads/*`; `VercelBlobStorageService` for production | Set `STORAGE_PROVIDER="vercel-blob"` (see [DEPLOY.md](DEPLOY.md)) |
 | Rate limits | In-memory (`RATE_LIMIT_STORE="memory"`) — resets on restart, single instance only | Add a Redis `RateLimiter` |
 
