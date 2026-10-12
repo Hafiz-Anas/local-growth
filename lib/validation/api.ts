@@ -140,7 +140,7 @@ export const updateRuleSchema = z
   .strict()
   .refine((v) => Object.keys(v).length > 0, "Nothing to update.");
 
-export const replyStatusQuery = z.object({ status: z.enum(["pending", "approved", "dismissed", "posted"]).optional() });
+export const replyStatusQuery = z.object({ status: z.enum(["pending", "approved", "dismissed", "posted", "expired"]).optional() });
 
 export const editReplySchema = z.object({ draftReply: text(2200) });
 

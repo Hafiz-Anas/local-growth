@@ -9,8 +9,12 @@ import { META_SCOPES, type MetaScope } from "./config";
  *   rate_limited    4, 17, 32, 613, 341, 80001–80014          back off (retry or cool down), never hammer
  *   not_found       100/33, 110, 24                           caller decides (e.g. competitor not found)
  *   transient       1, 2, HTTP 5xx, network errors            retry once
- *   invalid_request 100 (other subcodes)                      log, fail the call
+ *   invalid_request 100 (other subcodes),                     log, fail the call
+ *                   10/2534022 + 10/2018278 (DM outside the 24-hour window — not a permission problem)
  */
+
+/** "(#10) This message is sent outside of allowed window" (Instagram / Messenger). */
+const OUTSIDE_WINDOW_SUBCODES = new Set([2534022, 2018278]);
 
 export interface GraphErrorBody {
   message?: string;
@@ -30,6 +34,7 @@ export function classifyGraphError(error: GraphErrorBody, httpStatus?: number): 
   const code = error.code ?? -1;
   if (code === 190 || code === 102) return "token_invalid";
   if (RATE_LIMIT_CODES.has(code) || (code >= 80001 && code <= 80014)) return "rate_limited";
+  if (code === 10 && OUTSIDE_WINDOW_SUBCODES.has(error.error_subcode ?? -1)) return "invalid_request";
   if (code === 10 || (code >= 200 && code <= 299)) return "permission";
   if (code === 110 || code === 24 || (code === 100 && error.error_subcode === 33)) return "not_found";
   if (code === 1 || code === 2 || (httpStatus !== undefined && httpStatus >= 500)) return "transient";

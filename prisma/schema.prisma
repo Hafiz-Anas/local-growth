@@ -75,6 +75,14 @@ enum ReplyDraftStatus {
   APPROVED
   DISMISSED
   POSTED
+  /// DM drafts only: Instagram's 24-hour reply window closed before it was sent.
+  EXPIRED
+}
+
+/// Where an AI reply draft goes: a public reply to a comment, or a direct message.
+enum ReplyChannel {
+  COMMENT
+  DM
 }
 
 enum OnboardingStatus {
@@ -223,6 +231,7 @@ model Business {
   accountSnapshots    InstagramAccountSnapshot[]
   integrationEvents   IntegrationEvent[]
   metaPending         MetaPendingConnection?
+  directMessages      InstagramDirectMessage[]
 }
 
 /// One row per (business, feature key). A sub-feature ("engagement.dmRules") is
@@ -270,6 +279,8 @@ model InstagramConnection {
   /// Set while a sync runs (stale after 10 minutes) so two syncs don't overlap.
   syncStartedAt        DateTime?
   lastSyncError        String?
+  /// Meta only: when the linked Facebook Page was subscribed to this app's messaging webhooks.
+  webhookSubscribedAt  DateTime?
 
   business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 }
@@ -608,8 +619,10 @@ model EngagementRule {
 model ReplyDraft {
   id                 String           @id @default(cuid())
   businessId         String
-  /// Instagram comment id.
+  channel            ReplyChannel     @default(COMMENT)
+  /// COMMENT: the Instagram comment id. DM: the id (mid) of the first message the draft answers.
   commentId          String
+  /// COMMENT: the comment. DM: the customer's message(s) since the last reply.
   commentText        String
   commenterUsername  String
   commenterAvatarUrl String?
@@ -617,12 +630,39 @@ model ReplyDraft {
   status             ReplyDraftStatus @default(PENDING)
   reviewedBy         String?
   createdAt          DateTime         @default(now())
+  /// DM only: the customer's Instagram-scoped id (IGSID), the reply's recipient.
+  recipientId        String?
+  /// DM only: when the customer last wrote. Instagram accepts replies for 24 hours after it.
+  lastMessageAt      DateTime?
 
   business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
   reviewer User?    @relation("ReplyReviewer", fields: [reviewedBy], references: [id], onDelete: SetNull)
 
   @@unique([businessId, commentId])
   @@index([businessId, status, createdAt])
+  @@index([businessId, channel, recipientId, status])
+}
+
+/// Instagram direct messages received through the messaging webhook (and the business's own, as echoes).
+model InstagramDirectMessage {
+  id           String   @id @default(cuid())
+  businessId   String
+  /// Meta's message id (mid); webhooks can be delivered more than once.
+  igMessageId  String
+  /// The customer's Instagram-scoped id (IGSID) — the other side of the conversation.
+  customerId   String
+  customerUsername String?
+  /// True for messages the business sent (webhook echoes, or replies sent from the app).
+  fromBusiness Boolean  @default(false)
+  /// Text, or a short placeholder such as "[attachment]" for media.
+  text         String
+  sentAt       DateTime
+  createdAt    DateTime @default(now())
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, igMessageId])
+  @@index([businessId, customerId, sentAt])
 }
 
 // ─── Security & audit ────────────────────────────────────────────────────────

@@ -29,6 +29,10 @@ export type ApiErrorCode =
   | "email_unavailable"
   /** details: [{ path: "reason", message: PublishReason }] (lib/server/publishing.ts) */
   | "publish_failed"
+  /** A DM reply after Instagram's 24-hour window (lib/server/instagram-dm.ts). */
+  | "dm_window_closed"
+  /** details: [{ path: "reason", message: "recipient_unavailable" | "message_rejected" | "too_long" }] */
+  | "dm_failed"
   | "internal_error";
 
 /** Throw from route code (or guards); `handler()` turns it into the JSON error response. */

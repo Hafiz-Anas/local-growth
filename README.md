@@ -210,7 +210,9 @@ Real Instagram data comes through **"Instagram API with Facebook Login"** (Faceb
 
 **Publishing** (single image + caption; no carousels, video, reels or stories yet): "Publish now" on a draft or a queued post, and queued posts at their time through `GET /api/cron/publish` (needs `CRON_SECRET`, see DEPLOY.md). `lib/server/publishing.ts` claims the post, converts the image to a JPEG Instagram accepts (centre-cropped to 4:5–1.91:1, `lib/services/images/instagram-fit.ts`), stores that copy publicly, then `lib/services/meta/publish.ts` creates the container, polls `status_code` until `FINISHED` (60 s timeout) and publishes it. Needs `STORAGE_PROVIDER=vercel-blob` (Meta downloads the image) and the `instagram_content_publish` permission. Failures get a reason code (no image, image rejected, daily limit, token revoked, …): the user sees it in their language, and it's logged to the integration log and kept on the draft.
 
-**Still simulated with a Meta connection** (labelled in the app): DM automation — needs webhooks on a public HTTPS domain; trending audio/hashtags — not in the Graph API.
+**DM replies:** Meta POSTs each Instagram DM to `/api/webhooks/instagram`. The app checks `X-Hub-Signature-256` against `META_APP_SECRET`, answers 200 at once, and processes the message after responding (`lib/server/instagram-dm.ts`). It finds the business by its Instagram account and, if **AI replies** (`engagement.aiReplies`) is on, stores the message and drafts a reply with the same `AIService.draftReply` the comment replies use (one pending draft per conversation). As with comments, nothing is sent until someone approves it on the Engagement page; then it goes out via `POST /me/messages`. Drafts older than Instagram's 24-hour reply window expire. Setup steps: DEPLOY.md → *Instagram DM replies*. Without Meta, `npm run simulate-dm -- --handle <instagram handle> --text "…"` sends a correctly signed fake DM to the local app.
+
+**Still simulated with a Meta connection** (labelled in the app): keyword DM rules (comment → DM) — need Meta's private-replies API; trending audio/hashtags — not in the Graph API.
 
 **Tests:** `npm test` runs the mapping and client tests in `tests/meta/` against recorded sample responses (`tests/meta/fixtures.json`: success, several Pages, no Page, expired token, rate limits, permission errors, business discovery not found, unsupported metrics), plus the publishing flow (`tests/meta/publish.test.ts`) and image fitting (`tests/images/`).
 
@@ -235,7 +237,7 @@ Real Instagram data comes through **"Instagram API with Facebook Login"** (Faceb
 | Area | Mock today | To go live |
 |---|---|---|
 | Instagram for demo/mock connections — profile numbers, insights, comments, trends, competitor profiles | `MockInstagramService` serves `mock-data/` (new businesses get empty data); mock "connect" approves instantly | Connect through Facebook (`INSTAGRAM_PROVIDER=meta`): `MetaInstagramService` is real |
-| Instagram with a Meta connection — DM automation, trends, API health | DMs simulated (need webhooks); no trends; health is mock | Webhooks |
+| Instagram with a Meta connection — keyword DM rules, trends, API health | Keyword DM rules simulated (DM *replies* and publishing are real); no trends; health is mock | Private-replies API |
 | AI captions and reply drafts | `MockAIService` fills caption templates with brand words and the brand context | Implement `AIService` (e.g. Claude), set `AI_PROVIDER` |
 | Brand profile (`buildBrandContext`) | Template sentences built from the onboarding answers | Same interface, real model |
 | Competitor validation (`lookupBusinessAccount`) for mock connections | Handle prefixes decide the status (see *Self-onboarding*) | Real for Meta connections (business discovery) |

@@ -4,15 +4,18 @@ import { REPLY_SELECT, toReply } from "@/lib/server/dto";
 import { requireFeature } from "@/lib/server/guards";
 import { ApiError, handler, ok, readJson, readParams } from "@/lib/server/http";
 import { getInstagramAccount } from "@/lib/server/instagram-account";
+import { sendDmReply } from "@/lib/server/instagram-dm";
 import { instagramApiError } from "@/lib/server/instagram-errors";
 import { findPendingReply } from "@/lib/server/replies";
 import { InstagramNotConnectedError, getInstagramService } from "@/lib/services/instagram";
 import { approveReplySchema } from "@/lib/validation/api";
 
 /**
- * POST /api/reply-drafts/:id/approve — approve and post the reply on Instagram.
+ * POST /api/reply-drafts/:id/approve — approve and post the reply on Instagram:
+ * under the comment, or as a direct message for DM drafts (lib/server/instagram-dm.ts).
  * The draft is claimed (PENDING → APPROVED) before posting so a double click
- * can't post twice; it becomes POSTED on success, or goes back to PENDING.
+ * can't post twice; it becomes POSTED on success, or goes back to PENDING
+ * (a DM whose 24-hour window closed becomes EXPIRED).
  */
 export const POST = handler(async (request, context: RouteContext<"/api/reply-drafts/[id]/approve">) => {
   const { businessId, session } = await requireFeature("engagement.aiReplies");
@@ -26,6 +29,11 @@ export const POST = handler(async (request, context: RouteContext<"/api/reply-dr
 
   const claimed = await db.replyDraft.updateMany({ where: { id, status: "PENDING" }, data: { status: "APPROVED", reviewedBy: session.userId, draftReply: text } });
   if (claimed.count !== 1) throw new ApiError(409, "conflict", "This reply has already been handled.");
+
+  if (reply.channel === "DM") {
+    await sendDmReply({ businessId, draftId: id, recipientId: reply.recipientId ?? "", lastMessageAt: reply.lastMessageAt, text, userId: session.userId });
+    return ok(toReply(await db.replyDraft.findUniqueOrThrow({ where: { id }, select: REPLY_SELECT })));
+  }
 
   try {
     await getInstagramService().replyToComment(account, reply.commentId, text);

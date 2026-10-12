@@ -2,8 +2,9 @@ import "server-only";
 import type { CompetitorPost, TrendingAudio, TrendingTag, FollowerPoint, MetricValue, WindowResult, PostWindow, ServiceHealth } from "@/types";
 import type { CompetitorValidation, InstagramProfileDto, MediaDto } from "@/types";
 import { MetaInstagramService } from "./instagram.meta";
-import type { PublishFailureReason } from "./meta/publish";
 import { MockInstagramService } from "./instagram.mock";
+import type { MessagingFailureReason } from "./meta/messaging";
+import type { PublishFailureReason } from "./meta/publish";
 
 /**
  * Instagram data and actions. Routes depend on this interface only.
@@ -118,7 +119,17 @@ export interface InstagramService {
   getMedia(account: InstagramAccount, options?: { limit?: number }): Promise<MediaDto[]>;
   getComments(account: InstagramAccount): Promise<InstagramComment[]>;
   replyToComment(account: InstagramAccount, commentId: string, text: string): Promise<{ id: string }>;
+  /** Keyword-rule DMs to a commenter (simulated for every provider; Meta needs the private-replies API). */
   sendDM(account: InstagramAccount, username: string, text: string): Promise<{ id: string }>;
+  /**
+   * Replies in an existing Instagram DM conversation. `recipientId` is the customer's
+   * Instagram-scoped id from the messaging webhook. Throws InstagramMessagingError
+   * (window closed, recipient unavailable, rejected), InstagramNotConnectedError,
+   * InstagramPermissionError or InstagramRateLimitedError.
+   */
+  replyToMessage(account: InstagramAccount, recipientId: string, text: string): Promise<{ id: string }>;
+  /** Username and picture of the person behind an Instagram-scoped id, or null when unknown. */
+  getMessagingProfile(account: InstagramAccount, recipientId: string): Promise<{ username: string | null; avatarUrl: string | null } | null>;
   /**
    * Publishes one image with its caption. The real implementation needs `mediaUrl`
    * to be a public HTTPS JPEG (lib/server/publishing.ts prepares one) and throws
@@ -175,6 +186,17 @@ export class InstagramPublishError extends Error {
   }
 }
 
+/** Thrown by `replyToMessage` when Instagram didn't deliver the DM. */
+export class InstagramMessagingError extends Error {
+  constructor(
+    readonly reason: MessagingFailureReason,
+    /** Meta's own wording (English), for the integration log. */
+    readonly detail = "",
+  ) {
+    super(`Instagram didn't deliver the message (${reason}).`);
+  }
+}
+
 /** Thrown when Meta asked us to slow down; `retryAfterMs` when known. */
 export class InstagramRateLimitedError extends Error {
   constructor(readonly retryAfterMs: number | null) {
@@ -210,6 +232,12 @@ class RoutingInstagramService implements InstagramService {
   }
   sendDM(account: InstagramAccount, username: string, text: string) {
     return this.for(account).sendDM(account, username, text);
+  }
+  replyToMessage(account: InstagramAccount, recipientId: string, text: string) {
+    return this.for(account).replyToMessage(account, recipientId, text);
+  }
+  getMessagingProfile(account: InstagramAccount, recipientId: string) {
+    return this.for(account).getMessagingProfile(account, recipientId);
   }
   publishPost(account: InstagramAccount, post: { caption: string; mediaUrl: string | null }) {
     return this.for(account).publishPost(account, post);

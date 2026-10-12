@@ -10,6 +10,7 @@ import { MetaApiError } from "@/lib/services/meta/errors";
 import { toPageOption, type PageCandidate, type TokenInfo } from "@/lib/services/meta/mappers";
 import type { MetaConnectOutcome, MetaPageOptionDto } from "@/types";
 import { logActivity } from "./activity";
+import { ensureWebhookSubscription } from "./instagram-dm";
 import { logIntegration } from "./integration-log";
 import { syncInstagram } from "./instagram-sync";
 import { graphFor } from "./meta-client";
@@ -239,6 +240,8 @@ async function connectCandidate(ctx: ConnectContext, grant: UserGrant, page: Pag
     connectedAt: now,
     lastSyncError: null,
     syncStartedAt: null,
+    // A new login may be a different Page: subscribe it to the DM webhooks again.
+    webhookSubscribedAt: null,
   };
   const previous = await db.instagramConnection.findUnique({ where: { businessId }, select: { igAccountKey: true } });
   await db.$transaction(async (tx) => {
@@ -265,6 +268,7 @@ async function connectCandidate(ctx: ConnectContext, grant: UserGrant, page: Pag
   // Profile + posts before the user lands back (the wizard needs them); insights and comments right after.
   await syncInstagram(businessId, { scope: "basic", reason: "connect" }).catch((e) => console.error("[meta] initial sync failed", (e as Error).message));
   after(() => syncInstagram(businessId, { scope: "deferred", reason: "connect" }).catch((e) => console.error("[meta] initial sync failed", (e as Error).message)));
+  after(() => ensureWebhookSubscription(businessId));
   return { outcome: "connected", username: page.username };
 }
 

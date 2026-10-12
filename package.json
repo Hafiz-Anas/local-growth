@@ -17,6 +17,7 @@
     "db:reset": "prisma migrate reset",
     "db:studio": "prisma studio",
     "create-admin": "tsx scripts/create-admin.ts",
+    "simulate-dm": "tsx scripts/simulate-dm.ts",
     "typecheck": "next typegen && tsc --noEmit",
     "test": "node --import tsx --test \"tests/**/*.test.ts\""
   },

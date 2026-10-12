@@ -1,6 +1,8 @@
+import { after } from "next/server";
 import { requireBusiness } from "@/lib/server/guards";
 import { ApiError, handler, ok } from "@/lib/server/http";
 import { getConnectionDto } from "@/lib/server/instagram-account";
+import { ensureWebhookSubscription } from "@/lib/server/instagram-dm";
 import { syncInstagram } from "@/lib/server/instagram-sync";
 import { getRateLimiter, INSTAGRAM_SYNC_LIMIT } from "@/lib/server/rate-limit";
 
@@ -20,5 +22,7 @@ export const POST = handler(async () => {
   if (result.skipped === "in_progress") throw new ApiError(409, "conflict", "A sync is already running.", [{ path: "sync", message: "in_progress" }]);
   if (result.error === "token_invalid") throw new ApiError(409, "instagram_not_connected", "Reconnect Instagram to sync.");
   if (result.error === "rate_limited") throw new ApiError(429, "rate_limited", "Instagram asked us to slow down. Try again later.");
+  // Connections made before DM replies existed get their Page subscribed to the messaging webhooks here (once).
+  after(() => ensureWebhookSubscription(businessId));
   return ok({ result, connection: await getConnectionDto(businessId) });
 });

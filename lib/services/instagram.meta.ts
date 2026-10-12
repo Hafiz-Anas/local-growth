@@ -4,6 +4,7 @@ import { coolingDown, graphFor, usageFor } from "@/lib/server/meta-client";
 import { toneFor } from "@/lib/utils";
 import type { InstagramProfileDto, MediaDto, MediaIcon } from "@/types";
 import {
+  InstagramMessagingError,
   InstagramNotConnectedError,
   InstagramPermissionError,
   InstagramPublishError,
@@ -21,6 +22,7 @@ import {
 } from "./instagram";
 import { businessDiscovery, postCommentReply } from "./meta/api";
 import { MetaApiError, isMetaError } from "./meta/errors";
+import { MetaMessagingError, fetchMessagingProfile, sendTextMessage } from "./meta/messaging";
 import { MetaPublishError, isPublicHttpsUrl, publishImage } from "./meta/publish";
 import { accountMetric, engagementMetric, followerGrowthMetric, followerSeries, heatmapOf, opportunityOf, windowResults, type SyncedPost } from "./meta/insights";
 import { displayUrl, mapDiscoveryOutcome, type AccountInsights, type DiscoveredProfile, type StoredProfile } from "./meta/mappers";
@@ -30,11 +32,12 @@ import { displayUrl, mapDiscoveryOutcome, type AccountInsights, type DiscoveredP
  *
  * Reads (profile, media, insights, comments) come from the database, filled by
  * the sync (lib/server/instagram-sync.ts) — pages never call Meta on load.
- * Live calls: replying to a comment, business discovery (competitors) and
- * publishing (single image + caption, lib/services/meta/publish.ts).
+ * Live calls: replying to a comment, replying to a direct message (DMs arrive
+ * through the messaging webhook, lib/server/instagram-dm.ts), business discovery
+ * (competitors) and publishing (single image + caption, lib/services/meta/publish.ts).
  *
  * Still simulated, and labelled in the UI:
- *  - DMs: need webhooks on a public HTTPS domain → `sendDM` uses the mock.
+ *  - Keyword-rule DMs to commenters: need the private-replies API → `sendDM` uses the mock.
  *  - Trends: the Graph API has no trending audio/hashtags → empty.
  */
 
@@ -124,13 +127,14 @@ export class MetaInstagramService implements InstagramService {
 
   async getInsights(account: InstagramAccount): Promise<InstagramInsights> {
     const { businessId } = account;
-    const [{ profile, insights }, posts, snapshots, business, commentsToday, handledToday] = await Promise.all([
+    const [{ profile, insights }, posts, snapshots, business, commentsToday, handledToday, dmsSentToday] = await Promise.all([
       this.synced(businessId),
       this.posts(businessId),
       db.instagramAccountSnapshot.findMany({ where: { businessId }, select: { date: true, followers: true }, orderBy: { date: "desc" }, take: 60 }),
       db.business.findUnique({ where: { id: businessId }, select: { timezone: true } }),
       db.instagramMediaComment.count({ where: { businessId, postedAt: { gte: startOfTodayUtc() }, NOT: { username: account.username } } }),
       db.activityLog.count({ where: { businessId, action: "reply.approved", createdAt: { gte: startOfTodayUtc() } } }),
+      db.activityLog.count({ where: { businessId, action: "reply.dm_sent", createdAt: { gte: startOfTodayUtc() } } }),
     ]);
     const timeZone = business?.timezone ?? "Asia/Kuwait";
     const followers = profile?.followers ?? 0;
@@ -149,8 +153,7 @@ export class MetaInstagramService implements InstagramService {
       heatmap: heatmapOf(insights, posts, timeZone),
       commentsToday,
       commentsHandledToday: handledToday,
-      // DMs are simulated until webhooks exist.
-      dmsSentToday: 0,
+      dmsSentToday,
     };
   }
 
@@ -201,9 +204,30 @@ export class MetaInstagramService implements InstagramService {
   }
 
   async sendDM(account: InstagramAccount, username: string, text: string) {
-    // Simulated: real DMs need Meta webhooks on a public HTTPS domain.
-    console.info("[instagram:meta] DM automation is simulated until webhooks are set up.");
+    // Keyword-rule DMs to commenters stay simulated: they need Meta's private-replies API, not the DM webhook.
+    console.info("[instagram:meta] keyword-rule DMs are simulated.");
     return this.mock.sendDM(account, username, text);
+  }
+
+  async replyToMessage(account: InstagramAccount, recipientId: string, text: string) {
+    const { token } = requireConnection(account);
+    try {
+      const { messageId } = await sendTextMessage(graphFor(account.businessId), token, recipientId, text);
+      return { id: messageId };
+    } catch (error) {
+      if (error instanceof MetaMessagingError) throw new InstagramMessagingError(error.reason, error.detail);
+      translate(error);
+    }
+  }
+
+  async getMessagingProfile(account: InstagramAccount, recipientId: string) {
+    if (!account.connected || !account.accessToken) return null;
+    try {
+      const profile = await fetchMessagingProfile(graphFor(account.businessId), account.accessToken, recipientId);
+      return profile && { username: profile.username, avatarUrl: profile.avatarUrl };
+    } catch {
+      return null; // token/rate-limit problems are already logged and flagged by graphFor
+    }
   }
 
   async publishPost(account: InstagramAccount, post: { caption: string; mediaUrl: string | null }) {

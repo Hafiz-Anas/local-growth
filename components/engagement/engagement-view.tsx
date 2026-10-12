@@ -26,6 +26,11 @@ import { RuleDialog, type RuleValues } from "./rule-dialog";
 
 type Settings = EngagementDto["settings"];
 
+/** Whole hours (at least 1) until Instagram stops accepting a DM reply. */
+function hoursLeft(replyBy: string): number {
+  return Math.max(1, Math.ceil((new Date(replyBy).getTime() - Date.now()) / 3_600_000));
+}
+
 export function EngagementView() {
   const { client } = useActiveClient();
   const { t, locale } = useI18n();
@@ -71,13 +76,17 @@ export function EngagementView() {
   };
 
   const approve = useAction({
-    mutationFn: ({ id, text }: { id: string; text?: string }) =>
+    mutationFn: ({ id, text }: { id: string; text?: string; channel: ReplyDraftDto["channel"] }) =>
       apiFetch<ReplyDraftDto>(`/api/reply-drafts/${id}/approve`, { method: "POST", body: text ? { draftReply: text } : {} }),
     onMutate: ({ id }) => removeReply(id),
-    onError: restoreReplies,
-    onSuccess: () => {
+    onError: (error, vars, context) => {
+      restoreReplies(error, vars, context);
+      // The DM's 24-hour window closed: the server expired it, so it leaves the queue.
+      if (error.code === "dm_window_closed") queryClient.invalidateQueries({ queryKey: qk.replies });
+    },
+    onSuccess: (_reply, { channel }) => {
       setEditing(null);
-      notify.success(t("engagement.queue.posted"));
+      notify.success(t(channel === "dm" ? "engagement.queue.dmSent" : "engagement.queue.posted"));
       afterReply();
     },
   });
@@ -181,24 +190,34 @@ export function EngagementView() {
                   const reply = replyFor(comment);
                   const viaWhatsapp = reply !== comment.draftReply;
                   const isEditing = editing?.id === comment.id;
+                  const isDm = comment.channel === "dm";
+                  const author = comment.commenterUsername || t("engagement.queue.dmCustomer");
                   return (
                     <li key={comment.id} className="px-4 py-4">
-                      {comment.postCaption && (
-                        <p className="mb-2.5 truncate text-caption text-muted">
-                          {t("engagement.queue.on")} “<bdi>{comment.postCaption}</bdi>”
+                      {isDm ? (
+                        <p className="mb-2.5 flex flex-wrap items-center gap-x-1.5 text-caption text-muted">
+                          <Send className="size-3.5 shrink-0" aria-hidden="true" />
+                          <span className="font-semibold text-foreground">{t("engagement.queue.dm")}</span>
+                          {comment.replyBy && <span>· {t("engagement.queue.replyWithin", { hours: hoursLeft(comment.replyBy) })}</span>}
                         </p>
+                      ) : (
+                        comment.postCaption && (
+                          <p className="mb-2.5 truncate text-caption text-muted">
+                            {t("engagement.queue.on")} “<bdi>{comment.postCaption}</bdi>”
+                          </p>
+                        )
                       )}
                       <CommentRow
-                        author={comment.commenterUsername}
+                        author={author}
                         avatarUrl={comment.commenterAvatarUrl}
-                        initials={initials(comment.commenterUsername.replace(/[._]/g, " "))}
-                        tone={toneFor(comment.commenterUsername)}
+                        initials={initials(author.replace(/[._]/g, " "))}
+                        tone={toneFor(comment.commenterUsername || comment.commentId)}
                         text={comment.commentText}
                         meta={
                           <>
                             <TimeAgo iso={comment.createdAt} />
-                            {comment.likes > 0 && <span>{t(comment.likes === 1 ? "common.like" : "common.likes", { count: comment.likes })}</span>}
-                            <span>{t("common.reply")}</span>
+                            {!isDm && comment.likes > 0 && <span>{t(comment.likes === 1 ? "common.like" : "common.likes", { count: comment.likes })}</span>}
+                            {!isDm && <span>{t("common.reply")}</span>}
                           </>
                         }
                       />
@@ -249,7 +268,9 @@ export function EngagementView() {
                                 <Pencil className="size-3.5" />
                                 {t("common.edit")}
                               </Button>
-                              <Button onClick={() => approve.mutate({ id: comment.id, text: viaWhatsapp ? reply : undefined })}>{t("engagement.queue.approve")}</Button>
+                              <Button onClick={() => approve.mutate({ id: comment.id, text: viaWhatsapp ? reply : undefined, channel: comment.channel })}>
+                                {isDm ? t("engagement.queue.sendDm") : t("engagement.queue.approve")}
+                              </Button>
                             </>
                           )}
                         </div>

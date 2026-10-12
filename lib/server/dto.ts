@@ -2,6 +2,7 @@ import "server-only";
 import type { Prisma } from "@/lib/generated/prisma/client";
 import { isPriceQuestion } from "@/lib/services/ai";
 import type { CompetitorProfile, InstagramComment } from "@/lib/services/instagram";
+import { DM_WINDOW_MS } from "@/lib/services/meta/messaging";
 import type {
   AdminUserDto,
   BusinessSummaryDto,
@@ -176,6 +177,8 @@ export const REPLY_SELECT = {
   draftReply: true,
   status: true,
   createdAt: true,
+  channel: true,
+  lastMessageAt: true,
   reviewer: { select: { id: true, name: true } },
 } satisfies Prisma.ReplyDraftSelect;
 
@@ -195,6 +198,8 @@ export function toReply(row: Prisma.ReplyDraftGetPayload<{ select: typeof REPLY_
     isPriceQuestion: isPriceQuestion(row.commentText),
     createdAt: row.createdAt.toISOString(),
     reviewedBy: row.reviewer,
+    channel: row.channel === "DM" ? "dm" : "comment",
+    replyBy: row.channel === "DM" && row.lastMessageAt ? new Date(row.lastMessageAt.getTime() + DM_WINDOW_MS).toISOString() : null,
   };
 }
 

@@ -286,7 +286,7 @@ export interface EngagementRuleDto {
   timesTriggered: number;
 }
 
-export type ReplyDraftStatus = "pending" | "approved" | "dismissed" | "posted";
+export type ReplyDraftStatus = "pending" | "approved" | "dismissed" | "posted" | "expired";
 
 export interface ReplyDraftDto {
   id: string;
@@ -304,6 +304,10 @@ export interface ReplyDraftDto {
   likes: number;
   /** Language of the drafted reply. */
   language: "en" | "ar";
+  /** "dm": a reply to a direct message (sent privately, within Instagram's 24-hour window). */
+  channel: "comment" | "dm";
+  /** DM only: when Instagram stops accepting a reply (24 h after the customer's last message). */
+  replyBy: string | null;
 }
 
 export interface EngagementDto {

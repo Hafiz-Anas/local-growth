@@ -39,6 +39,7 @@ import {
 import { notFound } from "./http";
 import { competitorProfileFor } from "./competitor-profiles";
 import { getInstagramAccount } from "./instagram-account";
+import { expireClosedDmDrafts } from "./instagram-dm";
 
 /**
  * Business-scoped reads. Every function takes the businessId from the caller's
@@ -211,6 +212,8 @@ export async function listRules(businessId: string): Promise<EngagementRuleDto[]
 }
 
 export async function listReplies(businessId: string, status: ReplyDraftStatus = "PENDING"): Promise<ReplyDraftDto[]> {
+  // DM drafts past Instagram's 24-hour reply window can't be sent any more.
+  await expireClosedDmDrafts(businessId);
   const rows = await db.replyDraft.findMany({ where: { businessId, status }, select: REPLY_SELECT, orderBy: { createdAt: "desc" }, take: 100 });
   const comments = await getInstagramService()
     .getComments(await getInstagramAccount(businessId))

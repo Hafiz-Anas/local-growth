@@ -197,6 +197,17 @@ export class MockInstagramService implements InstagramService {
     return { id: `ig_dm_${randomUUID()}` };
   }
 
+  async replyToMessage(account: InstagramAccount, recipientId: string, text: string) {
+    requireConnection(account);
+    console.info(`[instagram:mock] @${account.username} → DM reply to ${recipientId}: ${text.slice(0, 80)}`);
+    return { id: `ig_dm_${randomUUID()}` };
+  }
+
+  async getMessagingProfile() {
+    // Simulated DMs (npm run simulate-dm) carry no profile; the webhook falls back to a generic name.
+    return null;
+  }
+
   async publishPost(account: InstagramAccount, post: { caption: string; mediaUrl: string | null }) {
     requireConnection(account);
     console.info(`[instagram:mock] @${account.username} published: ${post.caption.slice(0, 80)}`);

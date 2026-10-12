@@ -50,11 +50,14 @@ export interface GeneratedCaption {
 
 export interface ReplyRequest {
   businessName: string;
+  /** The comment, or for a DM the customer's message(s). */
   commentText: string;
   commenterUsername: string;
   brandVoice: BrandVoiceInput;
   /** When set, price questions are pointed to WhatsApp. */
   whatsappNumber: string | null;
+  /** A public reply under a comment (default) or a private direct-message reply. */
+  channel?: "comment" | "dm";
 }
 
 /** Everything the business entered in onboarding, for building its brand profile. */
@@ -281,6 +284,13 @@ export class MockAIService implements AIService {
       return arabic
         ? { text: `هلا ${name} 🤍 أرسلنا لك قائمة الأسعار، وتقدر تطلب مباشرة على الواتساب: ${wa}`, language: "ar" as const }
         : { text: `Hi ${name}! 👋 We've sent you our price list — you can also order on WhatsApp: ${wa}`, language: "en" as const };
+    }
+    if (request.channel === "dm") {
+      // A DM sender's username isn't always known (Meta may not share it).
+      const to = name ? ` ${name}` : "";
+      return arabic
+        ? { text: `هلا${to} 🤍 شكراً على رسالتك! وصلتنا وبنرد عليك بالتفاصيل بأقرب وقت.`, language: "ar" as const }
+        : { text: `Hi${to}! 🤍 Thanks for your message — we've got it and will get back to you with the details shortly.`, language: "en" as const };
     }
     return arabic
       ? { text: `تسلم ${name} 🤍 نورتنا! أي سؤال إحنا موجودين بالخاص.`, language: "ar" as const }

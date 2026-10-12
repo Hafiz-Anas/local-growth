@@ -6,7 +6,11 @@
  * signs server-side Graph calls (appsecret_proof) and the token exchange.
  */
 
-/** Requested at login. Business discovery (competitors) needs instagram_basic + a Page. */
+/**
+ * Requested at login. Business discovery (competitors) needs instagram_basic + a Page.
+ * DM replies need instagram_manage_messages, plus pages_manage_metadata to subscribe the
+ * Page to the messaging webhooks (lib/services/meta/messaging.ts).
+ */
 export const META_SCOPES = [
   "instagram_basic",
   "instagram_content_publish",
@@ -15,6 +19,7 @@ export const META_SCOPES = [
   "instagram_manage_messages",
   "pages_show_list",
   "pages_read_engagement",
+  "pages_manage_metadata",
   "business_management",
 ] as const;
 

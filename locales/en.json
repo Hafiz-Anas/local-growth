@@ -425,7 +425,7 @@
     },
     "queue": {
       "title": "AI reply queue",
-      "subtitle": "Drafted replies to new comments. Nothing is posted until you approve it.",
+      "subtitle": "Drafted replies to new comments and DMs. Nothing is posted or sent until you approve it.",
       "dismiss": "Dismiss",
       "approve": "Approve & post",
       "aiDraft": "AI draft",
@@ -435,7 +435,12 @@
       "kuwaiti": "Kuwaiti Arabic",
       "english": "English",
       "whatsapp": "WhatsApp link",
-      "posted": "Reply posted"
+      "posted": "Reply posted",
+      "dm": "Direct message",
+      "dmCustomer": "Instagram user",
+      "replyWithin": "reply within {hours} h",
+      "sendDm": "Send reply",
+      "dmSent": "Reply sent as a DM"
     },
     "controls": {
       "title": "Reply settings",
@@ -791,7 +796,13 @@
     "instagram_permission": "Instagram didn't give us permission for this. Reconnect Instagram and allow it.",
     "instagram_unavailable": "Connecting Instagram is temporarily unavailable. Please try again later.",
     "image_unavailable": "Image generation is unavailable right now. Please try again later.",
-    "email_unavailable": "We couldn't send the email right now. Please try again in a few minutes."
+    "email_unavailable": "We couldn't send the email right now. Please try again in a few minutes.",
+    "dm_window_closed": "Instagram only allows replies within 24 hours of the customer's last message. This conversation can't be answered from here any more.",
+    "dm": {
+      "recipient_unavailable": "Instagram can't deliver messages to this person right now (they may have blocked the account).",
+      "message_rejected": "Instagram didn't accept this message. Shorten or change it and try again.",
+      "too_long": "Instagram DMs can be at most 1,000 characters. Shorten the reply and try again."
+    }
   },
   "states": {
     "loadFailed": "Couldn't load this",
@@ -820,6 +831,7 @@
     "admin_user_reset_link_sent": "was sent a password reset link",
     "user_avatar_updated": "updated the profile photo",
     "reply_approved": "approved and posted an AI reply",
+    "reply_dm_sent": "approved and sent an AI reply to a DM",
     "reply_dismissed": "dismissed a comment",
     "dm_rule_created": "created a DM rule",
     "dm_rule_updated": "edited a DM rule",
@@ -1378,7 +1390,7 @@
     },
     "notes": {
       "publishing": "Posts are published to Instagram as one image with its caption. Images are converted to JPEG and centre-cropped if their shape is outside what Instagram allows (4:5 to 1.91:1).",
-      "dms": "DM automation is simulated until it runs on a public HTTPS domain (Instagram webhooks).",
+      "dms": "Instagram DMs get an AI reply draft in the Engagement approval queue; nothing is sent until you approve it. Keyword DM rules are still simulated.",
       "trends": "Trending audio and hashtags aren't available from Instagram's API, so these lists stay empty for your account."
     },
     "permissionNames": {
@@ -1389,6 +1401,7 @@
       "instagram_manage_messages": "messages",
       "pages_show_list": "your Facebook Pages",
       "pages_read_engagement": "your Page's content",
+      "pages_manage_metadata": "managing your Page's settings (needed for DM webhooks)",
       "business_management": "your business portfolio"
     }
   },

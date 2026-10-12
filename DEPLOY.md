@@ -52,6 +52,7 @@ Set these under **Project → Settings → Environment Variables**, scoped to **
 | `GEMINI_API_KEY` | Google AI Studio key (needed when `IMAGE_PROVIDER="gemini"`) |
 | `RATE_LIMIT_STORE` | `memory` |
 | `CRON_SECRET` | New random secret (same command as `AUTH_SECRET`). Turns on scheduled publishing; see *Publishing to Instagram* below. Mark it **Sensitive**. |
+| `META_WEBHOOK_VERIFY_TOKEN` | New random string (same command as `AUTH_SECRET`). Entered again in Meta's webhook settings (section 5). Mark it **Sensitive**. |
 
 Optional: `GEMINI_IMAGE_MODEL`, `META_OAUTH_RESPONSE_TYPE` (defaults to `code`), and `EMAIL_VERIFICATION_BANNER` (`true` shows the "Verify your email" banner after login; leave it unset, which means off, until verification emails are really delivered).
 
@@ -114,6 +115,24 @@ Publishing uses the Instagram Graph API's single-image flow (create a container 
   - **Vercel Hobby:** crons can run at most once a day there (and a more frequent schedule fails the deploy), so use an external scheduler instead, e.g. [cron-job.org](https://cron-job.org): URL `https://<your-domain>/api/cron/publish`, every 5 minutes, header `Authorization: Bearer <CRON_SECRET>`.
 
   A post more than 6 hours late (scheduler down) isn't published late. It fails as "missed" and goes back to the drafts.
+
+### Instagram DM replies (messaging webhooks)
+
+Customers' Instagram DMs reach the app through a webhook. The app drafts an AI reply into the Engagement approval queue, and a person approves it before it is sent. Set it up once per Meta app:
+
+1. **Deploy first.** Meta checks the URL while you save it, so `/api/webhooks/instagram` must be live with `META_WEBHOOK_VERIFY_TOKEN` set.
+2. **Use case / products.** In your app, make sure **Messenger** (or the *Engage with customers on Messenger from Meta* use case) is added. Instagram messaging with Facebook Login runs on the Messenger Platform.
+3. **Webhooks.** Open **Webhooks** in the app dashboard, choose the **Instagram** object, and click **Subscribe to this object**:
+   - Callback URL: `https://<your-domain>/api/webhooks/instagram`
+   - Verify token: the value of `META_WEBHOOK_VERIFY_TOKEN`
+
+   Click **Verify and save**, then **Subscribe** to the **`messages`** field. The other fields (reactions, seen, postbacks) aren't used.
+4. **Permissions.** Login requests `instagram_basic`, `instagram_manage_messages`, `pages_manage_metadata`, `pages_show_list` and `business_management` (plus the others the app already uses). `pages_manage_metadata` is new: businesses that connected earlier must **reconnect** once and allow it.
+5. **Page subscription.** It's automatic: after connecting (or the next "Sync now"), the app subscribes the business's Facebook Page to the `messages` webhooks (`POST /{page-id}/subscribed_apps`). The integration log shows "Page … subscribed to Instagram messaging webhooks", or a warning if a permission is missing.
+6. **Instagram setting.** On the Instagram professional account: **Settings → Messages and story replies → Message controls → Connected tools → Allow access to messages** must be on.
+7. **App mode and review.** Webhooks are only delivered while the app is **Live** (published). Until Meta approves **Advanced Access** for `instagram_manage_messages` (and `pages_manage_metadata`) in App Review, it only works for people with a role on the app (admins, developers, testers) and their accounts. App Review needs Business Verification, a privacy policy URL, and a screencast of a DM arriving, the draft being approved, and the reply arriving in Instagram.
+
+Rules Instagram enforces: replies only within **24 hours** of the customer's last message (older drafts expire in the queue), DMs at most **1,000 characters**, and Meta rate limits apply.
 
 ## 6. Create the first admin
 

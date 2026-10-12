@@ -22,6 +22,7 @@ const KNOWN = new Set([
   "ai_error",
   "image_unavailable",
   "email_unavailable",
+  "dm_window_closed",
   "network_error",
   "internal_error",
 ]);
@@ -39,6 +40,12 @@ export function errorMessage(error: unknown, t: Translate): string {
       return fields.length ? t("errors.validation_fields", { fields: fields.join(", ") }) : t("errors.validation_error");
     }
     if (error.code === "publish_failed") return publishReasonText(publishReasonOf(error), t);
+    if (error.code === "dm_failed") {
+      const reason = Array.isArray(error.details) ? (error.details as Array<{ path?: string; message?: string }>).find((d) => d.path === "reason")?.message : undefined;
+      const key = `errors.dm.${reason}`;
+      const text = reason ? t(key) : key;
+      return text === key ? t("errors.instagram_error") : text;
+    }
     if (KNOWN.has(error.code)) return t(`errors.${error.code}`);
     return error.status >= 500 ? t("errors.internal_error") : t("errors.generic");
   }
