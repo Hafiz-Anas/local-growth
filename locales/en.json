@@ -879,7 +879,8 @@
       "resend": "Resend verification email",
       "resent": "Sent",
       "sent": "We've sent a new verification link.",
-      "notSent": "We couldn't send your verification email. Use “Resend verification email” to try again."
+      "notSent": "We couldn't send your verification email. Use “Resend verification email” to try again.",
+      "verified": "Your email has been verified."
     }
   },
   "welcome": {

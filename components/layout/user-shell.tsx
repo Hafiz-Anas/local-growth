@@ -71,7 +71,7 @@ export function UserShell({
           </div>
         )}
 
-        {emailUnverified && !isPreview && <VerifyEmailBanner email={base.email} />}
+        {!isPreview && <VerifyEmailBanner unverified={emailUnverified} email={base.email} />}
         {client.instagramIssue && !isPreview && <InstagramIssueBanner issue={client.instagramIssue} />}
 
         <header className="sticky top-0 z-20 h-(--topbar-height) border-b border-border bg-background">
