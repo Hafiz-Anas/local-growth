@@ -6,6 +6,7 @@ import { getActiveClientContext } from "@/lib/auth/server";
 import { db } from "@/lib/db";
 import { filterNav } from "@/lib/permissions";
 import { getClientView, getUiPreferences } from "@/lib/server/client-view";
+import { verificationBannerEnabled } from "@/lib/server/email-verification";
 import { initials } from "@/lib/utils";
 
 export default async function UserLayout({ children }: LayoutProps<"/">) {
@@ -36,7 +37,7 @@ export default async function UserLayout({ children }: LayoutProps<"/">) {
 
   return (
     <ActiveClientProvider client={client} permissions={permissions} isPreview={isPreview}>
-      <UserShell user={menuUser} nav={nav} preferences={preferences} emailUnverified={Boolean(user && !user.emailVerifiedAt)}>
+      <UserShell user={menuUser} nav={nav} preferences={preferences} emailUnverified={verificationBannerEnabled() && Boolean(user && !user.emailVerifiedAt)}>
         {children}
       </UserShell>
     </ActiveClientProvider>

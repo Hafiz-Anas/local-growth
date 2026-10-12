@@ -6,6 +6,16 @@ import { logActivity } from "./activity";
 
 const TOKEN_TTL_MS = 48 * 60 * 60 * 1000; // 48 hours
 
+/**
+ * Whether signed-in users see the "Verify your email" banner (app shell and onboarding).
+ * Off unless EMAIL_VERIFICATION_BANNER="true": keep it off while verification emails
+ * can't actually be delivered. Sign-up still creates and sends the link either way,
+ * and /verify-email keeps working.
+ */
+export function verificationBannerEnabled(): boolean {
+  return process.env.EMAIL_VERIFICATION_BANNER?.trim().toLowerCase() === "true";
+}
+
 /** Emails a fresh verification link (older unused links stop working). No-op when already verified. Throws EmailSendError when sending fails. */
 export async function sendVerificationEmail(userId: string, baseUrl: string): Promise<boolean> {
   const user = await db.user.findUnique({ where: { id: userId }, select: { id: true, name: true, email: true, emailVerifiedAt: true, uiPreferences: true } });

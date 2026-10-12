@@ -53,7 +53,7 @@ Set these under **Project → Settings → Environment Variables**, scoped to **
 | `RATE_LIMIT_STORE` | `memory` |
 | `CRON_SECRET` | New random secret (same command as `AUTH_SECRET`). Turns on scheduled publishing; see *Publishing to Instagram* below. Mark it **Sensitive**. |
 
-Optional: `GEMINI_IMAGE_MODEL`, and `META_OAUTH_RESPONSE_TYPE` (defaults to `code`).
+Optional: `GEMINI_IMAGE_MODEL`, `META_OAUTH_RESPONSE_TYPE` (defaults to `code`), and `EMAIL_VERIFICATION_BANNER` (`true` shows the "Verify your email" banner after login; leave it unset, which means off, until verification emails are really delivered).
 
 **Don't set these on Vercel:** `UPLOAD_DIR` (local storage only), `GEMINI_API_BASE`, `META_GRAPH_BASE_URL` and `RESEND_API_BASE` (test stubs only), and `ADMIN_*` (used only by `create-admin` on your machine).
 
