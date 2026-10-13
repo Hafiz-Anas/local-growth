@@ -162,10 +162,39 @@ export function toScheduled(
 
 // Engagement & competitors -----------------------------------------------------
 
-export const RULE_SELECT = { id: true, keywords: true, dmMessage: true, active: true, timesTriggered: true } satisfies Prisma.EngagementRuleSelect;
+export const RULE_SELECT = {
+  id: true,
+  keywords: true,
+  matchType: true,
+  commentReply: true,
+  dmMessage: true,
+  scope: true,
+  mediaIds: true,
+  autoSend: true,
+  active: true,
+  timesTriggered: true,
+  lastTriggeredAt: true,
+  createdAt: true,
+} satisfies Prisma.EngagementRuleSelect;
 
 export function toRule(row: Prisma.EngagementRuleGetPayload<{ select: typeof RULE_SELECT }>): EngagementRuleDto {
-  return { ...row };
+  return {
+    ...row,
+    matchType: row.matchType === "EXACT" ? "exact" : "word",
+    scope: row.scope === "SELECTED_POSTS" ? "selected" : "all",
+    lastTriggeredAt: row.lastTriggeredAt?.toISOString() ?? null,
+    createdAt: row.createdAt.toISOString(),
+  };
+}
+
+/** Rule DTO fields → database values. */
+export function ruleData<T extends { matchType?: "word" | "exact"; scope?: "all" | "selected" }>(input: T) {
+  const { matchType, scope, ...rest } = input;
+  return {
+    ...rest,
+    ...(matchType && { matchType: matchType === "exact" ? ("EXACT" as const) : ("WORD" as const) }),
+    ...(scope && { scope: scope === "selected" ? ("SELECTED_POSTS" as const) : ("ALL_POSTS" as const) }),
+  };
 }
 
 export const REPLY_SELECT = {
@@ -179,7 +208,9 @@ export const REPLY_SELECT = {
   createdAt: true,
   channel: true,
   lastMessageAt: true,
+  privateReply: true,
   reviewer: { select: { id: true, name: true } },
+  rule: { select: { id: true, keywords: true } },
 } satisfies Prisma.ReplyDraftSelect;
 
 /** `comment` is the live Instagram comment, when the API still has it. */
@@ -200,6 +231,8 @@ export function toReply(row: Prisma.ReplyDraftGetPayload<{ select: typeof REPLY_
     reviewedBy: row.reviewer,
     channel: row.channel === "DM" ? "dm" : "comment",
     replyBy: row.channel === "DM" && row.lastMessageAt ? new Date(row.lastMessageAt.getTime() + DM_WINDOW_MS).toISOString() : null,
+    keywordRule: row.rule,
+    privateReply: row.privateReply,
   };
 }
 

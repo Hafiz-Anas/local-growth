@@ -207,14 +207,17 @@ export async function getEngagement(businessId: string, permissions: Permissions
 }
 
 export async function listRules(businessId: string): Promise<EngagementRuleDto[]> {
-  const rows = await db.engagementRule.findMany({ where: { businessId }, select: RULE_SELECT, orderBy: [{ active: "desc" }, { timesTriggered: "desc" }] });
+  const rows = await db.engagementRule.findMany({ where: { businessId }, select: RULE_SELECT, orderBy: [{ active: "desc" }, { createdAt: "asc" }] });
   return rows.map(toRule);
 }
 
-export async function listReplies(businessId: string, status: ReplyDraftStatus = "PENDING"): Promise<ReplyDraftDto[]> {
+/** The approval queue; `kinds` limits it to AI drafts and/or keyword reply drafts (lib/server/replies.ts). */
+export async function listReplies(businessId: string, status: ReplyDraftStatus = "PENDING", kinds = { ai: true, keyword: true }): Promise<ReplyDraftDto[]> {
+  if (!kinds.ai && !kinds.keyword) return [];
   // DM drafts past Instagram's 24-hour reply window can't be sent any more.
   await expireClosedDmDrafts(businessId);
-  const rows = await db.replyDraft.findMany({ where: { businessId, status }, select: REPLY_SELECT, orderBy: { createdAt: "desc" }, take: 100 });
+  const kind = kinds.ai && kinds.keyword ? {} : { ruleId: kinds.keyword ? { not: null } : null };
+  const rows = await db.replyDraft.findMany({ where: { businessId, status, ...kind }, select: REPLY_SELECT, orderBy: { createdAt: "desc" }, take: 100 });
   const comments = await getInstagramService()
     .getComments(await getInstagramAccount(businessId))
     .catch(() => []);

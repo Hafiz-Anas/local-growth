@@ -8,7 +8,7 @@ import {
   InstagramNotConnectedError,
   getInstagramService,
 } from "@/lib/services/instagram";
-import { DM_MAX_LENGTH, DM_WINDOW_MS, parseInstagramWebhook, subscribePageToMessages, type IncomingMessage } from "@/lib/services/meta/messaging";
+import { DM_MAX_LENGTH, DM_WINDOW_MS, parseInstagramWebhook, subscribePageToMessages, type IncomingMessage, type MessagingFailureReason } from "@/lib/services/meta/messaging";
 import { logActivity } from "./activity";
 import { ApiError } from "./http";
 import { getInstagramAccount } from "./instagram-account";
@@ -61,7 +61,7 @@ export async function handleInstagramWebhook(payload: unknown): Promise<WebhookS
 }
 
 /** The connected business behind an Instagram account id (Meta: by its lookup key; mock: by the stored id). */
-async function businessForAccount(accountId: string) {
+export async function businessForAccount(accountId: string) {
   return db.instagramConnection.findFirst({
     where: {
       status: { not: "DISCONNECTED" },
@@ -190,7 +190,7 @@ export async function expireClosedDmDrafts(businessId: string): Promise<number> 
 }
 
 /** API error for a DM that can't be sent (the UI shows the localized reason). */
-function dmApiError(reason: "window_closed" | "recipient_unavailable" | "message_rejected" | "too_long"): ApiError {
+function dmApiError(reason: MessagingFailureReason | "too_long"): ApiError {
   if (reason === "window_closed") return new ApiError(409, "dm_window_closed", "Instagram only allows replies within 24 hours of the customer's last message.");
   return new ApiError(422, "dm_failed", `Instagram didn't deliver the message (${reason}).`, [{ path: "reason", message: reason }]);
 }
@@ -261,9 +261,12 @@ export async function sendDmReply(input: { businessId: string; draftId: string; 
 // ── Page subscription ────────────────────────────────────────────────────────
 
 /**
- * Subscribes the Facebook Page behind a Meta connection to this app's messaging webhooks,
- * once. Needs pages_manage_metadata; without it (or on failure) it's logged and skipped —
- * connecting and syncing never fail because of it.
+ * Installs this app on the Facebook Page behind a Meta connection, once per connect/reconnect,
+ * so Meta delivers the Instagram webhooks the app subscribes to in the App Dashboard
+ * ("messages" for DM replies, "comments" for keyword replies). Meta: "subscribe to any Page
+ * field" — Instagram fields such as comments are not Page fields, so the call names "messages".
+ * Needs pages_manage_metadata plus the permission of at least one of the two features; without
+ * them (or on failure) it's logged and skipped — connecting and syncing never fail because of it.
  */
 export async function ensureWebhookSubscription(businessId: string): Promise<void> {
   try {
@@ -271,14 +274,16 @@ export async function ensureWebhookSubscription(businessId: string): Promise<voi
     if (conn?.provider !== "META" || conn.status !== "CONNECTED" || conn.webhookSubscribedAt) return;
     const credentials = openCredentials(conn.credentialsEncrypted);
     if (!credentials) return;
-    if (!credentials.scopes.includes("pages_manage_metadata") || !credentials.scopes.includes("instagram_manage_messages")) {
-      await logIntegration({ businessId, level: "warning", call: "webhook.subscribe", message: "DM replies need the instagram_manage_messages and pages_manage_metadata permissions. Reconnect Instagram and allow them." });
+    const has = (scope: string) => credentials.scopes.includes(scope);
+    if (!has("pages_manage_metadata") || !(has("instagram_manage_messages") || has("instagram_manage_comments"))) {
+      await logIntegration({ businessId, level: "warning", call: "webhook.subscribe", message: "Webhooks (DM replies, keyword replies) need pages_manage_metadata plus instagram_manage_messages and/or instagram_manage_comments. Reconnect Instagram and allow them." });
       return;
     }
+    if (!has("instagram_manage_messages")) await logIntegration({ businessId, level: "warning", call: "webhook.subscribe", message: "instagram_manage_messages wasn't granted: DM replies and private keyword DMs won't work until Instagram is reconnected with it." });
     const ok = await subscribePageToMessages(graphFor(businessId), credentials.pageId, credentials.pageToken);
     if (!ok) throw new Error("Meta didn't confirm the subscription.");
     await db.instagramConnection.update({ where: { businessId }, data: { webhookSubscribedAt: new Date() } });
-    await logIntegration({ businessId, level: "info", call: "webhook.subscribe", message: `Page "${credentials.pageName}" subscribed to Instagram messaging webhooks.` });
+    await logIntegration({ businessId, level: "info", call: "webhook.subscribe", message: `Page "${credentials.pageName}" subscribed to Instagram webhooks (messages, comments).` });
   } catch (error) {
     // Graph errors are already logged (and flagged) by graphFor.
     console.error("[dm] webhook subscription failed", (error as Error).message);

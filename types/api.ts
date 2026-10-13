@@ -278,12 +278,25 @@ export interface ExperimentDto {
 
 // ─── Engagement ──────────────────────────────────────────────────────────────
 
+/** A keyword reply rule (comment a keyword → public reply + optional private DM). */
 export interface EngagementRuleDto {
   id: string;
   keywords: string[];
+  /** "word": the keyword appears as a whole word; "exact": the whole comment is the keyword. */
+  matchType: "word" | "exact";
+  /** Public reply under the comment ("" only on rules made before keyword replies). */
+  commentReply: string;
+  /** Private DM to the commenter; "" for none. */
   dmMessage: string;
+  scope: "all" | "selected";
+  /** Instagram media ids, for scope "selected". */
+  mediaIds: string[];
+  /** Off: replies wait in the approval queue. */
+  autoSend: boolean;
   active: boolean;
   timesTriggered: number;
+  lastTriggeredAt: string | null;
+  createdAt: string;
 }
 
 export type ReplyDraftStatus = "pending" | "approved" | "dismissed" | "posted" | "expired";
@@ -308,6 +321,9 @@ export interface ReplyDraftDto {
   channel: "comment" | "dm";
   /** DM only: when Instagram stops accepting a reply (24 h after the customer's last message). */
   replyBy: string | null;
+  /** Keyword reply waiting for approval: the rule's keywords, and the private DM sent with it. */
+  keywordRule: { id: string; keywords: string[] } | null;
+  privateReply: string | null;
 }
 
 export interface EngagementDto {

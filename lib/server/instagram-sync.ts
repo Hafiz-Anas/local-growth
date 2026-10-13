@@ -8,13 +8,14 @@ import { MetaApiError } from "@/lib/services/meta/errors";
 import type { AccountInsights } from "@/lib/services/meta/mappers";
 import { getInstagramAccount, SYNC_STALE_MS, type SyncErrorCode } from "./instagram-account";
 import { logIntegration } from "./integration-log";
+import { keywordReplierFor } from "./keyword-replies";
 import { coolingDown, graphFor, MetaUnavailableError } from "./meta-client";
 
 /**
  * Copies a Meta-connected account into the database so pages never call Meta
  * on load:
  *   basic    → profile (+ a daily follower snapshot) and the last 50 posts
- *   deferred → account insights, post insights (recent posts), comments (+ AI reply drafts)
+ *   deferred → account insights, post insights (recent posts), comments (+ keyword replies, AI reply drafts)
  *   full     → both
  * On connect, "basic" runs before the redirect and "deferred" right after it.
  * "Sync now" runs "full"; pages trigger a background "full" sync when the data is older than 6 hours.
@@ -32,7 +33,7 @@ export interface SyncResult {
   skipped?: "in_progress" | "not_connected" | "rate_limited" | "unavailable";
   error?: SyncErrorCode;
   retryAfterMs?: number;
-  counts: { media: number; postInsights: number; comments: number; replyDrafts: number };
+  counts: { media: number; postInsights: number; comments: number; replyDrafts: number; keywordReplies: number };
 }
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -41,7 +42,7 @@ const MEDIA_LIMIT = 50;
 const POST_INSIGHTS_LIMIT = 25;
 /** Posts whose comments are refreshed per sync. */
 const COMMENT_POSTS_LIMIT = 10;
-/** New comments younger than this get an AI reply draft. */
+/** New comments younger than this get a keyword reply or an AI reply draft (private replies are allowed for 7 days). */
 const REPLY_DRAFT_MAX_AGE = 7 * DAY;
 const REPLY_DRAFTS_PER_SYNC = 20;
 export const AUTO_SYNC_AFTER_MS = 6 * 60 * 60 * 1000;
@@ -56,7 +57,7 @@ function errorCodeOf(error: unknown): SyncErrorCode {
 const utcDate = (d = new Date()) => d.toISOString().slice(0, 10);
 
 export async function syncInstagram(businessId: string, { scope = "full", reason }: { scope?: SyncScope; reason: SyncReason }): Promise<SyncResult> {
-  const counts = { media: 0, postInsights: 0, comments: 0, replyDrafts: 0 };
+  const counts = { media: 0, postInsights: 0, comments: 0, replyDrafts: 0, keywordReplies: 0 };
   if (reason === "auto" && coolingDown(businessId)) return { ok: false, skipped: "rate_limited", retryAfterMs: coolingDown(businessId), counts };
 
   const lock = await db.instagramConnection.updateMany({
@@ -134,7 +135,7 @@ export async function syncInstagram(businessId: string, { scope = "full", reason
   }
 
   if (!error) {
-    await logIntegration({ businessId, level: "info", call: `sync.${scope}`, message: `Synced (${reason}): ${counts.media} posts, ${counts.postInsights} post insights, ${counts.comments} comments, ${counts.replyDrafts} reply drafts.`, details: { reason, ...counts } });
+    await logIntegration({ businessId, level: "info", call: `sync.${scope}`, message: `Synced (${reason}): ${counts.media} posts, ${counts.postInsights} post insights, ${counts.comments} comments, ${counts.keywordReplies} keyword replies, ${counts.replyDrafts} reply drafts.`, details: { reason, ...counts } });
   }
   return { ok: !error, ...(error && { error }), ...(retryAfterMs && { retryAfterMs }), counts };
 }
@@ -186,23 +187,37 @@ async function syncComments(businessId: string, client: ReturnType<typeof graphF
     take: COMMENT_POSTS_LIMIT,
     select: { igMediaId: true },
   });
-  const fresh: Array<{ igCommentId: string; username: string; text: string; postedAt: Date }> = [];
+  const fresh: Array<{ igCommentId: string; igMediaId: string; username: string; text: string; postedAt: Date }> = [];
   for (const { igMediaId } of posts) {
     const comments = await fetchComments(client, igMediaId, ig.token, 50);
     for (const c of comments) {
       const data = { igMediaId, username: c.username, text: c.text, likeCount: c.likeCount, postedAt: c.postedAt, syncedAt: new Date() };
       await db.instagramMediaComment.upsert({ where: { businessId_igCommentId: { businessId, igCommentId: c.igCommentId } }, update: data, create: { businessId, igCommentId: c.igCommentId, ...data } });
-      if (c.username && c.username.toLowerCase() !== ownUsername.toLowerCase() && Date.now() - c.postedAt.getTime() < REPLY_DRAFT_MAX_AGE) fresh.push(c);
+      if (c.username && c.username.toLowerCase() !== ownUsername.toLowerCase() && Date.now() - c.postedAt.getTime() < REPLY_DRAFT_MAX_AGE) fresh.push({ ...c, igMediaId });
     }
     counts.comments += comments.length;
   }
-  counts.replyDrafts = await draftReplies(businessId, fresh);
+  // Keyword replies first (the fallback for comments the webhook didn't deliver); a comment a rule handled gets no AI draft.
+  const replier = await keywordReplierFor(businessId);
+  const forDrafts: typeof fresh = [];
+  for (const c of fresh) {
+    const outcome = replier ? await replier.handle({ igCommentId: c.igCommentId, igMediaId: c.igMediaId, text: c.text, username: c.username, fromId: null, postedAt: c.postedAt, source: "sync" }).catch(() => "skipped" as const) : "none";
+    if (outcome === "none") forDrafts.push(c);
+    else if (outcome === "sent" || outcome === "partial" || outcome === "queued") counts.keywordReplies += 1;
+  }
+  counts.replyDrafts = await draftReplies(businessId, forDrafts);
 }
 
 /** New comments from customers get an AI reply draft for the approval queue (Engagement). */
 async function draftReplies(businessId: string, comments: Array<{ igCommentId: string; username: string; text: string }>): Promise<number> {
   if (!comments.length) return 0;
-  const existing = new Set((await db.replyDraft.findMany({ where: { businessId, commentId: { in: comments.map((c) => c.igCommentId) } }, select: { commentId: true } })).map((r) => r.commentId));
+  const ids = comments.map((c) => c.igCommentId);
+  const [drafted, triggered] = await Promise.all([
+    db.replyDraft.findMany({ where: { businessId, commentId: { in: ids } }, select: { commentId: true } }),
+    db.keywordReplyTrigger.findMany({ where: { businessId, igCommentId: { in: ids } }, select: { igCommentId: true } }),
+  ]);
+  // Comments a keyword rule handled (or claimed) never get a general draft too.
+  const existing = new Set([...drafted.map((r) => r.commentId), ...triggered.map((t) => t.igCommentId)]);
   const todo = comments.filter((c) => !existing.has(c.igCommentId)).slice(0, REPLY_DRAFTS_PER_SYNC);
   if (!todo.length) return 0;
   const business = await db.business.findUnique({ where: { id: businessId }, select: { name: true, brandVoice: { select: { toneLevel: true, brandWords: true, defaultHashtags: true, whatsappNumber: true, priceQuestionsToWhatsApp: true } } } });

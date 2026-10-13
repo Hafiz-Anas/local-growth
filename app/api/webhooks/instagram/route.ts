@@ -1,17 +1,19 @@
 import { timingSafeEqual } from "node:crypto";
 import { after } from "next/server";
 import { handleInstagramWebhook } from "@/lib/server/instagram-dm";
+import { handleCommentWebhook } from "@/lib/server/keyword-replies";
 import { verifyWebhookSignature } from "@/lib/services/meta/messaging";
 
 /**
- * Meta webhooks for Instagram messaging (App Dashboard → Webhooks → Instagram → "messages").
+ * Meta webhooks for Instagram (App Dashboard → Webhooks → Instagram → "messages" and "comments").
  *
  * GET  — the verification handshake: echoes hub.challenge when hub.verify_token matches
  *        META_WEBHOOK_VERIFY_TOKEN.
- * POST — direct-message events. The X-Hub-Signature-256 header must be the HMAC-SHA256
- *        of the raw body with META_APP_SECRET, or the request is rejected (403) unread.
- *        Valid deliveries get 200 at once; the work runs after the response
- *        (lib/server/instagram-dm.ts), so Meta never times out and retries.
+ * POST — direct messages (lib/server/instagram-dm.ts) and new comments for keyword replies
+ *        (lib/server/keyword-replies.ts). The X-Hub-Signature-256 header must be the
+ *        HMAC-SHA256 of the raw body with META_APP_SECRET, or the request is rejected (403)
+ *        unread. Valid deliveries get 200 at once; the work runs after the response, so
+ *        Meta never times out and retries.
  *
  * Not behind the login proxy (proxy.ts skips /api), and no session: Meta is the caller.
  */
@@ -57,6 +59,12 @@ export async function POST(request: Request) {
       if (summary.messages) console.info("[webhook:instagram]", JSON.stringify(summary));
     } catch (error) {
       console.error("[webhook:instagram] processing failed", (error as Error).message);
+    }
+    try {
+      const summary = await handleCommentWebhook(payload);
+      if (summary.comments) console.info("[webhook:instagram] comments", JSON.stringify(summary));
+    } catch (error) {
+      console.error("[webhook:instagram] comment processing failed", (error as Error).message);
     }
   });
   return new Response("EVENT_RECEIVED", { status: 200 });

@@ -191,9 +191,9 @@ export class MockInstagramService implements InstagramService {
     return { id: `ig_reply_${randomUUID()}` };
   }
 
-  async sendDM(account: InstagramAccount, username: string, text: string) {
+  async sendPrivateReply(account: InstagramAccount, commentId: string, text: string) {
     requireConnection(account);
-    console.info(`[instagram:mock] @${account.username} → DM @${username}: ${text.slice(0, 80)}`);
+    console.info(`[instagram:mock] @${account.username} → private reply to comment ${commentId}: ${text.slice(0, 80)}`);
     return { id: `ig_dm_${randomUUID()}` };
   }
 

@@ -85,6 +85,37 @@ enum ReplyChannel {
   DM
 }
 
+/// How a keyword reply rule compares its keywords with a comment (lib/keyword-replies.ts).
+enum KeywordMatchType {
+  /// The keyword appears as a whole word in the comment.
+  WORD
+  /// The whole comment is the keyword.
+  EXACT
+}
+
+/// Which posts a keyword reply rule listens to.
+enum KeywordRuleScope {
+  ALL_POSTS
+  SELECTED_POSTS
+}
+
+/// What happened to a comment a keyword reply rule picked up.
+enum KeywordTriggerStatus {
+  /// Being sent right now (the row is the claim that stops a second reply).
+  SENDING
+  /// Waiting in the Engagement approval queue ("send automatically" off).
+  AWAITING_APPROVAL
+  /// Everything the rule asked for was sent.
+  SENT
+  /// Only part of it went out (e.g. the public reply, but not the private DM).
+  PARTIAL
+  FAILED
+  /// The same person triggered this rule within the last 24 hours: nothing sent.
+  COOLDOWN
+  /// The approval draft was dismissed.
+  DISMISSED
+}
+
 enum OnboardingStatus {
   IN_PROGRESS
   COMPLETED
@@ -232,6 +263,7 @@ model Business {
   integrationEvents   IntegrationEvent[]
   metaPending         MetaPendingConnection?
   directMessages      InstagramDirectMessage[]
+  keywordTriggers     KeywordReplyTrigger[]
 }
 
 /// One row per (business, feature key). A sub-feature ("engagement.dmRules") is
@@ -603,17 +635,66 @@ model PostingExperiment {
 
 // ─── Engagement ──────────────────────────────────────────────────────────────
 
+/// A keyword reply rule: a comment containing one of the keywords gets a public reply and,
+/// optionally, a private DM (Instagram private reply). See lib/server/keyword-replies.ts.
 model EngagementRule {
-  id             String   @id @default(cuid())
-  businessId     String
-  keywords       String[]
-  dmMessage      String
-  active         Boolean  @default(true)
-  timesTriggered Int      @default(0)
+  id              String           @id @default(cuid())
+  businessId      String
+  keywords        String[]
+  /// Private DM sent to the commenter; "" for none.
+  dmMessage       String
+  active          Boolean          @default(true)
+  timesTriggered  Int              @default(0)
+  matchType       KeywordMatchType @default(WORD)
+  /// Public reply under the comment; "" for none (rules made before keyword replies only had a DM).
+  commentReply    String           @default("")
+  scope           KeywordRuleScope @default(ALL_POSTS)
+  /// Instagram media ids when scope is SELECTED_POSTS.
+  mediaIds        String[]         @default([])
+  /// Off: the reply waits in the Engagement approval queue instead of going out at once.
+  autoSend        Boolean          @default(true)
+  lastTriggeredAt DateTime?
+  /// Rules only answer comments posted after they were created.
+  createdAt       DateTime         @default(now())
 
-  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  business Business              @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  triggers KeywordReplyTrigger[]
+  drafts   ReplyDraft[]
 
   @@index([businessId])
+}
+
+/// One row per comment a keyword rule picked up: the dedupe claim (one reply per comment),
+/// the 24-hour per-person cooldown, and the outcome of each send.
+model KeywordReplyTrigger {
+  id                String               @id @default(cuid())
+  businessId        String
+  ruleId            String?
+  igCommentId       String
+  igMediaId         String?
+  /// Lower-cased username, or the Instagram-scoped id when there's no username.
+  commenterKey      String
+  commenterUsername String?
+  commentText       String
+  /// The keyword that matched.
+  keyword           String
+  /// "webhook" or "sync".
+  source            String
+  status            KeywordTriggerStatus @default(SENDING)
+  /// Instagram ids of what was sent.
+  replyCommentId    String?
+  dmMessageId       String?
+  /// Reason codes when something wasn't sent, e.g. "reply:comment_deleted dm:already_replied".
+  failureReason     String?
+  commentedAt       DateTime
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @default(now()) @updatedAt
+
+  business Business        @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  rule     EngagementRule? @relation(fields: [ruleId], references: [id], onDelete: SetNull)
+
+  @@unique([businessId, igCommentId])
+  @@index([businessId, ruleId, commenterKey, createdAt])
 }
 
 model ReplyDraft {
@@ -634,9 +715,15 @@ model ReplyDraft {
   recipientId        String?
   /// DM only: when the customer last wrote. Instagram accepts replies for 24 hours after it.
   lastMessageAt      DateTime?
+  /// Keyword replies waiting for approval: the rule, and the private DM to send with the public reply.
+  ruleId             String?
+  privateReply       String?
+  /// Keyword replies: when the comment was posted (private replies are accepted for 7 days).
+  commentedAt        DateTime?
 
-  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  reviewer User?    @relation("ReplyReviewer", fields: [reviewedBy], references: [id], onDelete: SetNull)
+  business Business        @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  reviewer User?           @relation("ReplyReviewer", fields: [reviewedBy], references: [id], onDelete: SetNull)
+  rule     EngagementRule? @relation(fields: [ruleId], references: [id], onDelete: SetNull)
 
   @@unique([businessId, commentId])
   @@index([businessId, status, createdAt])

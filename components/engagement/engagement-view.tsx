@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, Loader2, MessageCircle, MessagesSquare, Pencil, Plus, Send, ShieldCheck, Sparkles, Zap } from "lucide-react";
+import { Loader2, MessageCircle, MessagesSquare, Pencil, Send, ShieldCheck, Sparkles, Zap } from "lucide-react";
 import { useActiveClient, useFeature } from "@/components/providers/active-client-provider";
 import { CommentRow } from "@/components/shared/comment-row";
 import { FeatureToggle } from "@/components/shared/feature-toggle";
@@ -14,15 +14,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/dialog";
-import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { apiFetch } from "@/lib/api/client";
 import { qk, useAction, useEngagement, useReplies, useRules } from "@/lib/api/queries";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn, formatNumber, initials, toneFor } from "@/lib/utils";
 import { notify } from "@/store/ui-store";
-import type { EngagementDto, EngagementRuleDto, ReplyDraftDto } from "@/types";
-import { RuleDialog, type RuleValues } from "./rule-dialog";
+import type { EngagementDto, ReplyDraftDto } from "@/types";
+import { KeywordReplies } from "./keyword-replies";
 
 type Settings = EngagementDto["settings"];
 
@@ -37,15 +36,15 @@ export function EngagementView() {
   const canRules = useFeature("engagement.dmRules");
   const canReplies = useFeature("engagement.aiReplies");
   const canAutoReply = useFeature("engagement.autoReply");
-  const canWhatsapp = useFeature("engagement.whatsappPricing");
   const queryClient = useQueryClient();
 
+  // The approval queue holds AI drafts and keyword replies that need approval.
+  const canQueue = canReplies || canRules;
   const engagement = useEngagement();
   const rules = useRules(canRules);
-  const replies = useReplies(canReplies);
+  const replies = useReplies(canQueue);
 
   const [confirmAuto, setConfirmAuto] = useState(false);
-  const [ruleDialog, setRuleDialog] = useState<{ open: boolean; rule: EngagementRuleDto | null }>({ open: false, rule: null });
   const [editing, setEditing] = useState<{ id: string; text: string } | null>(null);
 
   // Settings ------------------------------------------------------------------
@@ -104,53 +103,13 @@ export function EngagementView() {
     },
   });
 
-  // Rules ---------------------------------------------------------------------
-  const setRules = (update: (list: EngagementRuleDto[]) => EngagementRuleDto[]) =>
-    queryClient.setQueryData<EngagementRuleDto[]>(qk.rules, (list) => update(list ?? []));
-  const saveRule = useAction({
-    mutationFn: ({ id, values }: { id: string | null; values: RuleValues }) =>
-      id
-        ? apiFetch<EngagementRuleDto>(`/api/engagement/rules/${id}`, { method: "PATCH", body: values })
-        : apiFetch<EngagementRuleDto>("/api/engagement/rules", { method: "POST", body: values }),
-    onSuccess: (rule, { id }) => {
-      setRules((list) => (id ? list.map((r) => (r.id === id ? rule : r)) : [...list, rule]));
-      setRuleDialog({ open: false, rule: null });
-    },
-  });
-  const toggleRule = useAction({
-    mutationFn: ({ id, active }: { id: string; active: boolean }) => apiFetch<EngagementRuleDto>(`/api/engagement/rules/${id}`, { method: "PATCH", body: { active } }),
-    onMutate: async ({ id, active }) => {
-      await queryClient.cancelQueries({ queryKey: qk.rules });
-      const previous = queryClient.getQueryData<EngagementRuleDto[]>(qk.rules);
-      setRules((list) => list.map((r) => (r.id === id ? { ...r, active } : r)));
-      return { previous };
-    },
-    onError: (_e, _v, context) => queryClient.setQueryData(qk.rules, context?.previous),
-  });
-  const deleteRule = useAction({
-    mutationFn: (id: string) => apiFetch(`/api/engagement/rules/${id}`, { method: "DELETE" }),
-    onSuccess: (_d, id) => {
-      setRules((list) => list.filter((r) => r.id !== id));
-      setRuleDialog({ open: false, rule: null });
-    },
-  });
-
   if (engagement.isPending) return <EngagementSkeleton />;
   if (engagement.isError) return <ErrorState error={engagement.error} onRetry={() => engagement.refetch()} />;
 
   const { stats, settings } = engagement.data;
   const autoReply = settings.autoReply ?? false;
-  const useWhatsapp = canWhatsapp && Boolean(settings.priceQuestionsToWhatsApp);
-  const whatsappNumber = settings.whatsappNumber ?? client.whatsappNumber;
-  const whatsappLink = `wa.me/${whatsappNumber.replace(/\D/g, "")}`;
   const queue = replies.data ?? [];
   const ruleList = rules.data ?? [];
-
-  /** Price questions get the WhatsApp answer when that setting is on (unless the draft was edited). */
-  function replyFor(reply: ReplyDraftDto) {
-    if (reply.isPriceQuestion && useWhatsapp && whatsappNumber) return t(`engagement.whatsappReply.${reply.language}`, { link: whatsappLink });
-    return reply.draftReply;
-  }
 
   function setAutoReply(on: boolean) {
     if (on) setConfirmAuto(true);
@@ -164,12 +123,12 @@ export function EngagementView() {
       <div className="mb-8 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatTile icon={MessageCircle} label={t("engagement.stats.commentsToday")} value={formatNumber(stats.commentsToday, locale)} />
         <StatTile icon={Send} label={t("engagement.stats.dmsSent")} value={formatNumber(stats.dmsSent, locale)} />
-        {canReplies && <StatTile icon={ShieldCheck} label={t("engagement.stats.awaiting")} value={replies.data ? queue.length : "–"} accent={queue.length > 0} />}
+        {canQueue && <StatTile icon={ShieldCheck} label={t("engagement.stats.awaiting")} value={replies.data ? queue.length : "–"} accent={queue.length > 0} />}
         {canRules && <StatTile icon={Zap} label={t("engagement.stats.activeRules")} value={rules.data ? ruleList.filter((r) => r.active).length : "–"} />}
       </div>
 
-      <div className={cn("mb-8 grid gap-6", canReplies && "lg:grid-cols-[1fr_320px]")}>
-        {canReplies && (
+      <div className={cn("mb-8 grid gap-6", canQueue && "lg:grid-cols-[1fr_320px]")}>
+        {canQueue && (
           <Card>
             <CardHeader className="border-b border-separator">
               <div>
@@ -187,8 +146,7 @@ export function EngagementView() {
             ) : (
               <ul className="divide-y divide-separator">
                 {queue.map((comment) => {
-                  const reply = replyFor(comment);
-                  const viaWhatsapp = reply !== comment.draftReply;
+                  const reply = comment.draftReply;
                   const isEditing = editing?.id === comment.id;
                   const isDm = comment.channel === "dm";
                   const author = comment.commenterUsername || t("engagement.queue.dmCustomer");
@@ -231,10 +189,17 @@ export function EngagementView() {
                           showHeart={false}
                           text={reply}
                           badge={
-                            <Badge variant="blue" size="sm">
-                              <Sparkles />
-                              {t("engagement.queue.aiDraft")}
-                            </Badge>
+                            comment.keywordRule ? (
+                              <Badge variant="blue" size="sm">
+                                <Zap />
+                                {t("engagement.queue.keywordReply")} · <bdi>{comment.keywordRule.keywords[0]}</bdi>
+                              </Badge>
+                            ) : (
+                              <Badge variant="blue" size="sm">
+                                <Sparkles />
+                                {t("engagement.queue.aiDraft")}
+                              </Badge>
+                            )
                           }
                           textSlot={
                             isEditing ? (
@@ -244,10 +209,23 @@ export function EngagementView() {
                           meta={
                             <>
                               <span>{comment.language === "ar" ? t("engagement.queue.kuwaiti") : t("engagement.queue.english")}</span>
-                              {viaWhatsapp && <span className="text-success">{t("engagement.queue.whatsapp")}</span>}
                             </>
                           }
                         />
+                        {comment.keywordRule && !comment.draftReply.trim() && !isEditing && (
+                          <p className="ms-11 mt-2 text-caption text-warning">{t("engagement.queue.dmOnly")}</p>
+                        )}
+                        {comment.privateReply && (
+                          <div className="ms-11 mt-2.5 text-caption text-muted">
+                            <p className="flex items-center gap-1.5">
+                              <Send className="size-3.5 shrink-0" aria-hidden="true" />
+                              {t("engagement.queue.withDm")}
+                            </p>
+                            <p className="mt-1 w-fit max-w-full rounded-[18px] bg-background px-3 py-1.5 text-body text-foreground" dir="auto">
+                              {comment.privateReply}
+                            </p>
+                          </div>
+                        )}
                         <div className="mt-3 flex flex-wrap justify-end gap-2">
                           {isEditing ? (
                             <>
@@ -268,7 +246,7 @@ export function EngagementView() {
                                 <Pencil className="size-3.5" />
                                 {t("common.edit")}
                               </Button>
-                              <Button onClick={() => approve.mutate({ id: comment.id, text: viaWhatsapp ? reply : undefined, channel: comment.channel })}>
+                              <Button onClick={() => approve.mutate({ id: comment.id, channel: comment.channel })}>
                                 {isDm ? t("engagement.queue.sendDm") : t("engagement.queue.approve")}
                               </Button>
                             </>
@@ -303,73 +281,11 @@ export function EngagementView() {
                 onCheckedChange={setAutoReply}
               />
             )}
-            {canWhatsapp && (
-              <FeatureToggle
-                label={t("engagement.controls.priceWhatsapp")}
-                description={t("engagement.controls.priceWhatsappHint")}
-                checked={Boolean(settings.priceQuestionsToWhatsApp)}
-                onCheckedChange={(v) => updateSettings.mutate({ priceQuestionsToWhatsApp: v })}
-              />
-            )}
           </div>
         </Card>
       </div>
 
-      {canRules && (
-        <Card>
-          <CardHeader className="border-b border-separator">
-            <div>
-              <CardTitle>{t("engagement.rules.title")}</CardTitle>
-              <CardDescription>{t("engagement.rules.subtitle")}</CardDescription>
-              {client.instagramProvider === "meta" && <CardDescription className="mt-1 text-warning">{t("instagramConnect.notes.dms")}</CardDescription>}
-            </div>
-            <Button size="sm" onClick={() => setRuleDialog({ open: true, rule: null })}>
-              <Plus className="size-4" />
-              {t("engagement.rules.add")}
-            </Button>
-          </CardHeader>
-          {rules.isPending ? (
-            <SkeletonList rows={3} />
-          ) : rules.isError ? (
-            <ErrorState error={rules.error} onRetry={() => rules.refetch()} className="m-4" />
-          ) : ruleList.length === 0 ? (
-            <EmptyState icon={Zap} title={t("engagement.rules.emptyTitle")} hint={t("engagement.rules.empty")} />
-          ) : (
-            <ul className="divide-y divide-separator">
-              {ruleList.map((rule) => (
-                <li key={rule.id} className={cn("flex flex-col gap-3 px-4 py-4 md:flex-row md:items-center", !rule.active && "opacity-60")}>
-                  <div className="flex flex-wrap items-center gap-1.5 md:w-56 md:shrink-0">
-                    {rule.keywords.map((k) => (
-                      <span key={k} className="rounded-pill border border-border px-2.5 py-0.5 text-caption font-semibold" dir="auto">
-                        {k}
-                      </span>
-                    ))}
-                  </div>
-                  <ArrowRight className="hidden size-4 shrink-0 text-muted md:block rtl:-scale-x-100" aria-hidden="true" />
-                  <div className="min-w-0 flex-1">
-                    <p className="w-fit max-w-full rounded-[18px] bg-button-secondary px-3.5 py-2 text-body" dir="auto">
-                      {rule.dmMessage}
-                    </p>
-                    <p className="mt-1.5 text-caption text-muted">
-                      {t("engagement.rules.triggered", { count: formatNumber(rule.timesTriggered, locale) })} · {rule.active ? t("common.active") : t("common.paused")}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 self-end md:self-center">
-                    <Button variant="ghost" size="icon-sm" aria-label={t("common.edit")} onClick={() => setRuleDialog({ open: true, rule })}>
-                      <Pencil strokeWidth={1.75} />
-                    </Button>
-                    <Switch
-                      checked={rule.active}
-                      onCheckedChange={(active) => toggleRule.mutate({ id: rule.id, active })}
-                      aria-label={rule.active ? t("engagement.rules.pause") : t("engagement.rules.resume")}
-                    />
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
-      )}
+      {canRules && <KeywordReplies />}
 
       <ConfirmDialog
         open={confirmAuto}
@@ -379,14 +295,6 @@ export function EngagementView() {
         confirmLabel={t("engagement.controls.confirm")}
         cancelLabel={t("common.cancel")}
         onConfirm={() => updateSettings.mutate({ autoReply: true })}
-      />
-      <RuleDialog
-        rule={ruleDialog.rule}
-        open={ruleDialog.open}
-        onOpenChange={(open) => setRuleDialog((d) => ({ ...d, open }))}
-        onSave={(values) => saveRule.mutate({ id: ruleDialog.rule?.id ?? null, values })}
-        onDelete={ruleDialog.rule ? () => deleteRule.mutate(ruleDialog.rule!.id) : undefined}
-        saving={saveRule.isPending || deleteRule.isPending}
       />
     </div>
   );

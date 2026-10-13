@@ -207,6 +207,9 @@ export async function fetchComments(client: GraphClient, mediaId: string, token:
   return items.map(mapComment);
 }
 
+/** Instagram rejects longer comments. */
+export const COMMENT_MAX_LENGTH = 2200;
+
 export async function postCommentReply(client: GraphClient, commentId: string, token: string, message: string): Promise<{ id: string }> {
   return client.post<{ id: string }>(`${commentId}/replies`, { message }, { call: "POST /{ig-comment}/replies", token, scopes: ["instagram_manage_comments"] });
 }

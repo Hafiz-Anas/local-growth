@@ -181,10 +181,10 @@ export const mathanetPack: ClientDataPack = {
   engagement: {
     stats: { commentsToday: 47, dmsSent: 128 },
     rules: [
-      { id: "r1", keywords: ["price", "بكم", "كم السعر"], message: "Hi! 👋 Here's our full price list and WhatsApp ordering link: wa.me/96550123456", timesTriggered: 412, active: true },
-      { id: "r2", keywords: ["delivery", "توصيل"], message: "نوصل لكل مناطق الكويت خلال ساعتين 🚚 اطلب من هني: wa.me/96550123456", timesTriggered: 238, active: true },
-      { id: "r3", keywords: ["location", "وين", "موقع"], message: "Our roastery is in Shuwaikh Industrial, Street 22 📍 maps.app/mathanet", timesTriggered: 97, active: true },
-      { id: "r4", keywords: ["wholesale", "جملة"], message: "For wholesale & corporate orders please message our sales team on WhatsApp 🤝", timesTriggered: 31, active: false },
+      { id: "r1", keywords: ["price", "بكم", "كم السعر"], reply: "أرسلنا لك الأسعار بالخاص 📩", message: "Hi! 👋 Here's our full price list and WhatsApp ordering link: wa.me/96550123456", timesTriggered: 412, active: true },
+      { id: "r2", keywords: ["delivery", "توصيل"], reply: "نعم نوصل 🚚 التفاصيل بالخاص", message: "نوصل لكل مناطق الكويت خلال ساعتين 🚚 اطلب من هني: wa.me/96550123456", timesTriggered: 238, active: true },
+      { id: "r3", keywords: ["location", "وين", "موقع"], reply: "Location sent to your DMs 📍", message: "Our roastery is in Shuwaikh Industrial, Street 22 📍 maps.app/mathanet", timesTriggered: 97, active: true },
+      { id: "r4", keywords: ["wholesale", "جملة"], reply: "Our sales team will message you 🤝", message: "For wholesale & corporate orders please message our sales team on WhatsApp 🤝", timesTriggered: 31, active: false },
     ],
     replyQueue: [
       { id: "c1", author: "fajer.q8", authorAvatarUrl: "/avatars/people/fajer-q8.svg", authorInitials: "FQ", authorTone: "rose", text: "بكم الكيلو الكاجو بالزعفران؟ 😍", postCaption: "دفعة الكاجو بالزعفران وصلت اليوم 🌰✨", postedAt: "2026-10-06T11:32:00+03:00", likes: 4, isPriceQuestion: true, draftReply: "هلا فجر 🤍 الكيلو بـ 9.500 د.ك والنص كيلو بـ 5 د.ك", draftLanguage: "ar" },

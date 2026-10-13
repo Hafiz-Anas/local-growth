@@ -9,6 +9,7 @@ import {
   ONBOARDING_STEPS,
   POST_PURPOSES,
 } from "@/config/onboarding";
+import { MAX_RULE_KEYWORDS, MAX_RULE_POSTS, PRIVATE_REPLY_MAX, PUBLIC_REPLY_MAX, normalizeText } from "@/lib/keyword-replies";
 import { normalizeTheme } from "@/lib/theme-script";
 import { emailSchema, newPasswordSchema } from "./auth";
 
@@ -126,16 +127,43 @@ export const applyWindowSchema = z.object({
 
 // Engagement -------------------------------------------------------------------
 
-const keywords = z.array(tag).min(1).max(20);
+/** Keywords of a keyword reply rule: each must keep a letter or digit once punctuation and emojis are ignored; duplicates are dropped. */
+const keywords = z
+  .array(tag.refine((k) => normalizeText(k).length > 0, "Use letters or numbers."))
+  .min(1)
+  .max(MAX_RULE_KEYWORDS)
+  .transform((list) => list.filter((k, i) => list.findIndex((other) => normalizeText(other) === normalizeText(k)) === i));
 
-export const createRuleSchema = z.object({
+const ruleFields = {
   keywords,
-  dmMessage: text(1000),
-  active: z.boolean().default(true),
-});
+  matchType: z.enum(["word", "exact"]),
+  /** Public reply under the comment. */
+  commentReply: text(PUBLIC_REPLY_MAX),
+  /** Private DM to the commenter; "" for none. */
+  dmMessage: z.string().trim().max(PRIVATE_REPLY_MAX),
+  scope: z.enum(["all", "selected"]),
+  /** Instagram media ids, for scope "selected". */
+  mediaIds: z.array(z.string().trim().min(1).max(64)).max(MAX_RULE_POSTS),
+  autoSend: z.boolean(),
+  active: z.boolean(),
+};
+
+const selectedNeedsPosts = (v: { scope?: "all" | "selected"; mediaIds?: string[] }) => v.scope !== "selected" || (v.mediaIds?.length ?? 0) > 0;
+
+export const createRuleSchema = z
+  .object({
+    ...ruleFields,
+    matchType: ruleFields.matchType.default("word"),
+    dmMessage: ruleFields.dmMessage.default(""),
+    scope: ruleFields.scope.default("all"),
+    mediaIds: ruleFields.mediaIds.default([]),
+    autoSend: ruleFields.autoSend.default(true),
+    active: ruleFields.active.default(true),
+  })
+  .refine(selectedNeedsPosts, { message: "Pick at least one post.", path: ["mediaIds"] });
 
 export const updateRuleSchema = z
-  .object({ keywords, dmMessage: text(1000), active: z.boolean() })
+  .object(ruleFields)
   .partial()
   .strict()
   .refine((v) => Object.keys(v).length > 0, "Nothing to update.");

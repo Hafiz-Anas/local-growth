@@ -119,8 +119,13 @@ export interface InstagramService {
   getMedia(account: InstagramAccount, options?: { limit?: number }): Promise<MediaDto[]>;
   getComments(account: InstagramAccount): Promise<InstagramComment[]>;
   replyToComment(account: InstagramAccount, commentId: string, text: string): Promise<{ id: string }>;
-  /** Keyword-rule DMs to a commenter (simulated for every provider; Meta needs the private-replies API). */
-  sendDM(account: InstagramAccount, username: string, text: string): Promise<{ id: string }>;
+  /**
+   * Private reply: a DM to the author of a comment, addressed by the comment id (keyword
+   * replies). Instagram allows one per comment, within 7 days of it. Throws
+   * InstagramMessagingError (already_replied, window_closed, comment_unavailable, …),
+   * InstagramNotConnectedError, InstagramPermissionError or InstagramRateLimitedError.
+   */
+  sendPrivateReply(account: InstagramAccount, commentId: string, text: string): Promise<{ id: string }>;
   /**
    * Replies in an existing Instagram DM conversation. `recipientId` is the customer's
    * Instagram-scoped id from the messaging webhook. Throws InstagramMessagingError
@@ -230,8 +235,8 @@ class RoutingInstagramService implements InstagramService {
   replyToComment(account: InstagramAccount, commentId: string, text: string) {
     return this.for(account).replyToComment(account, commentId, text);
   }
-  sendDM(account: InstagramAccount, username: string, text: string) {
-    return this.for(account).sendDM(account, username, text);
+  sendPrivateReply(account: InstagramAccount, commentId: string, text: string) {
+    return this.for(account).sendPrivateReply(account, commentId, text);
   }
   replyToMessage(account: InstagramAccount, recipientId: string, text: string) {
     return this.for(account).replyToMessage(account, recipientId, text);

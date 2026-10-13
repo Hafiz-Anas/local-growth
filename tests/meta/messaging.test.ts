@@ -3,7 +3,16 @@ import { createHmac } from "node:crypto";
 import { describe, it } from "node:test";
 import { classifyGraphError, MetaApiError } from "../../lib/services/meta/errors";
 import { appsecretProof } from "../../lib/services/meta/graph";
-import { MetaMessagingError, fetchMessagingProfile, parseInstagramWebhook, sendTextMessage, subscribePageToMessages, verifyWebhookSignature } from "../../lib/services/meta/messaging";
+import {
+  MetaMessagingError,
+  fetchMessagingProfile,
+  parseCommentWebhook,
+  parseInstagramWebhook,
+  sendPrivateReply,
+  sendTextMessage,
+  subscribePageToMessages,
+  verifyWebhookSignature,
+} from "../../lib/services/meta/messaging";
 import { CONFIG, client, err, ok } from "./helpers";
 
 const SECRET = "test-app-secret-not-real";
@@ -130,5 +139,70 @@ describe("profiles and Page subscription", () => {
     assert.equal(await subscribePageToMessages(c, "2002", "page-token"), true);
     assert.equal(calls[0].path, "2002/subscribed_apps");
     assert.equal(calls[0].params.get("subscribed_fields"), "messages");
+  });
+});
+
+describe("parseCommentWebhook", () => {
+  const change = (value: Record<string, unknown>, field = "comments") => ({ field, value });
+  const commentWebhook = (...changes: unknown[]) => ({ object: "instagram", entry: [{ id: IG, time: 1760000000, changes }] });
+
+  it("normalizes a new comment (Meta sends change times in seconds)", () => {
+    const parsed = parseCommentWebhook(commentWebhook(change({ id: "c_1", text: "MENU 😍", from: { id: "5550001", username: "noura.kw" }, media: { id: "m_1", media_product_type: "FEED" } })));
+    assert.deepEqual(parsed, [
+      { accountId: IG, commentId: "c_1", mediaId: "m_1", parentId: null, fromId: "5550001", fromUsername: "noura.kw", text: "MENU 😍", receivedAt: new Date(1760000000 * 1000) },
+    ]);
+  });
+
+  it("keeps the thread parent of replies, and ignores other fields, messages and other objects", () => {
+    const parsed = parseCommentWebhook(
+      commentWebhook(
+        change({ id: "c_2", text: "thanks", parent_id: "c_1", from: { id: IG, username: "dallabean.cafe" }, media: { id: "m_1" } }),
+        change({ id: "c_3", text: "live!" }, "live_comments"),
+        change({ id: "c_4" }),
+        change({ text: "no id" }),
+      ),
+    );
+    assert.deepEqual(parsed.map((c) => [c.commentId, c.parentId]), [["c_2", "c_1"]]);
+    assert.deepEqual(parseCommentWebhook(webhook(message())), [], "a DM webhook has no comments");
+    assert.deepEqual(parseInstagramWebhook(commentWebhook(change({ id: "c_1", text: "MENU" }))), [], "a comment webhook has no DMs");
+    assert.deepEqual(parseCommentWebhook({ object: "page", entry: [{ id: IG, changes: [change({ id: "c", text: "x" })] }] }), []);
+    assert.deepEqual(parseCommentWebhook(null), []);
+  });
+});
+
+describe("sendPrivateReply", () => {
+  it("posts to /me/messages addressed by comment id", async () => {
+    const { client: c, calls } = client(() => ok({ recipient_id: "5550001", message_id: "mid_pr_1" }));
+    assert.deepEqual(await sendPrivateReply(c, "page-token", "c_1", "Here's our menu 📋"), { messageId: "mid_pr_1" });
+    assert.equal(calls[0].path, "me/messages");
+    assert.deepEqual(JSON.parse(calls[0].params.get("recipient")!), { comment_id: "c_1" });
+    assert.deepEqual(JSON.parse(calls[0].params.get("message")!), { text: "Here's our menu 📋" });
+  });
+
+  it("maps one-per-comment, the 7-day window, deleted comments and blocked users", async () => {
+    const cases: Array<[object, string]> = [
+      [{ message: "(#10900) Activity already replied to", code: 10900 }, "already_replied"],
+      [{ message: "(#10) This message is sent outside of allowed window.", code: 10, error_subcode: 2534022 }, "window_closed"],
+      [{ message: "Unsupported post request. Object does not exist", code: 100, error_subcode: 33 }, "comment_unavailable"],
+      [{ message: "(#551) This person isn't available right now.", code: 551 }, "recipient_unavailable"],
+      [{ message: "(#100) Invalid parameter", code: 100 }, "message_rejected"],
+    ];
+    for (const [error, reason] of cases) {
+      const { client: c } = client(() => err({ error }));
+      await assert.rejects(sendPrivateReply(c, "t", "c_1", "hi"), (e) => e instanceof MetaMessagingError && e.reason === reason, reason);
+    }
+  });
+
+  it("refuses text over the limit without calling Meta, and leaves token and rate-limit errors to the generic handling", async () => {
+    const { client: c, calls } = client(() => ok({}));
+    await assert.rejects(sendPrivateReply(c, "t", "c_1", "x".repeat(1001)), (e) => e instanceof MetaMessagingError && e.reason === "message_rejected");
+    assert.equal(calls.length, 0);
+    for (const [error, kind] of [
+      [{ message: "Error validating access token", code: 190, error_subcode: 463 }, "token_invalid"],
+      [{ message: "(#4) Application request limit reached", code: 4 }, "rate_limited"],
+    ] as const) {
+      const { client: c2 } = client(() => err({ error }, kind === "token_invalid" ? 401 : 400));
+      await assert.rejects(sendPrivateReply(c2, "t", "c_1", "hi"), (e) => e instanceof MetaApiError && e.kind === kind);
+    }
   });
 });

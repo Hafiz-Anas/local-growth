@@ -3,6 +3,9 @@ import type { MediaTone } from "./client";
 export interface DmRule {
   id: string;
   keywords: string[];
+  /** Public reply under the comment (keyword replies). */
+  reply: string;
+  /** Private DM to the commenter. */
   message: string;
   timesTriggered: number;
   active: boolean;

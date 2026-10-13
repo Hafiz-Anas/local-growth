@@ -22,7 +22,7 @@ import {
 } from "./instagram";
 import { businessDiscovery, postCommentReply } from "./meta/api";
 import { MetaApiError, isMetaError } from "./meta/errors";
-import { MetaMessagingError, fetchMessagingProfile, sendTextMessage } from "./meta/messaging";
+import { MetaMessagingError, fetchMessagingProfile, sendPrivateReply, sendTextMessage } from "./meta/messaging";
 import { MetaPublishError, isPublicHttpsUrl, publishImage } from "./meta/publish";
 import { accountMetric, engagementMetric, followerGrowthMetric, followerSeries, heatmapOf, opportunityOf, windowResults, type SyncedPost } from "./meta/insights";
 import { displayUrl, mapDiscoveryOutcome, type AccountInsights, type DiscoveredProfile, type StoredProfile } from "./meta/mappers";
@@ -33,11 +33,11 @@ import { displayUrl, mapDiscoveryOutcome, type AccountInsights, type DiscoveredP
  * Reads (profile, media, insights, comments) come from the database, filled by
  * the sync (lib/server/instagram-sync.ts) — pages never call Meta on load.
  * Live calls: replying to a comment, replying to a direct message (DMs arrive
- * through the messaging webhook, lib/server/instagram-dm.ts), business discovery
+ * through the messaging webhook, lib/server/instagram-dm.ts), private replies to
+ * commenters (keyword replies, lib/server/keyword-replies.ts), business discovery
  * (competitors) and publishing (single image + caption, lib/services/meta/publish.ts).
  *
- * Still simulated, and labelled in the UI:
- *  - Keyword-rule DMs to commenters: need the private-replies API → `sendDM` uses the mock.
+ * Not available, and labelled in the UI:
  *  - Trends: the Graph API has no trending audio/hashtags → empty.
  */
 
@@ -95,7 +95,7 @@ function toCompetitorProfile(p: DiscoveredProfile): CompetitorProfile {
 }
 
 export class MetaInstagramService implements InstagramService {
-  /** Used for what Meta can't do yet (DMs) and for platform health. */
+  /** Used for platform health. */
   constructor(private readonly mock: InstagramService) {}
 
   private async synced(businessId: string) {
@@ -203,10 +203,15 @@ export class MetaInstagramService implements InstagramService {
     }
   }
 
-  async sendDM(account: InstagramAccount, username: string, text: string) {
-    // Keyword-rule DMs to commenters stay simulated: they need Meta's private-replies API, not the DM webhook.
-    console.info("[instagram:meta] keyword-rule DMs are simulated.");
-    return this.mock.sendDM(account, username, text);
+  async sendPrivateReply(account: InstagramAccount, commentId: string, text: string) {
+    const { token } = requireConnection(account);
+    try {
+      const { messageId } = await sendPrivateReply(graphFor(account.businessId), token, commentId, text);
+      return { id: messageId };
+    } catch (error) {
+      if (error instanceof MetaMessagingError) throw new InstagramMessagingError(error.reason, error.detail);
+      translate(error);
+    }
   }
 
   async replyToMessage(account: InstagramAccount, recipientId: string, text: string) {

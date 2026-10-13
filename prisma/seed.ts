@@ -153,6 +153,7 @@ async function seedBusiness(client: Client, index: number, passwordHash: string,
       engagementRules: {
         create: pack.engagement.rules.map((r) => ({
           keywords: r.keywords,
+          commentReply: r.reply,
           dmMessage: r.message,
           active: r.active,
           timesTriggered: r.timesTriggered,

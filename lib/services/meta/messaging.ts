@@ -11,12 +11,17 @@ import type { GraphClient } from "./graph";
  *    X-Hub-Signature-256 (HMAC-SHA256 of the raw body with the app secret).
  *  - Sending: POST /me/messages with the Page token → { recipient: { id: IGSID }, message: { text } }.
  *    Instagram only accepts a reply within 24 hours of the customer's last message.
+ *  - Private replies (keyword replies): the same endpoint with { recipient: { comment_id } } —
+ *    one per comment, within 7 days of the comment.
+ *  - Comment webhooks: `changes[].field === "comments"` on the same "instagram" object.
  */
 
 /** Instagram rejects longer DMs ("1,000 bytes or less" in Meta's docs; we keep to characters and stay under). */
 export const DM_MAX_LENGTH = 1000;
 /** Standard messaging window: replies are allowed this long after the customer's last message. */
 export const DM_WINDOW_MS = 24 * 60 * 60 * 1000;
+/** Private replies to a comment are accepted this long after the comment was posted. */
+export const PRIVATE_REPLY_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
 // ── Webhook signature ────────────────────────────────────────────────────────
 
@@ -85,16 +90,70 @@ export function parseInstagramWebhook(payload: unknown): IncomingMessage[] {
   return out;
 }
 
+/** A new comment on one of the business's posts, from a "comments" webhook change. */
+export interface IncomingComment {
+  /** The business's Instagram professional account id (entry.id). */
+  accountId: string;
+  commentId: string;
+  /** The post the comment is on (null if Meta left it out). */
+  mediaId: string | null;
+  /** Set when the comment is a reply in another comment's thread. */
+  parentId: string | null;
+  /** The commenter's Instagram-scoped id and username. */
+  fromId: string | null;
+  fromUsername: string | null;
+  text: string;
+  /** When Meta sent the change (comments carry no timestamp of their own). */
+  receivedAt: Date;
+}
+
+interface RawCommentChange {
+  field?: string;
+  value?: { id?: string; text?: string; parent_id?: string; from?: { id?: string; username?: string }; media?: { id?: string } };
+}
+
+/** Webhook times are in seconds for `changes` and in milliseconds for `messaging`; accept both. */
+const toDate = (t: number | undefined) => new Date(typeof t !== "number" ? Date.now() : t < 1e12 ? t * 1000 : t);
+
+/** The comments in a webhook body ("comments" field). Everything else is ignored. */
+export function parseCommentWebhook(payload: unknown): IncomingComment[] {
+  const body = payload as { object?: string; entry?: Array<{ id?: string; time?: number; changes?: RawCommentChange[] }> } | null;
+  if (!body || body.object !== "instagram" || !Array.isArray(body.entry)) return [];
+  const out: IncomingComment[] = [];
+  for (const entry of body.entry) {
+    if (!entry?.id || !Array.isArray(entry.changes)) continue;
+    for (const change of entry.changes) {
+      const v = change?.value;
+      if (change?.field !== "comments" || !v?.id || typeof v.text !== "string") continue;
+      out.push({
+        accountId: entry.id,
+        commentId: v.id,
+        mediaId: v.media?.id ?? null,
+        parentId: v.parent_id ?? null,
+        fromId: v.from?.id ?? null,
+        fromUsername: v.from?.username ?? null,
+        text: v.text,
+        receivedAt: toDate(entry.time),
+      });
+    }
+  }
+  return out;
+}
+
 // ── Sending ──────────────────────────────────────────────────────────────────
 
 /** Why Instagram didn't deliver a DM, beyond the generic Graph errors (token, permission, rate limit). */
 export type MessagingFailureReason =
-  /** More than 24 hours since the customer's last message. */
+  /** More than 24 hours since the customer's last message (7 days since the comment, for private replies). */
   | "window_closed"
   /** The customer can't be messaged (blocked the account, deactivated, or unknown IGSID). */
   | "recipient_unavailable"
   /** Instagram refused the message itself (too long, invalid). */
-  | "message_rejected";
+  | "message_rejected"
+  /** Private replies: this comment already got its one private reply. */
+  | "already_replied"
+  /** Private replies: the comment was deleted or can't be found. */
+  | "comment_unavailable";
 
 export class MetaMessagingError extends Error {
   constructor(
@@ -112,13 +171,16 @@ const WINDOW_CLOSED_SUBCODES = new Set([2534022, 2018278]);
 /** Recipient can't receive messages (551 "This person isn't available right now"; 100/2534014 "no matching user"). */
 const UNAVAILABLE = (code: number, subcode: number) => code === 551 || subcode === 2534014 || subcode === 2018001;
 
-export async function sendTextMessage(client: GraphClient, pageToken: string, recipientId: string, text: string): Promise<{ messageId: string }> {
+/** Private replies: "Activity already replied to" (one private reply per comment). */
+const ALREADY_REPLIED_CODE = 10900;
+
+async function postMessage(client: GraphClient, pageToken: string, recipient: { id: string } | { comment_id: string }, text: string, call: string): Promise<{ messageId: string }> {
   if (text.length > DM_MAX_LENGTH) throw new MetaMessagingError("message_rejected", `Longer than ${DM_MAX_LENGTH} characters.`);
   try {
     const res = await client.post<{ recipient_id?: string; message_id?: string }>(
       "me/messages",
-      { recipient: JSON.stringify({ id: recipientId }), message: JSON.stringify({ text }) },
-      { call: "POST /me/messages", token: pageToken, scopes: ["instagram_manage_messages"] },
+      { recipient: JSON.stringify(recipient), message: JSON.stringify({ text }) },
+      { call, token: pageToken, scopes: ["instagram_manage_messages"] },
     );
     return { messageId: res.message_id ?? "" };
   } catch (error) {
@@ -126,11 +188,22 @@ export async function sendTextMessage(client: GraphClient, pageToken: string, re
       const code = error.code ?? -1;
       const subcode = error.subcode ?? -1;
       if (WINDOW_CLOSED_SUBCODES.has(subcode)) throw new MetaMessagingError("window_closed", error.message);
+      if (code === ALREADY_REPLIED_CODE) throw new MetaMessagingError("already_replied", error.message);
+      if ("comment_id" in recipient && error.kind === "not_found") throw new MetaMessagingError("comment_unavailable", error.message);
       if (UNAVAILABLE(code, subcode)) throw new MetaMessagingError("recipient_unavailable", error.message);
       if (error.kind === "invalid_request") throw new MetaMessagingError("message_rejected", error.message);
     }
     throw error;
   }
+}
+
+export function sendTextMessage(client: GraphClient, pageToken: string, recipientId: string, text: string): Promise<{ messageId: string }> {
+  return postMessage(client, pageToken, { id: recipientId }, text, "POST /me/messages");
+}
+
+/** Private reply: a DM to the author of a comment, addressed by the comment id (once per comment, within 7 days). */
+export function sendPrivateReply(client: GraphClient, pageToken: string, commentId: string, text: string): Promise<{ messageId: string }> {
+  return postMessage(client, pageToken, { comment_id: commentId }, text, "POST /me/messages (private reply)");
 }
 
 /** Username of the person behind an IGSID (User Profile API). Null when Meta won't say. */
@@ -144,7 +217,11 @@ export async function fetchMessagingProfile(client: GraphClient, pageToken: stri
   }
 }
 
-/** Installs the app on the Page so Meta delivers its Instagram messaging webhooks (needs pages_manage_metadata). */
+/**
+ * Installs the app on the Page so Meta delivers its Instagram webhooks (needs pages_manage_metadata).
+ * Which Instagram fields arrive (messages, comments) is chosen in the App Dashboard; this call only
+ * has to name a Page field ("subscribe to any Page field", Meta's Instagram webhooks guide).
+ */
 export async function subscribePageToMessages(client: GraphClient, pageId: string, pageToken: string): Promise<boolean> {
   const res = await client.post<{ success?: boolean }>(`${pageId}/subscribed_apps`, { subscribed_fields: "messages" }, { call: "POST /{page}/subscribed_apps", token: pageToken, scopes: ["pages_manage_metadata"] });
   return res.success === true;

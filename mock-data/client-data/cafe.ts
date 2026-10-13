@@ -129,8 +129,8 @@ export const cafePack: ClientDataPack = {
   engagement: {
     stats: { commentsToday: 19, dmsSent: 54 },
     rules: [
-      { id: "r1", keywords: ["menu", "المنيو"], message: "Here's our full menu 📋 dallabean.cafe/menu", timesTriggered: 188, active: true },
-      { id: "r2", keywords: ["price", "بكم"], message: "Prices & ordering on WhatsApp 👉 wa.me/96560447788", timesTriggered: 96, active: true },
+      { id: "r1", keywords: ["menu", "منيو"], reply: "Sent you the menu in a DM 📩", message: "Here's our full menu 📋 dallabean.cafe/menu", timesTriggered: 188, active: true },
+      { id: "r2", keywords: ["price", "بكم"], reply: "Check your DMs for prices 💬", message: "Prices & ordering on WhatsApp 👉 wa.me/96560447788", timesTriggered: 96, active: true },
     ],
     replyQueue: [
       { id: "c1", author: "noura.sips", authorAvatarUrl: "/avatars/people/noura-sips.svg", authorInitials: "NS", authorTone: "rose", text: "Are you open on Friday mornings?", postCaption: "Saffron cake + Spanish latte", postedAt: "2026-10-06T08:02:00+03:00", likes: 2, isPriceQuestion: false, draftReply: "Yes! Fridays from 8am ☀️ See you there 🧡", draftLanguage: "en" },
