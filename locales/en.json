@@ -194,6 +194,36 @@
     },
     "notAvailable": "Not available yet for this account"
   },
+  "aiStatus": {
+    "title": "AI status",
+    "account": "Account the AI watches",
+    "noAccount": "No Instagram account",
+    "coverage": "Coverage",
+    "posts": "{count} recent posts analysed",
+    "noPosts": "No posts to analyse",
+    "competitors": "{count} competitors tracked",
+    "freshness": "Freshness",
+    "synced": "Data synced:",
+    "analysed": "Last AI analysis:",
+    "never": "not yet",
+    "demoData": "demo data, no sync",
+    "reconnect": "Reconnect",
+    "connect": "Connect Instagram",
+    "health": {
+      "healthy": "Connected",
+      "demo": "Demo data",
+      "needs_reconnect": "Needs reconnecting",
+      "permissions": "Missing permissions",
+      "disconnected": "Not connected"
+    },
+    "warnings": {
+      "not_connected": "Instagram isn't connected, so the AI has no data about your account.",
+      "reconnect": "Instagram needs reconnecting: the AI is working from old data until you do.",
+      "permissions": "Some Instagram permissions are missing, so the AI sees only part of your data.",
+      "stale": "Your data hasn't synced in over a day, so AI answers may be out of date.",
+      "sync_failed": "The last sync failed."
+    }
+  },
   "competitors": {
     "title": "Competitor Insights",
     "subtitle": "See what's working for similar businesses near you.",

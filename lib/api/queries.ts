@@ -5,6 +5,7 @@ import { useActiveClient } from "@/components/providers/active-client-provider";
 import { useI18n } from "@/lib/i18n/provider";
 import { notify } from "@/store/ui-store";
 import type {
+  AiStatusDto,
   AssistantOverviewDto,
   AssistantThreadDto,
   BrandProfileDto,
@@ -49,6 +50,7 @@ export const qk = {
   assistant: ["assistant"] as const,
   assistantThread: (id: string) => ["assistant", "thread", id] as const,
   recommendations: ["recommendations"] as const,
+  aiStatus: ["dashboard", "ai-status"] as const,
   preview: (businessId: string) => ["preview", businessId] as const,
   admin: {
     overview: ["admin", "overview"] as const,
@@ -201,4 +203,10 @@ export function useAssistantThread(id: string | null): UseQueryResult<AssistantT
 export function useRecommendations(): UseQueryResult<RecommendationsDto, ApiClientError> {
   const { isPreview } = useActiveClient();
   return useQuery<RecommendationsDto, ApiClientError>({ queryKey: qk.recommendations, queryFn: () => apiFetch<RecommendationsDto>("/api/recommendations"), enabled: !isPreview });
+}
+
+/** The dashboard's AI status card (not in admin preview). Pass `enabled: false` when no AI module is on. */
+export function useAiStatus(enabled = true): UseQueryResult<AiStatusDto, ApiClientError> {
+  const { isPreview } = useActiveClient();
+  return useQuery<AiStatusDto, ApiClientError>({ queryKey: qk.aiStatus, queryFn: () => apiFetch<AiStatusDto>("/api/dashboard/ai-status"), enabled: enabled && !isPreview });
 }

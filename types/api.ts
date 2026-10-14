@@ -519,3 +519,30 @@ export interface RecommendationsRefreshDto {
   result: "generated" | "unchanged";
   data: RecommendationsDto;
 }
+
+// ─── AI status (dashboard card) ──────────────────────────────────────────────
+
+/** GET /api/dashboard/ai-status — what the AI features are working from. No AI calls. */
+export interface AiStatusDto {
+  account: {
+    username: string | null;
+    /** demo = the app's sample data (mock connection). */
+    health: "healthy" | "demo" | "needs_reconnect" | "permissions" | "disconnected";
+    provider: "meta" | "mock" | null;
+    missingPermissions: string[];
+  };
+  coverage: {
+    /** Posts the AI reads (the most recent ones, up to `postsLimit`); null without Instagram data. */
+    postsAnalyzed: number | null;
+    postsLimit: number;
+    /** Null when the competitors feature is off. */
+    competitorsTracked: number | null;
+  };
+  freshness: {
+    /** Last Instagram sync (Meta connections); null for demo data or before the first sync. */
+    lastSyncAt: string | null;
+    /** Last AI recommendations analysis; null when there's none (or the feature is off). */
+    lastAnalysisAt: string | null;
+  };
+  warnings: Array<"not_connected" | "reconnect" | "permissions" | "stale" | "sync_failed">;
+}

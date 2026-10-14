@@ -16,6 +16,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useI18n } from "@/lib/i18n/provider";
 import { formatCompact, formatNumber, formatPct } from "@/lib/utils";
 import { useDashboard } from "@/lib/api/queries";
+import { AiStatusCard } from "./ai-status-card";
 import { FollowerChart } from "./follower-chart";
 import { ConnectInstagramReminder, WelcomeCard } from "./onboarding-cards";
 import type { MetricValue } from "@/types";
@@ -60,6 +61,7 @@ export function DashboardView({ welcome = false }: { welcome?: boolean }) {
       <Feature flag="dashboard.profileHeader">
         <ProfileHeader client={client} />
       </Feature>
+      <AiStatusCard />
 
       {metrics && (
         <>
