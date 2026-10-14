@@ -37,6 +37,10 @@ export type ApiErrorCode =
   | "assistant_unavailable"
   /** The business asked the assistant its daily number of questions. */
   | "assistant_limit"
+  /** Recommendations couldn't be generated; details: [{ path: "reason", message: TextFailureReason }] (lib/server/recommendations.ts). */
+  | "recommendations_unavailable"
+  /** The business refreshed its recommendations the allowed number of times today. */
+  | "recommendations_limit"
   | "internal_error";
 
 /** Throw from route code (or guards); `handler()` turns it into the JSON error response. */

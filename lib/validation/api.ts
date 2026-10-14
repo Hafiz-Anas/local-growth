@@ -408,3 +408,6 @@ export const assistantMessageSchema = z.object({
   mode: z.enum(ASSISTANT_MODES),
   text: text(ASSISTANT_MAX_QUESTION),
 });
+
+/** PATCH /api/recommendations/:id — the owner's decision ("new" undoes accept/dismiss). */
+export const recommendationStatusSchema = z.object({ status: z.enum(["new", "accepted", "dismissed", "done"]) });

@@ -11,6 +11,7 @@ import {
   questionLanguage,
   type AssistantFacts,
   type AssistantMode,
+  type FactsScope,
 } from "@/lib/services/text/assistant";
 import type { AssistantConversationDto, AssistantMessageDto, AssistantOverviewDto, AssistantReplyDto, AssistantThreadDto, Permissions } from "@/types";
 import { currentBrandContext, postingLanguages } from "./brand";
@@ -80,8 +81,12 @@ export async function deleteAssistantConversation(businessId: string, id: string
 
 // ─── Grounding data ──────────────────────────────────────────────────────────
 
-/** Everything the answer may use. Instagram sections are left out when there's no data to show. */
-export async function gatherAssistantFacts(businessId: string, mode: AssistantMode): Promise<AssistantFacts> {
+/**
+ * Everything an answer may use. Instagram sections are left out when there's no data to show.
+ * Competitors are loaded for the competitors mode, and for "strategy" when `withCompetitors`
+ * (the business has the competitors feature). Shared by the assistant and the recommendations.
+ */
+export async function gatherAssistantFacts(businessId: string, mode: FactsScope, { withCompetitors = false } = {}): Promise<AssistantFacts> {
   const business = await db.business.findUniqueOrThrow({
     where: { id: businessId },
     select: {
@@ -171,7 +176,7 @@ export async function gatherAssistantFacts(businessId: string, mode: AssistantMo
     }
   }
 
-  if (mode === "competitors") {
+  if (mode === "competitors" || (mode === "strategy" && withCompetitors)) {
     try {
       facts.competitors = (await listCompetitors(businessId)).map((c) => ({
         handle: c.handle,

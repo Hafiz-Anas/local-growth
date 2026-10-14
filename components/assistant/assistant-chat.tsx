@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useMutationState, useQueryClient } from "@tanstack/react-query";
+import { create } from "zustand";
 import { BarChart3, ChevronDown, History, Loader2, PenLine, Plus, Send, Sparkles, Trash2, Users } from "lucide-react";
 import { useActiveClient } from "@/components/providers/active-client-provider";
 import { ChipSelect } from "@/components/shared/chip-select";
@@ -17,6 +18,15 @@ import { qk, useAction, useAssistant, useAssistantThread } from "@/lib/api/queri
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 import type { AssistantMessageDto, AssistantModeKey, AssistantOverviewDto, AssistantReplyDto, AssistantThreadDto } from "@/types";
+
+type AskVars = { text: string; mode: AssistantModeKey; conversationId: string | null };
+const ASK_KEY = ["assistant", "ask"] as const;
+
+/**
+ * The open chat lives outside the component, so a re-render that remounts the panel (e.g.
+ * switching language while an answer is on its way) doesn't lose it.
+ */
+const useOpenChat = create<{ id: string | null; open: (id: string | null) => void }>((set) => ({ id: null, open: (id) => set({ id }) }));
 
 const MODE_ICONS = { post: PenLine, analytics: BarChart3, competitors: Users } satisfies Record<AssistantModeKey, unknown>;
 const MAX_QUESTION = 1000;
@@ -39,11 +49,13 @@ export function AssistantChat({ className }: { className?: string }) {
   const { isPreview } = useActiveClient();
   const queryClient = useQueryClient();
   const overview = useAssistant();
-  const [conversationId, setConversationId] = useState<string | null>(null);
+  const openId = useOpenChat((s) => s.id);
+  const setConversationId = useOpenChat((s) => s.open);
+  // Only a chat of this business counts as open (the store outlives a change of account).
+  const conversationId = openId && overview.data?.conversations.some((c) => c.id === openId) ? openId : null;
   const thread = useAssistantThread(conversationId);
   const [chosenMode, setChosenMode] = useState<AssistantModeKey | null>(null);
   const [draft, setDraft] = useState("");
-  const [pending, setPending] = useState<{ text: string; mode: AssistantModeKey } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
@@ -53,7 +65,8 @@ export function AssistantChat({ className }: { className?: string }) {
   const messages = conversationId ? (thread.data?.messages ?? []) : [];
 
   const ask = useAction({
-    mutationFn: (vars: { text: string; mode: AssistantModeKey; conversationId: string | null }) =>
+    mutationKey: ASK_KEY,
+    mutationFn: (vars: AskVars) =>
       apiFetch<AssistantReplyDto>("/api/assistant/messages", {
         method: "POST",
         body: { text: vars.text, mode: vars.mode, ...(vars.conversationId && { conversationId: vars.conversationId }) },
@@ -61,8 +74,7 @@ export function AssistantChat({ className }: { className?: string }) {
     meta: { handlesErrors: true },
     onMutate: (vars) => {
       setNotice(null);
-      setPending({ text: vars.text, mode: vars.mode });
-      setDraft("");
+      setDraft(vars.text === draft ? "" : draft);
     },
     onSuccess: (reply) => {
       const id = reply.conversation.id;
@@ -70,6 +82,9 @@ export function AssistantChat({ className }: { className?: string }) {
         ...reply.conversation,
         messages: [...(current?.messages ?? []), ...reply.messages],
       }));
+      queryClient.setQueryData<AssistantOverviewDto>(qk.assistant, (d) =>
+        d && { ...d, conversations: [reply.conversation, ...d.conversations.filter((c) => c.id !== id)], usage: { ...d.usage, used: d.usage.used + 1 } },
+      );
       setConversationId(id);
       queryClient.invalidateQueries({ queryKey: qk.assistant, exact: true });
     },
@@ -85,7 +100,6 @@ export function AssistantChat({ className }: { className?: string }) {
         setNotice(errorMessage(error, t));
       }
     },
-    onSettled: () => setPending(null),
   });
 
   // Deleting a chat: it leaves the list at once (back on error) and the panel starts a new chat.
@@ -103,6 +117,10 @@ export function AssistantChat({ className }: { className?: string }) {
     onSuccess: (_data, id) => queryClient.removeQueries({ queryKey: qk.assistantThread(id) }),
   });
 
+  // The question on its way, read from the mutation cache so it survives a remount.
+  const pending = useMutationState({ filters: { mutationKey: ASK_KEY, status: "pending" }, select: (m) => m.state.variables as AskVars }).at(-1) ?? null;
+  const asking = pending !== null;
+
   const shown = messages.length + (pending ? 1 : 0) + (notice ? 1 : 0);
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: "end", behavior: "smooth" });
@@ -110,7 +128,7 @@ export function AssistantChat({ className }: { className?: string }) {
 
   const send = (text: string) => {
     const question = text.trim();
-    if (!question || ask.isPending) return;
+    if (!question || asking) return;
     ask.mutate({ text: question.slice(0, MAX_QUESTION), mode, conversationId });
   };
   const onSubmit = (event: FormEvent) => {
@@ -172,11 +190,11 @@ export function AssistantChat({ className }: { className?: string }) {
           </DropdownMenuContent>
         </DropdownMenu>
         {conversationId && (
-          <Button variant="danger" size="icon-sm" className="ms-auto" onClick={() => setConfirmDelete(true)} disabled={ask.isPending} aria-label={t("assistant.deleteChat")}>
+          <Button variant="danger" size="icon-sm" className="ms-auto" onClick={() => setConfirmDelete(true)} disabled={asking} aria-label={t("assistant.deleteChat")}>
             <Trash2 aria-hidden="true" />
           </Button>
         )}
-        <Button variant="secondary" size="sm" className={cn("gap-1.5", !conversationId && "ms-auto")} onClick={newChat} disabled={!conversationId || ask.isPending}>
+        <Button variant="secondary" size="sm" className={cn("gap-1.5", !conversationId && "ms-auto")} onClick={newChat} disabled={!conversationId || asking}>
           <Plus className="size-4" aria-hidden="true" />
           {t("assistant.newChat")}
         </Button>
@@ -202,7 +220,7 @@ export function AssistantChat({ className }: { className?: string }) {
         ) : conversationId && thread.isError ? (
           <ErrorState error={thread.error} onRetry={() => thread.refetch()} />
         ) : !messages.length && !pending ? (
-          <Intro mode={mode} onPick={send} disabled={ask.isPending || atLimit} />
+          <Intro mode={mode} onPick={send} disabled={asking || atLimit} />
         ) : (
           messages.map((m) => <Bubble key={m.id} message={m} />)
         )}
@@ -249,8 +267,8 @@ export function AssistantChat({ className }: { className?: string }) {
             className="min-h-12 flex-1"
             disabled={atLimit}
           />
-          <Button type="submit" size="icon" aria-label={t("assistant.send")} disabled={!draft.trim() || ask.isPending || atLimit}>
-            {ask.isPending ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Send className="rtl:-scale-x-100" aria-hidden="true" />}
+          <Button type="submit" size="icon" aria-label={t("assistant.send")} disabled={!draft.trim() || asking || atLimit}>
+            {asking ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Send className="rtl:-scale-x-100" aria-hidden="true" />}
           </Button>
         </div>
         <p className="flex flex-wrap justify-between gap-x-3 text-caption text-muted">

@@ -1,6 +1,6 @@
-import { createServer, type Server } from "node:http";
 import { randomUUID } from "node:crypto";
 import { expect, test, type Browser, type Page } from "@playwright/test";
+import { startGeminiStub } from "./gemini-stub";
 
 /**
  * AI assistant, end to end (see playwright.config.ts for how to run): ask in each mode,
@@ -12,42 +12,12 @@ import { expect, test, type Browser, type Page } from "@playwright/test";
 
 const USER = { email: "user@mathanetbaity.dev", password: "User@123" };
 const ADMIN = { email: "admin@localgrowth.dev", password: "Admin@123" };
-const STUB_PORT = Number(process.env.E2E_GEMINI_STUB_PORT ?? 4010);
 const RUN = randomUUID().slice(0, 6);
 
 test.describe.configure({ mode: "serial" });
 
-interface StubCall {
-  system: string;
-  turns: Array<{ role: string; text: string }>;
-}
-const calls: StubCall[] = [];
-let stub: Server;
+let stub: Awaited<ReturnType<typeof startGeminiStub>>;
 let page: Page;
-
-/** A local stand-in for Gemini's generateContent: answers with what it was asked, or fails on "[down]". */
-function startStub(): Promise<void> {
-  stub = createServer((req, res) => {
-    let raw = "";
-    req.on("data", (chunk) => (raw += chunk));
-    req.on("end", () => {
-      const body = JSON.parse(raw || "{}") as { systemInstruction?: { parts: Array<{ text: string }> }; contents?: Array<{ role: string; parts: Array<{ text: string }> }> };
-      const turns = (body.contents ?? []).map((c) => ({ role: c.role, text: c.parts.map((p) => p.text).join("") }));
-      calls.push({ system: body.systemInstruction?.parts[0]?.text ?? "", turns });
-      const question = turns.at(-1)?.text ?? "";
-      res.setHeader("content-type", "application/json");
-      if (question.includes("[down]")) {
-        res.statusCode = 503;
-        res.end(JSON.stringify({ error: { code: 503, status: "UNAVAILABLE", message: "The model is overloaded." } }));
-        return;
-      }
-      const arabic = /[؀-ۿ]/.test(question);
-      const text = arabic ? `إجابة تجريبية (${turns.length}): ${question}` : `**Stub answer** (${turns.length} turns) to: ${question}`;
-      res.end(JSON.stringify({ candidates: [{ finishReason: "STOP", content: { role: "model", parts: [{ text }] } }] }));
-    });
-  });
-  return new Promise((resolve) => stub.listen(STUB_PORT, "127.0.0.1", resolve));
-}
 
 async function login(p: Page, account: { email: string; password: string }) {
   await p.goto("/login");
@@ -71,7 +41,7 @@ async function ask(p: Page, question: string, label = "Your question") {
 }
 
 test.beforeAll(async ({ browser }: { browser: Browser }) => {
-  await startStub();
+  stub = await startGeminiStub();
   page = await browser.newPage();
   await login(page, USER);
   if ((await page.locator("html").getAttribute("dir")) === "rtl") await switchLanguage(page, "en");
@@ -79,7 +49,7 @@ test.beforeAll(async ({ browser }: { browser: Browser }) => {
 
 test.afterAll(async () => {
   await page.close();
-  await new Promise((resolve) => stub.close(resolve));
+  await stub.close();
 });
 
 test("opens from the navigation with the three modes", async () => {
@@ -93,13 +63,13 @@ test("opens from the navigation with the three modes", async () => {
 
 test("answers from the business's data, saves the chat and sends history on follow-ups", async () => {
   await page.getByRole("radio", { name: "Analytics" }).click();
-  const before = calls.length;
+  const before = stub.calls.length;
   await ask(page, `How is my account doing? ${RUN}`);
   await expect(page.getByText(`Stub answer (1 turns) to: How is my account doing? ${RUN}`)).toBeVisible();
   // Markdown is cleaned up before it's shown or saved.
   await expect(page.getByText("**Stub answer**")).toHaveCount(0);
 
-  const call = calls[before];
+  const call = stub.calls[before];
   expect(call.system).toContain("Mode: ANALYTICS");
   expect(call.system).toContain("<business_data>");
   expect(call.system).toContain("Accounts reached:");
@@ -107,7 +77,7 @@ test("answers from the business's data, saves the chat and sends history on foll
 
   await ask(page, "And which post did best?");
   await expect(page.getByText("Stub answer (3 turns) to: And which post did best?")).toBeVisible();
-  expect(calls.at(-1)!.turns.map((t) => t.role)).toEqual(["user", "model", "user"]);
+  expect(stub.calls.at(-1)!.turns.map((t) => t.role)).toEqual(["user", "model", "user"]);
 
   // The chat survives a reload and is listed under "Your chats".
   await page.reload();
@@ -124,8 +94,8 @@ test("replies in Arabic to an Arabic question, right to left", async () => {
   const answer = page.getByText(`إجابة تجريبية (1): ماذا أنشر هذا الأسبوع؟ ${RUN}`);
   await expect(answer).toBeVisible();
   await expect(answer).toHaveAttribute("dir", "auto");
-  expect(calls.at(-1)!.system).toContain("Mode: POST");
-  expect(calls.at(-1)!.system).toContain("Reply in Arabic");
+  expect(stub.calls.at(-1)!.system).toContain("Mode: POST");
+  expect(stub.calls.at(-1)!.system).toContain("Reply in Arabic");
   await switchLanguage(page, "en");
 });
 

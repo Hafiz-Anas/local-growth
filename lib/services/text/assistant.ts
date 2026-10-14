@@ -10,6 +10,8 @@ import { isArabic } from "./output";
 
 export const ASSISTANT_MODES = ["post", "analytics", "competitors"] as const;
 export type AssistantMode = (typeof ASSISTANT_MODES)[number];
+/** Which sections the data block holds: an assistant mode, or "strategy" (everything, for recommendations). */
+export type FactsScope = AssistantMode | "strategy";
 
 /** Messages of the conversation the model sees (oldest dropped first). */
 export const ASSISTANT_HISTORY_TURNS = 12;
@@ -112,10 +114,24 @@ export interface PostStats {
   weakest: AssistantPost[];
   /** Average interactions per post by type, with how many posts each average is based on. */
   byType: Array<{ type: "image" | "video"; posts: number; avgInteractions: number }>;
+  /** Per weekday in the business's timezone (Mon first, only days with posts). */
+  byWeekday: Array<{ day: string; posts: number; avgInteractions: number; avgReach: number | null }>;
+}
+
+const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+/** "Thu" for a post time, in the business's timezone (UTC if the zone is unknown). */
+export function weekdayOf(iso: string, timeZone: string): string {
+  const date = new Date(iso);
+  try {
+    return new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone }).format(date);
+  } catch {
+    return new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: "UTC" }).format(date);
+  }
 }
 
 /** Numbers derived in code, so the model quotes them instead of doing arithmetic. */
-export function postStats(posts: AssistantPost[], followers: number | null): PostStats | null {
+export function postStats(posts: AssistantPost[], followers: number | null, timeZone = "UTC"): PostStats | null {
   if (!posts.length) return null;
   const interactions = (p: AssistantPost) => p.likes + p.comments;
   const ranked = [...posts].sort((a, b) => interactions(b) - interactions(a));
@@ -126,6 +142,11 @@ export function postStats(posts: AssistantPost[], followers: number | null): Pos
       return { type, posts: group.length, avgInteractions: round(avg(group.map(interactions))) };
     })
     .filter((g) => g.posts > 0);
+  const byWeekday = WEEKDAYS.map((day) => {
+    const group = posts.filter((p) => weekdayOf(p.postedAt, timeZone) === day);
+    const reached = group.filter((p) => p.reach > 0);
+    return { day, posts: group.length, avgInteractions: round(avg(group.map(interactions))), avgReach: reached.length ? Math.round(avg(reached.map((p) => p.reach))) : null };
+  }).filter((d) => d.posts > 0);
   return {
     count: posts.length,
     avgLikes: round(avg(posts.map((p) => p.likes))),
@@ -135,6 +156,7 @@ export function postStats(posts: AssistantPost[], followers: number | null): Pos
     best: ranked.slice(0, 3),
     weakest: posts.length > 3 ? ranked.slice(-3).reverse() : [],
     byType,
+    byWeekday,
   };
 }
 
@@ -148,8 +170,8 @@ const oneLine = (text: string, max = 160) => {
 const pct = (n: number) => `${n > 0 ? "+" : ""}${round(n)}%`;
 const metric = (label: string, m: AssistantMetric, unit = "") =>
   m.available ? `${label}: ${m.value}${unit} (${pct(m.changePct)} vs the previous 30 days)` : `${label}: not available from Instagram yet`;
-const postLine = (p: AssistantPost) =>
-  `${day(p.postedAt)} ${p.type}: ${p.likes} likes, ${p.comments} comments${p.reach ? `, reach ${p.reach}` : ""}${p.saves ? `, ${p.saves} saves` : ""} — "${oneLine(p.caption, 120)}"`;
+const postLine = (p: AssistantPost, timeZone: string) =>
+  `${day(p.postedAt)} (${weekdayOf(p.postedAt, timeZone)}) ${p.type}: ${p.likes} likes, ${p.comments} comments${p.reach ? `, reach ${p.reach}` : ""}${p.saves ? `, ${p.saves} saves` : ""} — "${oneLine(p.caption, 120)}"`;
 
 const STATUS_TEXT: Record<AssistantFacts["instagram"]["status"], string> = {
   connected: "connected; the numbers below are the business's own stored Instagram data",
@@ -159,7 +181,7 @@ const STATUS_TEXT: Record<AssistantFacts["instagram"]["status"], string> = {
 };
 
 /** Everything the model may use, as labelled plain text. Sections are absent when there's no data. */
-export function formatFacts(facts: AssistantFacts, mode: AssistantMode, now = new Date()): string {
+export function formatFacts(facts: AssistantFacts, mode: FactsScope, now = new Date()): string {
   const b = facts.business;
   const ig = facts.instagram;
   const lines: string[] = [
@@ -197,13 +219,13 @@ export function formatFacts(facts: AssistantFacts, mode: AssistantMode, now = ne
       metric("Profile visits", m.profileVisits),
     );
   }
-  if (facts.followers && mode === "analytics") {
+  if (facts.followers && (mode === "analytics" || mode === "strategy")) {
     const f = facts.followers;
     lines.push(`Followers: ${f.first.value} on ${day(f.first.date)} → ${f.last.value} on ${day(f.last.date)} (${f.days} daily points)`);
   }
 
   const posts = facts.posts ?? [];
-  const stats = postStats(posts, facts.profile?.followers ?? null);
+  const stats = postStats(posts, facts.profile?.followers ?? null, b.timezone);
   if (stats) {
     push(
       "",
@@ -212,7 +234,8 @@ export function formatFacts(facts: AssistantFacts, mode: AssistantMode, now = ne
       `By type: ${stats.byType.map((g) => `${g.type} ${g.avgInteractions} likes+comments on average (${g.posts} post${g.posts === 1 ? "" : "s"})`).join("; ")}`,
       `Best by likes+comments: ${stats.best.map((p) => `${day(p.postedAt)} (${p.likes + p.comments})`).join(", ")}`,
       stats.weakest.length ? `Weakest by likes+comments: ${stats.weakest.map((p) => `${day(p.postedAt)} (${p.likes + p.comments})`).join(", ")}` : null,
-      ...posts.slice(0, mode === "analytics" ? 20 : 12).map(postLine),
+      `By weekday (${b.timezone}): ${stats.byWeekday.map((d) => `${d.day} ${d.avgInteractions} likes+comments${d.avgReach !== null ? `, reach ${d.avgReach}` : ""} (${d.posts} post${d.posts === 1 ? "" : "s"})`).join("; ")}`,
+      ...posts.slice(0, mode === "analytics" || mode === "strategy" ? 20 : 12).map((p) => postLine(p, b.timezone)),
     );
   } else if (ig.status !== "not_connected") {
     lines.push("", "## Recent posts", "No posts stored yet.");
@@ -230,7 +253,7 @@ export function formatFacts(facts: AssistantFacts, mode: AssistantMode, now = ne
     );
   }
 
-  if (mode === "competitors") {
+  if (mode === "competitors" || (mode === "strategy" && facts.competitors)) {
     const competitors = facts.competitors ?? [];
     lines.push("", `## Tracked competitors (${competitors.length})`);
     if (!competitors.length) lines.push("None. The business hasn't added any competitors that we could load.");

@@ -20,6 +20,7 @@ import type {
   NotificationPrefs,
   PostDraftDto,
   PreviewDto,
+  RecommendationsDto,
   ReplyDraftDto,
   ScheduledPostDto,
   TrendsDto,
@@ -47,6 +48,7 @@ export const qk = {
   instagramMedia: ["instagram-media"] as const,
   assistant: ["assistant"] as const,
   assistantThread: (id: string) => ["assistant", "thread", id] as const,
+  recommendations: ["recommendations"] as const,
   preview: (businessId: string) => ["preview", businessId] as const,
   admin: {
     overview: ["admin", "overview"] as const,
@@ -193,4 +195,10 @@ export function useAssistantThread(id: string | null): UseQueryResult<AssistantT
     queryFn: () => apiFetch<AssistantThreadDto>(`/api/assistant/conversations/${id}`),
     enabled: Boolean(id) && !isPreview,
   });
+}
+
+/** AI strategy recommendations (not loaded in admin preview: decisions are the business's own). */
+export function useRecommendations(): UseQueryResult<RecommendationsDto, ApiClientError> {
+  const { isPreview } = useActiveClient();
+  return useQuery<RecommendationsDto, ApiClientError>({ queryKey: qk.recommendations, queryFn: () => apiFetch<RecommendationsDto>("/api/recommendations"), enabled: !isPreview });
 }

@@ -3,11 +3,21 @@ import { logIntegration } from "@/lib/server/integration-log";
 import type { CaptionStyle, PostPurpose, PurposePattern, StyleNotes } from "@/types";
 import { getContentCatalog, type CatalogProfile } from "./catalog";
 import { cleanAssistantAnswer } from "./text/assistant";
+import { parseStrategy, type StrategyRecommendation } from "./text/strategy";
 import { TextGenerationError, sanitizeTextError, type TextFailureReason } from "./text/errors";
 import { TextRequestGate } from "./text/gate";
 import { DEFAULT_GEMINI_TEXT_MODEL, DEFAULT_GEMINI_TEXT_RPD, DEFAULT_GEMINI_TEXT_RPM, generateGeminiText, readGeminiTextConfig } from "./text/gemini";
 import { composeCaption, cleanReply, greetName, isArabic, parseBrandContext, parseCaptions, replyLanguage, stripAvoided } from "./text/output";
-import { assistantPrompt, brandContextPrompt, captionPrompt, replyPrompt, type AssistantPromptInput, type TextPrompt } from "./text/prompts";
+import {
+  assistantPrompt,
+  brandContextPrompt,
+  captionPrompt,
+  replyPrompt,
+  strategyPrompt,
+  type AssistantPromptInput,
+  type StrategyPromptInput,
+  type TextPrompt,
+} from "./text/prompts";
 
 /**
  * AI caption, reply and brand-profile generation. Routes depend on this
@@ -118,7 +128,16 @@ export interface AIService {
    * when the model can't answer, the result says why and the UI shows that.
    */
   chat(request: AssistantRequest): Promise<AssistantAnswer>;
+  /** Weekly strategy recommendations. Like chat(), never made-up text: a failure says why. */
+  strategy(request: StrategyRequest): Promise<StrategyAnswer>;
 }
+
+export interface StrategyRequest {
+  businessId: string;
+  prompt: StrategyPromptInput;
+}
+
+export type StrategyAnswer = { ok: true; recommendations: StrategyRecommendation[] } | { ok: false; reason: TextFailureReason };
 
 export interface AssistantRequest {
   /** For the integration log when the real model fails. */
@@ -322,9 +341,14 @@ export class MockAIService implements AIService {
   async chat(): Promise<AssistantAnswer> {
     return { ok: false, reason: "not_configured" };
   }
+
+  /** MOCK: no model, so no recommendations (never template ones presented as analysis). */
+  async strategy(): Promise<StrategyAnswer> {
+    return { ok: false, reason: "not_configured" };
+  }
 }
 
-type AICall = "ai.captions" | "ai.reply.comment" | "ai.reply.dm" | "ai.brand_context" | "ai.assistant";
+type AICall = "ai.captions" | "ai.reply.comment" | "ai.reply.dm" | "ai.brand_context" | "ai.assistant" | "ai.strategy";
 
 /**
  * Gemini text model (prompts in ./text/prompts.ts). Never fails: when the
@@ -347,7 +371,7 @@ export class GeminiAIService implements AIService {
   ): Promise<T> {
     const config = readGeminiTextConfig();
     // What the user gets instead of a model answer, for the log.
-    const instead = call === "ai.assistant" ? { text: "showed the assistant as unavailable", fallback: "unavailable" } : { text: "used the template text instead", fallback: "template" };
+    const instead = call === "ai.assistant" || call === "ai.strategy" ? { text: "told the user the AI is unavailable", fallback: "unavailable" } : { text: "used the template text instead", fallback: "template" };
     const gate = (this.gate ??= new TextRequestGate(config?.rpm ?? DEFAULT_GEMINI_TEXT_RPM, config?.rpd ?? DEFAULT_GEMINI_TEXT_RPD));
     const model = config?.model ?? DEFAULT_GEMINI_TEXT_MODEL;
     const decision = gate.acquire();
@@ -476,6 +500,16 @@ export class GeminiAIService implements AIService {
         if (!text) throw new TextGenerationError("bad_output", "The model's answer was empty.", 200);
         return { ok: true, text };
       },
+      (reason) => ({ ok: false, reason }),
+    );
+  }
+
+  async strategy(request: StrategyRequest): Promise<StrategyAnswer> {
+    return this.run<StrategyAnswer>(
+      "ai.strategy",
+      request.businessId,
+      () => strategyPrompt(request.prompt),
+      (answer) => ({ ok: true, recommendations: parseStrategy(answer) }),
       (reason) => ({ ok: false, reason }),
     );
   }

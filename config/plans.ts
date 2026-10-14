@@ -26,6 +26,7 @@ export const PLAN_PRESETS: Record<PlanId, Permissions> = {
     "engagement",
     "engagement.aiReplies",
     "assistant",
+    "recommendations",
     "settings.brandVoice",
   ]),
   growth: build([
@@ -45,6 +46,7 @@ export const PLAN_PRESETS: Record<PlanId, Permissions> = {
     "engagement.aiReplies",
     "engagement.whatsappPricing",
     "assistant",
+    "recommendations",
     "settings.brandVoice",
   ]),
   pro: build([...FEATURE_KEYS]),

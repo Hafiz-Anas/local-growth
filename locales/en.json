@@ -45,7 +45,8 @@
     "clients": "Clients",
     "system": "System",
     "onboarding": "Onboarding",
-    "assistant": "AI Assistant"
+    "assistant": "AI Assistant",
+    "recommendations": "Recommendations"
   },
   "plans": {
     "starter": "Starter",
@@ -558,6 +559,78 @@
       }
     }
   },
+  "recommendations": {
+    "title": "Recommendations",
+    "subtitle": "Concrete actions for the week, based on your own Instagram data. Mark what you'll try and what you've done — we'll compare the results after 7 days.",
+    "refresh": "Refresh",
+    "analysing": "Analysing…",
+    "emptyTitle": "No recommendations yet",
+    "emptyHint": "We analyse your account every week. You can also analyse it now.",
+    "previewHint": "Recommendations and decisions are the business's own, so they aren't shown in preview.",
+    "disclaimer": "Recommendations are patterns in your past posts — correlation, not causation. Results also depend on things outside the data, like season and offers.",
+    "basedOn": "Based on {count} posts",
+    "basedOnNone": "Not based on your posts",
+    "meta": {
+      "analysed": "Analysed",
+      "checked": "checked",
+      "next": "Next automatic analysis: {date}",
+      "refreshes": "{left} of {limit} refreshes left today"
+    },
+    "notice": {
+      "unchanged": "Nothing has changed since the last analysis, so your recommendations stay the same.",
+      "busy": "The AI is busy right now. Please try again in a minute.",
+      "today": "The AI has reached today's limit. Your recommendations will refresh tomorrow.",
+      "unavailable": "We couldn't analyse your account right now. Please try again in a little while — your recommendations haven't changed.",
+      "limit": "You can refresh {limit} times a day. Please try again tomorrow.",
+      "noData": "Connect Instagram first: recommendations are based on your own posts."
+    },
+    "sections": {
+      "current": "This week",
+      "currentEmpty": "You've decided on all of this week's recommendations.",
+      "inProgress": "In progress",
+      "done": "Done",
+      "dismissed": "Dismissed"
+    },
+    "confidence": {
+      "strong": "Strong",
+      "moderate": "Moderate",
+      "early": "Early signal"
+    },
+    "categories": {
+      "content": "Content",
+      "timing": "Timing",
+      "format": "Format",
+      "engagement": "Engagement",
+      "hashtags": "Hashtags",
+      "competitors": "Competitors"
+    },
+    "metrics": {
+      "reach": "average reach per post",
+      "interactions": "average likes + comments per post",
+      "followers": "followers"
+    },
+    "actions": {
+      "accept": "Accept",
+      "done": "Mark done",
+      "dismiss": "Dismiss",
+      "restore": "Restore"
+    },
+    "status": {
+      "accepted": "Accepted {date}",
+      "dismissed": "Dismissed {date}",
+      "done": "Done {date}"
+    },
+    "outcome": {
+      "pending": "We'll compare your {metric} on {date}.",
+      "up": "{metric}: up {change}",
+      "down": "{metric}: down {change}",
+      "noChange": "{metric}: no clear change ({change})",
+      "notEnough": "{metric}: not enough new posts to compare yet",
+      "postsNote": "Based on {before} posts in the 14 days before and {after} in the 7 days after.",
+      "followersNote": "Followers when marked done vs. at the check.",
+      "correlation": "Other things changed too, so this shows correlation, not proof."
+    }
+  },
   "settings": {
     "title": "Settings",
     "instagram": {
@@ -834,6 +907,7 @@
       "experiment": "Posting Experiment",
       "engagement": "Engagement",
       "assistant": "AI Assistant",
+      "recommendations": "Recommendations",
       "settings": "Settings"
     },
     "moduleHints": {
@@ -843,6 +917,7 @@
       "experiment": "Posting-time experiments and scheduling.",
       "engagement": "Keyword replies and AI replies.",
       "assistant": "Chat that answers questions about the client’s own Instagram.",
+      "recommendations": "Weekly AI strategy actions with outcomes.",
       "settings": "Business settings the client can edit."
     },
     "items": {
@@ -909,7 +984,9 @@
       "failed": "Instagram didn't deliver the message. Try again."
     },
     "assistant_unavailable": "The assistant isn't available right now. Please try again in a little while.",
-    "assistant_limit": "You've reached today's limit of questions for the assistant. Please try again tomorrow."
+    "assistant_limit": "You've reached today's limit of questions for the assistant. Please try again tomorrow.",
+    "recommendations_unavailable": "We couldn't analyse your account right now. Please try again in a little while.",
+    "recommendations_limit": "You've refreshed your recommendations the maximum number of times today. Please try again tomorrow."
   },
   "states": {
     "loadFailed": "Couldn't load this",

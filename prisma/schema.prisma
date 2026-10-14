@@ -181,6 +181,24 @@ enum AssistantRole {
   ASSISTANT
 }
 
+enum RecommendationTrigger {
+  SCHEDULED
+  MANUAL
+}
+
+enum RecommendationConfidence {
+  STRONG
+  MODERATE
+  EARLY
+}
+
+enum RecommendationStatus {
+  NEW
+  ACCEPTED
+  DISMISSED
+  DONE
+}
+
 // ─── Accounts ────────────────────────────────────────────────────────────────
 
 model User {
@@ -278,6 +296,8 @@ model Business {
   directMessages      InstagramDirectMessage[]
   keywordTriggers     KeywordReplyTrigger[]
   assistantChats      AssistantConversation[]
+  recommendationRuns  RecommendationRun[]
+  recommendations     Recommendation[]
 }
 
 /// One row per (business, feature key). A sub-feature ("engagement.dmRules") is
@@ -847,4 +867,57 @@ model AssistantMessage {
   conversation AssistantConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@index([conversationId, createdAt])
+}
+
+// ─── AI strategy recommendations ─────────────────────────────────────────────
+
+/// One analysis of a business (weekly cron or manual refresh). `inputHash` covers the data,
+/// past decisions and prompt version: an unchanged hash reuses the last results (`unchanged`,
+/// no AI call, no recommendations of its own).
+model RecommendationRun {
+  id         String                @id @default(cuid())
+  businessId String
+  trigger    RecommendationTrigger
+  inputHash  String
+  unchanged  Boolean               @default(false)
+  /// Who asked for a manual refresh.
+  userId     String?
+  createdAt  DateTime              @default(now())
+
+  business        Business         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  recommendations Recommendation[]
+
+  @@index([businessId, createdAt])
+}
+
+/// A concrete action with its rationale (both languages), confidence and the posts it rests on.
+/// The owner marks it Accepted, Dismissed or Done; Done stores the metrics before (`baseline`)
+/// and, 7 days later, the comparison (`outcome`).
+model Recommendation {
+  id           String                   @id @default(cuid())
+  businessId   String
+  runId        String
+  actionEn     String
+  actionAr     String
+  rationaleEn  String
+  rationaleAr  String
+  /// content | timing | format | engagement | hashtags | competitors
+  category     String
+  /// The metric the outcome is measured on: reach | interactions | followers.
+  metric       String
+  confidence   RecommendationConfidence
+  basedOnPosts Int
+  status       RecommendationStatus     @default(NEW)
+  statusAt     DateTime?
+  statusBy     String?
+  baseline     Json?
+  outcome      Json?
+  outcomeAt    DateTime?
+  createdAt    DateTime                 @default(now())
+
+  business Business          @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  run      RecommendationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, status])
+  @@index([runId])
 }

@@ -23,3 +23,13 @@ describe("AI assistant feature", () => {
     assert.equal(isFeatureEnabled(permissionsFromRows([]), "assistant"), false);
   });
 });
+
+describe("Recommendations feature", () => {
+  it("is a module of its own, ON in every plan, and gates its nav item", () => {
+    assert.deepEqual(FEATURE_MODULES.find((m) => m.id === "recommendations"), { id: "recommendations", moduleKey: "recommendations", subFeatures: [] });
+    for (const plan of PLAN_IDS) assert.equal(PLAN_PRESETS[plan].recommendations, true, plan);
+    assert.equal(ROUTE_FEATURES["/recommendations"], "recommendations");
+    assert.ok(!filterNav(USER_NAV, permissionsFromRows([{ featureKey: "recommendations", enabled: false }])).some((i) => i.href === "/recommendations"));
+    assert.ok(filterNav(USER_NAV, permissionsFromRows([{ featureKey: "recommendations", enabled: true }])).some((i) => i.href === "/recommendations"));
+  });
+});

@@ -467,3 +467,55 @@ export interface AssistantReplyDto {
   conversation: AssistantConversationDto;
   messages: [AssistantMessageDto, AssistantMessageDto];
 }
+
+// ─── AI strategy recommendations ─────────────────────────────────────────────
+
+export type RecommendationStatusKey = "new" | "accepted" | "dismissed" | "done";
+
+export interface RecommendationOutcomeDto {
+  metric: "reach" | "interactions" | "followers";
+  before: number | null;
+  after: number | null;
+  changePct: number | null;
+  verdict: "up" | "down" | "no_clear_change" | "not_enough_data";
+  postsBefore: number;
+  postsAfter: number;
+  evaluatedAt: string;
+}
+
+export interface RecommendationDto {
+  id: string;
+  action: { en: string; ar: string };
+  rationale: { en: string; ar: string };
+  category: string;
+  metric: "reach" | "interactions" | "followers";
+  confidence: "strong" | "moderate" | "early";
+  basedOnPosts: number;
+  status: RecommendationStatusKey;
+  statusAt: string | null;
+  createdAt: string;
+  /** Done: when the 7-day comparison is (or was) due. */
+  outcomeDueAt: string | null;
+  outcome: RecommendationOutcomeDto | null;
+}
+
+/** GET /api/recommendations */
+export interface RecommendationsDto {
+  /** The analysis the current recommendations come from. */
+  lastAnalysis: { at: string; trigger: "scheduled" | "manual" } | null;
+  /** Last time the data was checked (an unchanged check reuses the last analysis). */
+  lastCheckedAt: string | null;
+  nextScheduledAt: string | null;
+  refresh: { used: number; limit: number };
+  /** New recommendations from the latest analysis. */
+  current: RecommendationDto[];
+  inProgress: RecommendationDto[];
+  done: RecommendationDto[];
+  dismissed: RecommendationDto[];
+}
+
+/** POST /api/recommendations/refresh */
+export interface RecommendationsRefreshDto {
+  result: "generated" | "unchanged";
+  data: RecommendationsDto;
+}

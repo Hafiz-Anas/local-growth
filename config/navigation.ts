@@ -7,6 +7,7 @@ export type NavIcon =
   | "experiment"
   | "engagement"
   | "assistant"
+  | "recommendations"
   | "settings"
   | "clients"
   | "onboarding"
@@ -30,6 +31,7 @@ export const USER_NAV: NavItem[] = [
   { href: "/experiment", labelKey: "nav.experiment", icon: "experiment", feature: "experiment", mobile: true },
   { href: "/engagement", labelKey: "nav.engagement", icon: "engagement", feature: "engagement", mobile: true },
   { href: "/assistant", labelKey: "nav.assistant", icon: "assistant", feature: "assistant" },
+  { href: "/recommendations", labelKey: "nav.recommendations", icon: "recommendations", feature: "recommendations" },
   { href: "/settings", labelKey: "nav.settings", icon: "settings" },
 ];
 
