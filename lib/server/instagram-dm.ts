@@ -129,7 +129,7 @@ async function storeMessage(businessId: string, message: IncomingMessage, text: 
 async function draftForConversation(businessId: string, message: IncomingMessage, username: string | null, avatarUrl: string | null) {
   const business = await db.business.findUnique({
     where: { id: businessId },
-    select: { name: true, brandVoice: { select: { toneLevel: true, brandWords: true, defaultHashtags: true, whatsappNumber: true, priceQuestionsToWhatsApp: true } } },
+    select: { name: true, nameAr: true, brandVoice: { select: { toneLevel: true, brandWords: true, defaultHashtags: true } } },
   });
   if (!business) return;
   const pending = await db.replyDraft.findFirst({ where: { businessId, channel: "DM", recipientId: message.customerId, status: "PENDING" }, select: { id: true, commentText: true } });
@@ -141,11 +141,12 @@ async function draftForConversation(businessId: string, message: IncomingMessage
   try {
     // Same call as the comment replies (lib/server/instagram-sync.ts); the AI answers the latest message.
     const draft = await getAIService().draftReply({
+      businessId,
       businessName: business.name,
+      businessNameAr: business.nameAr,
       commentText: message.text,
       commenterUsername: username ?? "",
       brandVoice: { toneLevel: voice?.toneLevel ?? 50, brandWords: voice?.brandWords ?? [], defaultHashtags: voice?.defaultHashtags ?? [] },
-      whatsappNumber: voice?.priceQuestionsToWhatsApp ? (voice.whatsappNumber ?? null) : null,
       channel: "dm",
     });
     draftText = draft.text.slice(0, DM_MAX_LENGTH);

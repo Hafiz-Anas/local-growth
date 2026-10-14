@@ -94,6 +94,13 @@ describe("Gemini image generation (stubbed)", () => {
     assert.equal(sanitizeImageError(`bad key ${KEY} in https://x.test/?key=${KEY}&a=1`).includes(KEY), false);
   });
 
+  it("redacts the newer AQ. key format too", () => {
+    const aq = "AQ.Ab8TEST-not-a-real-key-0123456789abcdefghijkl";
+    const out = sanitizeImageError(`API key not valid: ${aq} (x-goog-api-key: ${aq})`);
+    assert.equal(out.includes(aq), false);
+    assert.equal(out.includes("Ab8TEST"), false);
+  });
+
   it("reads the key and model from the environment", () => {
     assert.equal(readGeminiConfig({}), null);
     assert.equal(readGeminiConfig({ GEMINI_API_KEY: "  " }), null);

@@ -1,12 +1,20 @@
 import "server-only";
+import { logIntegration } from "@/lib/server/integration-log";
 import type { CaptionStyle, PostPurpose, PurposePattern, StyleNotes } from "@/types";
 import { getContentCatalog, type CatalogProfile } from "./catalog";
+import { TextGenerationError, sanitizeTextError } from "./text/errors";
+import { TextRequestGate } from "./text/gate";
+import { DEFAULT_GEMINI_TEXT_MODEL, DEFAULT_GEMINI_TEXT_RPD, DEFAULT_GEMINI_TEXT_RPM, generateGeminiText, readGeminiTextConfig } from "./text/gemini";
+import { composeCaption, cleanReply, greetName, isArabic, parseBrandContext, parseCaptions, replyLanguage, stripAvoided } from "./text/output";
+import { brandContextPrompt, captionPrompt, replyPrompt, type TextPrompt } from "./text/prompts";
 
 /**
  * AI caption, reply and brand-profile generation. Routes depend on this
- * interface only; pick the implementation with AI_PROVIDER ("mock" until the AI
- * integration lands — add e.g. a `ClaudeAIService` that prompts with the brand
- * context, and a case below).
+ * interface only; pick the implementation with AI_PROVIDER: "mock" (templates,
+ * no API calls) or "gemini" (Google's Gemini text model with GEMINI_API_KEY,
+ * falling back to the mock's text on any failure). To add another provider
+ * (e.g. OpenAI), implement AIService with the prompts in ./text/prompts.ts and
+ * add a case to getAIService(). Pure Gemini code lives in ./text (tested in tests/gemini).
  */
 
 export interface BrandVoiceInput {
@@ -28,6 +36,8 @@ export interface BrandContextForCaptions {
 export interface CaptionRequest {
   businessId: string;
   businessName: string;
+  /** The business's own Arabic name, so Arabic text never transliterates the English one. */
+  businessNameAr?: string | null;
   handle: string;
   categoryId: string;
   occasionId: string;
@@ -49,19 +59,23 @@ export interface GeneratedCaption {
 }
 
 export interface ReplyRequest {
+  /** For the integration log when the real model fails. */
+  businessId?: string;
   businessName: string;
+  /** The business's own Arabic name, so Arabic replies never transliterate the English one. */
+  businessNameAr?: string | null;
   /** The comment, or for a DM the customer's message(s). */
   commentText: string;
   commenterUsername: string;
   brandVoice: BrandVoiceInput;
-  /** When set, price questions are pointed to WhatsApp. */
-  whatsappNumber: string | null;
   /** A public reply under a comment (default) or a private direct-message reply. */
   channel?: "comment" | "dm";
 }
 
 /** Everything the business entered in onboarding, for building its brand profile. */
 export interface BrandContextInput {
+  /** For the integration log when the real model fails. */
+  businessId?: string;
   businessName: string;
   businessType: string | null;
   businessTypeOther: string | null;
@@ -103,23 +117,11 @@ export interface AIService {
 /** Thrown when the provider can't build a brand profile (the route stores a FAILED version). */
 export class BrandContextError extends Error {}
 
-const isArabic = (text: string) => /[؀-ۿ]/.test(text);
 const PRICE_WORDS = /price|how much|cost|بكم|كم السعر|سعر/i;
 const EMOJI = /\p{Extended_Pictographic}/gu;
 
 export function isPriceQuestion(text: string): boolean {
   return PRICE_WORDS.test(text);
-}
-
-const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-/** Removes words the brand asked to avoid, then tidies the spacing left behind. */
-function stripAvoided(text: string, avoid: string[]): string {
-  let out = text;
-  for (const word of avoid) {
-    if (word.trim()) out = out.replace(new RegExp(escapeRegExp(word.trim()), "giu"), "");
-  }
-  return out.replace(/[ \t]{2,}/g, " ").replace(/ +([,.!?،])/g, "$1").trim();
 }
 
 // ─── Mock brand-profile builder ──────────────────────────────────────────────
@@ -278,22 +280,16 @@ export class MockAIService implements AIService {
 
   async draftReply(request: ReplyRequest) {
     const arabic = isArabic(request.commentText);
-    const name = request.commenterUsername.split(/[._]/)[0];
-    if (isPriceQuestion(request.commentText) && request.whatsappNumber) {
-      const wa = `wa.me/${request.whatsappNumber.replace(/\D/g, "")}`;
-      return arabic
-        ? { text: `هلا ${name} 🤍 أرسلنا لك قائمة الأسعار، وتقدر تطلب مباشرة على الواتساب: ${wa}`, language: "ar" as const }
-        : { text: `Hi ${name}! 👋 We've sent you our price list — you can also order on WhatsApp: ${wa}`, language: "en" as const };
-    }
+    const name = greetName(request.commenterUsername);
     if (request.channel === "dm") {
       // A DM sender's username isn't always known (Meta may not share it).
       const to = name ? ` ${name}` : "";
       return arabic
-        ? { text: `هلا${to} 🤍 شكراً على رسالتك! وصلتنا وبنرد عليك بالتفاصيل بأقرب وقت.`, language: "ar" as const }
+        ? { text: `هلا${to} 🤍 شكراً على رسالتكم! وصلتنا وبنرد عليكم بالتفاصيل بأقرب وقت.`, language: "ar" as const }
         : { text: `Hi${to}! 🤍 Thanks for your message — we've got it and will get back to you with the details shortly.`, language: "en" as const };
     }
     return arabic
-      ? { text: `تسلم ${name} 🤍 نورتنا! أي سؤال إحنا موجودين بالخاص.`, language: "ar" as const }
+      ? { text: `شكراً ${name} 🤍 نورتونا! أي سؤال إحنا موجودين بالخاص.`, language: "ar" as const }
       : { text: `Thank you ${name}! 🤍 Send us a DM if there's anything we can help with.`, language: "en" as const };
   }
 
@@ -309,17 +305,160 @@ export class MockAIService implements AIService {
   }
 }
 
-let instance: AIService | null = null;
+type AICall = "ai.captions" | "ai.reply.comment" | "ai.reply.dm" | "ai.brand_context";
+
+/**
+ * Gemini text model (prompts in ./text/prompts.ts). Never fails: when the
+ * model can't answer (quota, billing, key, timeout, safety block, malformed
+ * answer) it returns the mock's text and logs the reason to the integration
+ * log. A request gate keeps calls within the free tier (GEMINI_TEXT_RPM / GEMINI_TEXT_RPD).
+ */
+export class GeminiAIService implements AIService {
+  private readonly mock = new MockAIService();
+  private gate: TextRequestGate | null = null;
+  private lastBudgetLog = 0;
+  private dailyBudgetLoggedUntil = 0;
+
+  private async run<T>(
+    call: AICall,
+    businessId: string | null | undefined,
+    prompt: () => TextPrompt,
+    toResult: (answer: string) => T | Promise<T>,
+    fallback: () => Promise<T>,
+  ): Promise<T> {
+    const config = readGeminiTextConfig();
+    const gate = (this.gate ??= new TextRequestGate(config?.rpm ?? DEFAULT_GEMINI_TEXT_RPM, config?.rpd ?? DEFAULT_GEMINI_TEXT_RPD));
+    const model = config?.model ?? DEFAULT_GEMINI_TEXT_MODEL;
+    const decision = gate.acquire();
+    if (!decision.allowed) {
+      // Paused after a failure: that failure is already in the log. Over our own budget: the daily one is
+      // logged once per day, the per-minute one at most once a minute.
+      if (decision.budget && decision.reason === "daily_limit") {
+        if (this.dailyBudgetLoggedUntil !== decision.until) {
+          this.dailyBudgetLoggedUntil = decision.until;
+          await logIntegration({ businessId: businessId ?? null, provider: "gemini", level: "warning", call, errorCode: "daily_limit", message: `Reached the daily request budget (GEMINI_TEXT_RPD) — using the template text until ${new Date(decision.until).toISOString()}.`, details: { model, fallback: "template", resetsAt: new Date(decision.until).toISOString() } });
+        }
+      } else if (decision.budget && Date.now() - this.lastBudgetLog > 60_000) {
+        this.lastBudgetLog = Date.now();
+        await logIntegration({ businessId: businessId ?? null, provider: "gemini", level: "warning", call, errorCode: "rate_limited", message: "Over the per-minute request budget (GEMINI_TEXT_RPM) — used the template text instead.", details: { model, fallback: "template" } });
+      }
+      return fallback();
+    }
+    try {
+      if (!config) throw new TextGenerationError("not_configured", "GEMINI_API_KEY is not set.");
+      return await toResult(await generateGeminiText(config, prompt()));
+    } catch (error) {
+      const failure = error instanceof TextGenerationError ? error : new TextGenerationError("unavailable", sanitizeTextError((error as Error).message));
+      gate.failed(failure.reason, failure.retryAfterMs);
+      await logIntegration({
+        businessId: businessId ?? null,
+        provider: "gemini",
+        level: "error",
+        call,
+        errorCode: failure.reason,
+        httpStatus: failure.httpStatus,
+        message: `${failure.message} — used the template text instead.`,
+        details: { model, fallback: "template", ...(failure.providerCode && { providerCode: failure.providerCode }) },
+      });
+      return fallback();
+    }
+  }
+
+  async generateCaptions(request: CaptionRequest): Promise<GeneratedCaption[]> {
+    const catalog = getContentCatalog(request.businessId, request.businessName, request.profile);
+    const category = catalog.categories.find((c) => c.id === request.categoryId) ?? catalog.categories[0];
+    const occasion = catalog.occasions.find((o) => o.id === request.occasionId);
+    const context = request.brandContext;
+    const ownWords = request.brandVoice.brandWords.length ? request.brandVoice.brandWords : catalog.brandVocabulary;
+    const avoid = context?.wordsToAvoid ?? [];
+    // The only hashtags a caption may carry: the brand profile's and the business's defaults.
+    const allowedTags = [...new Set([...(context?.captionStyle.hashtags ?? []), ...request.brandVoice.defaultHashtags])];
+
+    return this.run(
+      "ai.captions",
+      request.businessId,
+      () =>
+        captionPrompt({
+          businessName: request.businessName,
+          businessNameAr: request.businessNameAr ?? null,
+          handle: request.handle,
+          categoryLabel: category.label,
+          productNames: category.productNames,
+          occasionLabel: occasion?.label ?? request.occasionId,
+          language: request.language,
+          firstLanguage: request.variant % 2 === 0 ? "en" : "ar",
+          count: request.count,
+          variant: request.variant,
+          toneLevel: request.brandVoice.toneLevel,
+          wordsToUse: [...new Set([...(context?.wordsToUse ?? []), ...ownWords])],
+          wordsToAvoid: avoid,
+          hashtags: allowedTags,
+          brandSummary: context?.summary || null,
+          captionStyle: context?.captionStyle ?? null,
+          purposePattern: context?.purposePatterns.find((p) => p.purpose === request.occasionId)?.description ?? null,
+        }),
+      async (answer) => {
+        const captions = parseCaptions(answer).slice(0, request.count).map((c) => composeCaption(c, allowedTags, request.brandVoice.defaultHashtags, avoid));
+        // Fewer than asked for: top up with template captions rather than failing.
+        if (captions.length < request.count) {
+          captions.push(...(await this.mock.generateCaptions({ ...request, count: request.count - captions.length, variant: request.variant + captions.length })));
+        }
+        return captions;
+      },
+      () => this.mock.generateCaptions(request),
+    );
+  }
+
+  async draftReply(request: ReplyRequest) {
+    const channel = request.channel ?? "comment";
+    const language = replyLanguage(request.commentText);
+    return this.run(
+      channel === "dm" ? "ai.reply.dm" : "ai.reply.comment",
+      request.businessId,
+      () =>
+        replyPrompt({
+          businessName: request.businessName,
+          businessNameAr: request.businessNameAr ?? null,
+          text: request.commentText,
+          greetName: greetName(request.commenterUsername),
+          language,
+          channel,
+          toneLevel: request.brandVoice.toneLevel,
+          brandWords: request.brandVoice.brandWords,
+        }),
+      (answer) => ({ text: cleanReply(answer), language }),
+      () => this.mock.draftReply(request),
+    );
+  }
+
+  async buildBrandContext(input: BrandContextInput): Promise<BrandContextDraft> {
+    return this.run(
+      "ai.brand_context",
+      input.businessId,
+      () => brandContextPrompt(input),
+      (answer) => {
+        const draft = parseBrandContext(answer);
+        // No usable post types from the model: keep the template ones so the generator still has angles.
+        return draft.purposePatterns.length ? draft : { ...draft, purposePatterns: mockBrandContext(input).purposePatterns };
+      },
+      async () => mockBrandContext(input),
+    );
+  }
+}
+
+export type AIProvider = "mock" | "gemini";
+
+export function aiProvider(): AIProvider {
+  const value = process.env.AI_PROVIDER ?? "mock";
+  if (value === "mock" || value === "gemini") return value;
+  throw new Error(`Unknown AI_PROVIDER "${value}".`);
+}
+
+let instance: { provider: AIProvider; service: AIService } | null = null;
 
 export function getAIService(): AIService {
-  if (instance) return instance;
-  const provider = process.env.AI_PROVIDER ?? "mock";
-  switch (provider) {
-    case "mock":
-      instance = new MockAIService();
-      break;
-    default:
-      throw new Error(`Unknown AI_PROVIDER "${provider}".`);
-  }
-  return instance;
+  const provider = aiProvider();
+  if (instance?.provider === provider) return instance.service;
+  instance = { provider, service: provider === "gemini" ? new GeminiAIService() : new MockAIService() };
+  return instance.service;
 }

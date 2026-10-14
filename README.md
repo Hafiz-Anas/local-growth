@@ -118,7 +118,7 @@ All variables are listed in `.env.example`.
 | `EMAIL_PROVIDER`, `EMAIL_FROM`, `RESEND_API_KEY` | Email implementation (`console` or `resend`), sender, and Resend key (see DEPLOY.md) |
 | `INSTAGRAM_PROVIDER` | How new Instagram connections are made: `mock` or `meta` (existing connections keep their provider) |
 | `META_APP_ID`, `META_APP_SECRET`, `META_REDIRECT_URI`, `META_GRAPH_VERSION` | Meta app for Facebook Login / Graph API (see [Meta / Instagram integration](#meta--instagram-integration)); Meta stays off while the secret is empty |
-| `AI_PROVIDER` | Caption/reply generation (`mock`) |
+| `AI_PROVIDER` | Captions, reply drafts and the brand profile: `mock` (templates) or `gemini` (`GEMINI_API_KEY`, model `GEMINI_TEXT_MODEL`, budgets `GEMINI_TEXT_RPM` (default 12/min) and `GEMINI_TEXT_RPD` (default 450/day); falls back to the templates on any failure and logs it) |
 | `STORAGE_PROVIDER`, `UPLOAD_DIR` | File storage (`local` with its folder, or `vercel-blob` + `BLOB_READ_WRITE_TOKEN` in production) |
 | `RATE_LIMIT_STORE` | Rate-limit store (`memory`) |
 | `DEMO_ACCOUNTS_ENABLED` | Show demo logins on the login page |
@@ -242,7 +242,7 @@ Real Instagram data comes through **"Instagram API with Facebook Login"** (Faceb
 |---|---|---|
 | Instagram for demo/mock connections — profile numbers, insights, comments, trends, competitor profiles | `MockInstagramService` serves `mock-data/` (new businesses get empty data); mock "connect" approves instantly | Connect through Facebook (`INSTAGRAM_PROVIDER=meta`): `MetaInstagramService` is real |
 | Instagram with a Meta connection — keyword DM rules, trends, API health | Keyword DM rules simulated (DM *replies* and publishing are real); no trends; health is mock | Private-replies API |
-| AI captions and reply drafts | `MockAIService` fills caption templates with brand words and the brand context | Implement `AIService` (e.g. Claude), set `AI_PROVIDER` |
+| AI captions, reply drafts and brand profile | `MockAIService` fills caption templates with brand words and the brand context | `AI_PROVIDER=gemini`: `GeminiAIService` (prompts in `lib/services/text/prompts.ts`) |
 | Brand profile (`buildBrandContext`) | Template sentences built from the onboarding answers | Same interface, real model |
 | Competitor validation (`lookupBusinessAccount`) for mock connections | Handle prefixes decide the status (see *Self-onboarding*) | Real for Meta connections (business discovery) |
 | Instagram posts in the post picker for mock connections | Generated posts with stand-in images from `public/mock-media` (`node scripts/generate-mock-media.mjs`) | Real for Meta connections (synced posts) |

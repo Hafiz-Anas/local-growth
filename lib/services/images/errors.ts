@@ -43,10 +43,11 @@ export class ImageGenerationError extends Error {
   }
 }
 
-/** Removes anything that looks like an API key before a message is logged or stored. */
+/** Removes anything that looks like a Google API key (classic "AIza…" and newer "AQ.…" keys) before a message is logged or stored. */
 export function sanitizeImageError(message: string): string {
   return message
     .replace(/AIza[0-9A-Za-z_-]{20,}/g, "[redacted]")
+    .replace(/\bAQ\.[0-9A-Za-z_-]{20,}/g, "[redacted]")
     .replace(/([?&](?:key|api_key)=)[^&\s"]+/gi, "$1[redacted]")
     .slice(0, 500);
 }

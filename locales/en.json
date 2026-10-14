@@ -528,7 +528,7 @@
       "brandWords": "Brand words",
       "brandWordPlaceholder": "Add a word",
       "whatsapp": "WhatsApp number",
-      "whatsappHint": "Used for price replies and keyword replies that send customers to WhatsApp."
+      "whatsappHint": "Used in keyword replies that send customers to WhatsApp."
     },
     "notifications": {
       "title": "Notifications",

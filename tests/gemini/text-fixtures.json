@@ -1,0 +1,132 @@
+{
+  "_comment": "Gemini generateContent text responses in the shape the API returns them. The error bodies errorProjectDenied, errorModelRetired and errorNoFreeTier were recorded from the live API (Oct 2026); the rest follow the documented shape. Used with a stubbed fetch; tests never call Google.",
+  "replySuccess": {
+    "candidates": [
+      {
+        "content": { "role": "model", "parts": [{ "text": "هلا سارة 🤍 تسلمين على كلامك الحلو، نورتينا!" }] },
+        "finishReason": "STOP"
+      }
+    ],
+    "usageMetadata": { "promptTokenCount": 312, "candidatesTokenCount": 21, "totalTokenCount": 333 },
+    "modelVersion": "gemini-3.5-flash-lite"
+  },
+  "withThoughts": {
+    "candidates": [
+      {
+        "content": { "role": "model", "parts": [{ "text": "The customer is happy; keep it short.", "thought": true }, { "text": "Thank you Omar! 🤍 See you soon." }] },
+        "finishReason": "STOP"
+      }
+    ]
+  },
+  "captionsSuccess": {
+    "candidates": [
+      {
+        "content": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "{\"captions\":[{\"text\":\"Fresh saffron cashews, roasted this morning ✨ Send us a DM to order.\",\"hashtags\":[\"#kuwait\",\"#cashews\"]},{\"text\":\"كاجو بالزعفران طازج من المحمصة ✨ اطلبوا بالخاص #مكسرات\",\"hashtags\":[\"#الكويت\",\"Kuwait Nuts\"]}]}"
+            }
+          ]
+        },
+        "finishReason": "STOP"
+      }
+    ]
+  },
+  "brandSuccess": {
+    "candidates": [
+      {
+        "content": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "{\"summary\":\"Mathanet Baity is a nut and coffee roastery in Shuwaikh.\",\"visualStyle\":{\"summary\":\"Warm browns and cream.\",\"traits\":[\"Close-up product shots\"]},\"captionStyle\":{\"summary\":\"Short Arabic captions.\",\"traits\":[\"Emoji accents\"],\"hashtags\":[\"#الكويت\",\"coffee time\"]},\"purposePatterns\":[{\"purpose\":\"menu_product\",\"label\":null,\"description\":\"One product, name first.\"},{\"purpose\":\"menu_product\",\"label\":null,\"description\":\"Duplicate.\"},{\"purpose\":\"giveaway\",\"label\":null,\"description\":\"Not a purpose we know.\"},{\"purpose\":\"other\",\"label\":\"Recipes\",\"description\":\"How to use the nuts at home.\"}]}"
+            }
+          ]
+        },
+        "finishReason": "STOP"
+      }
+    ]
+  },
+  "promptBlocked": { "promptFeedback": { "blockReason": "PROHIBITED_CONTENT" } },
+  "answerSafety": { "candidates": [{ "finishReason": "SAFETY" }] },
+  "cutOff": {
+    "candidates": [{ "content": { "role": "model", "parts": [{ "text": "{\"captions\":[{\"text\":\"Fresh saff" }] }, "finishReason": "MAX_TOKENS" }]
+  },
+  "empty": { "candidates": [{ "content": { "role": "model", "parts": [] }, "finishReason": "STOP" }] },
+  "errorProjectDenied": {
+    "error": { "code": 403, "message": "Your project has been denied access. Please contact support.", "status": "PERMISSION_DENIED" }
+  },
+  "errorModelRetired": {
+    "error": {
+      "code": 404,
+      "message": "This model models/gemini-2.5-flash-lite is no longer available to new users. Please update your code to use models/gemini-3.5-flash-lite for the latest features and improvements.",
+      "status": "NOT_FOUND"
+    }
+  },
+  "errorNoFreeTier": {
+    "error": {
+      "code": 429,
+      "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-3.1-flash-image\nPlease retry in 16h21m3.871450973s.",
+      "status": "RESOURCE_EXHAUSTED",
+      "details": [
+        {
+          "@type": "type.googleapis.com/google.rpc.QuotaFailure",
+          "violations": [
+            {
+              "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",
+              "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier"
+            }
+          ]
+        },
+        { "@type": "type.googleapis.com/google.rpc.RetryInfo", "retryDelay": "58863s" }
+      ]
+    }
+  },
+  "errorPerMinute": {
+    "error": {
+      "code": 429,
+      "message": "You exceeded your current quota, please check your plan and billing details.\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 15, model: gemini-3.5-flash-lite\nPlease retry in 21.4s.",
+      "status": "RESOURCE_EXHAUSTED",
+      "details": [
+        {
+          "@type": "type.googleapis.com/google.rpc.QuotaFailure",
+          "violations": [
+            {
+              "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",
+              "quotaId": "GenerateRequestsPerMinutePerProjectPerModel-FreeTier"
+            }
+          ]
+        },
+        { "@type": "type.googleapis.com/google.rpc.RetryInfo", "retryDelay": "21.4s" }
+      ]
+    }
+  },
+  "errorDaily": {
+    "error": {
+      "code": 429,
+      "message": "You exceeded your current quota, please check your plan and billing details.\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 1000, model: gemini-3.5-flash-lite",
+      "status": "RESOURCE_EXHAUSTED",
+      "details": [
+        {
+          "@type": "type.googleapis.com/google.rpc.QuotaFailure",
+          "violations": [
+            {
+              "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",
+              "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "errorInvalidKey": {
+    "error": {
+      "code": 400,
+      "message": "API key not valid. Please pass a valid API key.",
+      "status": "INVALID_ARGUMENT",
+      "details": [{ "@type": "type.googleapis.com/google.rpc.ErrorInfo", "reason": "API_KEY_INVALID", "domain": "googleapis.com" }]
+    }
+  },
+  "errorOverloaded": { "error": { "code": 503, "message": "The model is overloaded. Please try again later.", "status": "UNAVAILABLE" } }
+}

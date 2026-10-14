@@ -273,6 +273,7 @@ export async function buildBrandContext(businessId: string, actorId: string): Pr
 
   try {
     const draft = await getAIService().buildBrandContext({
+      businessId,
       businessName: business.name,
       businessType: business.businessType,
       businessTypeOther: business.businessTypeOther,
