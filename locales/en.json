@@ -588,7 +588,9 @@
           "q3": "How often do my competitors post?"
         }
       }
-    }
+    },
+    "bannerPlaceholder": "Ask your AI assistant…",
+    "close": "Close the assistant"
   },
   "recommendations": {
     "title": "Recommendations",

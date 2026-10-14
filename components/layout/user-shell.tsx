@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { startTransition } from "react";
 import Link from "next/link";
-import { Bot, Eye, Lightbulb, MapPin } from "lucide-react";
+import { Eye, Lightbulb, MapPin } from "lucide-react";
 import type { NavItem } from "@/config/navigation";
 import { LogoMark } from "@/components/brand/logo";
 import { useActiveClient } from "@/components/providers/active-client-provider";
@@ -15,8 +15,10 @@ import { VerifyEmailBanner } from "@/components/shared/verify-email-banner";
 import { Button } from "@/components/ui/button";
 import { exitPreviewAction } from "@/lib/auth/actions";
 import { useI18n } from "@/lib/i18n/provider";
+import { cn } from "@/lib/utils";
 import { PreferencesSync } from "@/components/providers/preferences-sync";
 import type { UiPreferences } from "@/types";
+import { AssistantBanner, useAssistantBanner } from "@/components/assistant/assistant-panel";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { MobileTabBar } from "./mobile-tab-bar";
 import { CONTENT_INSET, ProfileMenu, type MenuUser, type MenuUserBase } from "./profile-menu";
@@ -40,6 +42,7 @@ export function UserShell({
 }) {
   const { client, isPreview } = useActiveClient();
   const { t, locale } = useI18n();
+  const withBanner = useAssistantBanner();
 
   // In preview the menu belongs to the admin; otherwise to the signed-in user.
   const user: MenuUser =
@@ -101,18 +104,11 @@ export function UserShell({
             <div className="ms-auto flex items-center gap-1 sm:gap-2">
               <ConnectionPill status={client.connection} withIcon className="hidden sm:inline-flex" />
               <PlanBadge plan={client.plan} className="hidden sm:inline-flex" />
-              {/* Phones: the bottom tab bar is full, so these sit in the header (until the mobile redesign). */}
+              {/* Phones: the bottom tab bar is full, so Recommendations sits in the header (until the mobile redesign). */}
               {nav.some((item) => item.href === "/recommendations") && (
                 <Button asChild variant="ghost" size="icon-sm" className="md:hidden">
                   <Link href="/recommendations" aria-label={t("nav.recommendations")}>
                     <Lightbulb aria-hidden="true" />
-                  </Link>
-                </Button>
-              )}
-              {nav.some((item) => item.href === "/assistant") && (
-                <Button asChild variant="ghost" size="icon-sm" className="md:hidden">
-                  <Link href="/assistant" aria-label={t("nav.assistant")}>
-                    <Bot aria-hidden="true" />
                   </Link>
                 </Button>
               )}
@@ -129,10 +125,17 @@ export function UserShell({
           </div>
         </header>
 
-        <main className="mx-auto max-w-(--content-max-width) px-4 pt-6 pb-[calc(var(--tabbar-height)+32px)] md:px-8 md:pb-12">
+        <main
+          className={cn(
+            "mx-auto max-w-(--content-max-width) px-4 pt-6 md:px-8",
+            // Room for the assistant banner (and the tab bar on phones) so nothing hides behind them.
+            withBanner ? "pb-[calc(var(--tabbar-height)+var(--assistant-bar-height)+32px)] md:pb-[calc(var(--assistant-bar-height)+48px)]" : "pb-[calc(var(--tabbar-height)+32px)] md:pb-12",
+          )}
+        >
           {children}
         </main>
       </div>
+      <AssistantBanner />
       <MobileTabBar items={nav.filter((i) => i.mobile)} homeHref="/dashboard" />
     </div>
   );

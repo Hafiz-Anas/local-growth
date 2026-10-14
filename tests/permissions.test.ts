@@ -12,13 +12,12 @@ describe("AI assistant feature", () => {
     for (const plan of PLAN_IDS) assert.equal(PLAN_PRESETS[plan].assistant, true, plan);
   });
 
-  it("removes the nav item and the route when OFF", () => {
-    assert.equal(ROUTE_FEATURES["/assistant"], "assistant");
+  it("opens from the footer banner (no nav item), gated by the feature", () => {
+    assert.ok(!USER_NAV.some((i) => i.href === "/assistant"));
     const on = permissionsFromRows([{ featureKey: "assistant", enabled: true }]);
     const off = permissionsFromRows([{ featureKey: "assistant", enabled: false }]);
     assert.equal(isFeatureEnabled(on, "assistant"), true);
-    assert.ok(filterNav(USER_NAV, on).some((i) => i.href === "/assistant"));
-    assert.ok(!filterNav(USER_NAV, off).some((i) => i.href === "/assistant"));
+    assert.equal(isFeatureEnabled(off, "assistant"), false);
     // A business without the row (before the data migration) doesn't get it by accident.
     assert.equal(isFeatureEnabled(permissionsFromRows([]), "assistant"), false);
   });

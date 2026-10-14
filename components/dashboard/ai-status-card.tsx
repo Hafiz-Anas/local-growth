@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { AlertTriangle, Bot, FileText, Lightbulb, Sparkles } from "lucide-react";
+import { useAssistantPanel } from "@/components/assistant/assistant-panel";
 import { MetaConnectButton } from "@/components/instagram/meta-connect";
 import { useActiveClient, useFeature } from "@/components/providers/active-client-provider";
 import { Skeleton } from "@/components/shared/states";
@@ -26,6 +27,7 @@ export function AiStatusCard({ className }: { className?: string }) {
   const assistant = useFeature("assistant");
   const recommendations = useFeature("recommendations");
   const reports = useFeature("reports");
+  const openAssistant = useAssistantPanel((s) => s.setOpen);
   const enabled = assistant || recommendations;
   const status = useAiStatus(enabled);
   if (!enabled || isPreview) return null;
@@ -69,11 +71,9 @@ export function AiStatusCard({ className }: { className?: string }) {
 
       <div className="mt-3 flex flex-wrap gap-2">
         {assistant && (
-          <Button asChild variant="secondary" size="sm" className="gap-1.5">
-            <Link href="/assistant">
-              <Bot className="size-4" aria-hidden="true" />
-              {t("nav.assistant")}
-            </Link>
+          <Button variant="secondary" size="sm" className="gap-1.5" onClick={() => openAssistant(true)}>
+            <Bot className="size-4" aria-hidden="true" />
+            {t("nav.assistant")}
           </Button>
         )}
         {recommendations && (

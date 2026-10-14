@@ -51,9 +51,10 @@ test("shows the account, coverage, freshness and links to the AI modules", async
   await expect(card(page)).toContainText("Last AI analysis: not yet");
   // Demo data needs no reconnect: no warning.
   await expect(card(page).getByRole("alert")).toHaveCount(0);
-  await card(page).getByRole("link", { name: "AI Assistant" }).click();
-  await expect(page).toHaveURL(/\/assistant$/);
-  await page.goto("/dashboard");
+  // Opens the assistant panel.
+  await card(page).getByRole("button", { name: "AI Assistant" }).click();
+  await expect(page.getByTestId("assistant-panel")).toBeVisible();
+  await page.keyboard.press("Escape");
   await expect(card(page).getByRole("link", { name: "Recommendations" })).toBeVisible();
 });
 
@@ -66,7 +67,7 @@ test("links follow the client's modules, and the card goes when no AI module is 
   try {
     expect((await set({ recommendations: false })).ok()).toBe(true);
     await page.goto("/dashboard");
-    await expect(card(page).getByRole("link", { name: "AI Assistant" })).toBeVisible();
+    await expect(card(page).getByRole("button", { name: "AI Assistant" })).toBeVisible();
     await expect(card(page).getByRole("link", { name: "Recommendations" })).toHaveCount(0);
     await expect(card(page)).not.toContainText("Last AI analysis");
 
