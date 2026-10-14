@@ -1,3 +1,4 @@
+import { focusLines, type BusinessFocus } from "./focus";
 import { isArabic } from "./output";
 
 /**
@@ -60,6 +61,8 @@ export interface AssistantFacts {
     targetAudience: string | null;
     languages: Array<"ar" | "en">;
     timezone: string;
+    /** Niche, aim, goals, timeline and example caption (onboarding / Settings → Goals). */
+    focus: BusinessFocus;
   };
   brand: {
     summary: string | null;
@@ -193,6 +196,7 @@ export function formatFacts(facts: AssistantFacts, mode: FactsScope, now = new D
     b.description ? `Description: ${b.description}` : null,
     `Products: ${list(b.products)}`,
     b.targetAudience ? `Target audience: ${b.targetAudience}` : null,
+    ...focusLines(b.focus),
     `Posting languages: ${b.languages.map((l) => (l === "ar" ? "Arabic" : "English")).join(" and ") || "not given"}`,
     "",
     "## Brand profile",

@@ -12,12 +12,13 @@ import { initials } from "@/lib/utils";
 export default async function UserLayout({ children }: LayoutProps<"/">) {
   const { session, clientId, isPreview, permissions } = await getActiveClientContext();
 
-  // Until onboarding is finished the wizard is the only screen (admins previewing see the app as is).
+  // Until onboarding is finished the wizard is the only screen — unless the owner chose "Finish later"
+  // (the dashboard then links back to it). Admins previewing see the app as is.
   const [business, user] = await Promise.all([
-    db.business.findUnique({ where: { id: clientId }, select: { onboardingStatus: true } }),
+    db.business.findUnique({ where: { id: clientId }, select: { onboardingStatus: true, onboardingDeferredAt: true } }),
     isPreview ? null : db.user.findUnique({ where: { id: session.userId }, select: { emailVerifiedAt: true } }),
   ]);
-  if (!isPreview && business?.onboardingStatus === "IN_PROGRESS") redirect("/onboarding");
+  if (!isPreview && business?.onboardingStatus === "IN_PROGRESS" && !business.onboardingDeferredAt) redirect("/onboarding");
 
   const [client, preferences] = await Promise.all([getClientView(clientId), getUiPreferences(session.userId)]);
   if (!client) redirect(session.role === "admin" ? "/admin" : "/login");

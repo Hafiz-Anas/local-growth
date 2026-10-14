@@ -55,6 +55,7 @@ export const qk = {
   aiStatus: ["dashboard", "ai-status"] as const,
   notificationCenter: ["notification-center"] as const,
   reports: ["reports"] as const,
+  goals: ["brand", "goals"] as const,
   preview: (businessId: string) => ["preview", businessId] as const,
   admin: {
     overview: ["admin", "overview"] as const,
@@ -230,4 +231,17 @@ export function useNotificationCenter(enabled = true): UseQueryResult<Notificati
 export function useReports(): UseQueryResult<WeeklyReportDto[], ApiClientError> {
   const { isPreview } = useActiveClient();
   return useQuery<WeeklyReportDto[], ApiClientError>({ queryKey: qk.reports, queryFn: () => apiFetch<WeeklyReportDto[]>("/api/reports"), enabled: !isPreview });
+}
+
+export interface GoalsDto {
+  niche: string | null;
+  aim: string | null;
+  goals: string[];
+  timeline: string | null;
+}
+
+/** Niche, aim, goals and timeline (Settings → Goals; not loaded in admin preview). */
+export function useGoals(): UseQueryResult<GoalsDto, ApiClientError> {
+  const { isPreview } = useActiveClient();
+  return useQuery<GoalsDto, ApiClientError>({ queryKey: qk.goals, queryFn: () => apiFetch<GoalsDto>("/api/brand/goals"), enabled: !isPreview });
 }

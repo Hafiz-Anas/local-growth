@@ -17,6 +17,7 @@ import { useI18n } from "@/lib/i18n/provider";
 import { formatCompact, formatNumber, formatPct } from "@/lib/utils";
 import { useDashboard } from "@/lib/api/queries";
 import { AiStatusCard } from "./ai-status-card";
+import { SetupPrompts } from "./setup-prompts";
 import { FollowerChart } from "./follower-chart";
 import { ConnectInstagramReminder, WelcomeCard } from "./onboarding-cards";
 import type { MetricValue } from "@/types";
@@ -30,6 +31,7 @@ export function DashboardView({ welcome = false }: { welcome?: boolean }) {
   const intro = (
     <>
       {welcome && <WelcomeCard />}
+      <SetupPrompts />
       <ConnectInstagramReminder />
     </>
   );

@@ -221,7 +221,7 @@ async function draftReplies(businessId: string, comments: Array<{ igCommentId: s
   const existing = new Set([...drafted.map((r) => r.commentId), ...triggered.map((t) => t.igCommentId)]);
   const todo = comments.filter((c) => !existing.has(c.igCommentId)).slice(0, REPLY_DRAFTS_PER_SYNC);
   if (!todo.length) return 0;
-  const business = await db.business.findUnique({ where: { id: businessId }, select: { name: true, nameAr: true, brandVoice: { select: { toneLevel: true, brandWords: true, defaultHashtags: true } } } });
+  const business = await db.business.findUnique({ where: { id: businessId }, select: { name: true, nameAr: true, niche: true, brandVoice: { select: { toneLevel: true, brandWords: true, defaultHashtags: true } } } });
   if (!business) return 0;
   const voice = business.brandVoice;
   let created = 0;
@@ -231,6 +231,7 @@ async function draftReplies(businessId: string, comments: Array<{ igCommentId: s
         businessId,
         businessName: business.name,
         businessNameAr: business.nameAr,
+        niche: business.niche,
         commentText: c.text,
         commenterUsername: c.username,
         brandVoice: { toneLevel: voice?.toneLevel ?? 50, brandWords: voice?.brandWords ?? [], defaultHashtags: voice?.defaultHashtags ?? [] },

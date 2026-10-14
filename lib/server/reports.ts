@@ -53,9 +53,9 @@ export async function generateWeeklyReport(businessId: string, { now = new Date(
     now,
   });
 
-  const business = await db.business.findUniqueOrThrow({ where: { id: businessId }, select: { name: true, nameAr: true } });
+  const business = await db.business.findUniqueOrThrow({ where: { id: businessId }, select: { name: true, nameAr: true, aim: true } });
   if (pace) await aiPace();
-  const summary = await getAIService().weeklySummary({ businessId, prompt: { businessName: business.name, businessNameAr: business.nameAr, numbers: formatReportNumbers(numbers) } });
+  const summary = await getAIService().weeklySummary({ businessId, prompt: { businessName: business.name, businessNameAr: business.nameAr, numbers: formatReportNumbers(numbers), aim: business.aim } });
   const report = await db.weeklyReport.create({
     data: {
       businessId,

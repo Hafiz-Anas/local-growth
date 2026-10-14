@@ -31,6 +31,7 @@ import { notify } from "@/store/ui-store";
 import type { BrandVoiceDto, InstagramConnectionDto, MeDto, NotificationPrefs } from "@/types";
 import { BrandProfileSection } from "./brand-profile";
 import { ChangePassword } from "./change-password";
+import { GoalsCard } from "./goals-card";
 import { ProfilePhoto } from "./profile-photo";
 import { Segmented } from "./segmented";
 
@@ -56,6 +57,7 @@ export function SettingsView() {
           />
         )}
         <InstagramCard />
+        {!isPreview && <GoalsCard />}
         <BrandProfileSection />
         {canBrandVoice && <BrandVoiceCard />}
         {canNotifications && <NotificationsCard />}

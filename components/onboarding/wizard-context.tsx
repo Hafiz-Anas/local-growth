@@ -24,7 +24,7 @@ interface WizardValue {
 const WizardContext = createContext<WizardValue | null>(null);
 
 /** Server reasons a forward move was refused (lib/server/onboarding.ts → blockerFor). */
-const BLOCKERS = new Set(["business_incomplete", "instagram_required", "not_enough_competitors", "posts_incomplete", "brand_context_missing", "out_of_order"]);
+const BLOCKERS = new Set(["business_name_missing", "instagram_required", "out_of_order"]);
 
 export function WizardProvider({ state, children }: { state: OnboardingStateDto; children: ReactNode }) {
   const { t } = useI18n();

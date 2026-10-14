@@ -40,4 +40,9 @@ export interface Client {
   instagramProvider?: "mock" | "meta";
   /** Set when the connection needs the user: the token expired/was revoked, or permissions are missing. */
   instagramIssue?: { reason: "reconnect" | "permissions"; permissions: string[] } | null;
+  /**
+   * Set-up prompts on the dashboard: `onboardingStepsLeft` when the owner chose "Finish later"
+   * (the wizard still has steps), `goalsPromptDue` once for businesses that never set their goals.
+   */
+  setup?: { onboardingStepsLeft: number | null; goalsPromptDue: boolean };
 }

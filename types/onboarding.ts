@@ -88,6 +88,27 @@ export interface BusinessProfileDto {
   description: string | null;
   products: string[];
   targetAudience: string | null;
+  /** Niche / theme in the owner's words. */
+  niche: string | null;
+  /** config/onboarding.ts BUSINESS_AIMS / BUSINESS_GOALS / GOAL_TIMELINES; null/empty until set. */
+  aim: string | null;
+  goals: string[];
+  timeline: string | null;
+  /** Optional example caption (new accounts with few posts). */
+  exampleCaption: string | null;
+}
+
+/** What the AI (and code, for hashtags) suggested from the Instagram bio and recent posts. Ran once; empty fields when the AI was unavailable. */
+export interface OnboardingPrefillDto {
+  /** False when the AI couldn't help: only what code can read (hashtags) is filled in. */
+  aiUsed: boolean;
+  /** Recent posts that have a caption; below FEW_POSTS the wizard offers the tone / example-caption fallback. */
+  postsWithCaptions: number;
+  businessType: BusinessType | null;
+  niche: string | null;
+  toneLevel: number | null;
+  hashtags: string[];
+  products: string[];
 }
 
 export interface OnboardingCompetitorDto {
@@ -113,7 +134,10 @@ export interface OnboardingStateDto {
   competitors: OnboardingCompetitorDto[];
   posts: BrandPostDto[];
   brand: BrandBasicsDto;
-  brandContext: BrandContextDto | null;
+  /** The brand's hashtags (BrandVoice.defaultHashtags). */
+  hashtags: string[];
+  /** Null until the "Confirm your brand" step asked for it. */
+  prefill: OnboardingPrefillDto | null;
 }
 
 /** Instagram media offered in the post picker. */

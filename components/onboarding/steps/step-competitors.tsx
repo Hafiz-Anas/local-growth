@@ -1,21 +1,23 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { AtSign, CircleAlert, CircleCheck, Loader2, Plus, X } from "lucide-react";
+import { AtSign, Check, CircleAlert, CircleCheck, Loader2, Plus, X } from "lucide-react";
 import { HANDLE_PATTERN, normalizeHandle } from "@/components/competitors/helpers";
 import { Avatar } from "@/components/shared/avatar";
 import { EmptyState } from "@/components/shared/states";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { MAX_ONBOARDING_COMPETITORS, MIN_READY_COMPETITORS } from "@/config/onboarding";
+import { MAX_ONBOARDING_COMPETITORS } from "@/config/onboarding";
 import { reportOnboardingEvent } from "@/lib/api/brand";
 import { apiFetch, type ApiClientError } from "@/lib/api/client";
 import { errorMessage } from "@/lib/api/errors";
 import { qk } from "@/lib/api/queries";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn, formatCompact, initials, toneFor } from "@/lib/utils";
+import { notify } from "@/store/ui-store";
 import type { CompetitorValidation, OnboardingCompetitorDto, OnboardingStateDto } from "@/types";
 import { StepFrame } from "../step-frame";
 import { useWizard } from "../wizard-context";
@@ -28,9 +30,13 @@ const BADGE: Record<CompetitorValidation, "success" | "warning" | "danger"> = {
   own_account: "danger",
 };
 
-/** Step 3 — Your competitors: at least five Instagram accounts we can read. */
+/**
+ * Step 4 — Competitors, optional: add a few accounts now or later (Competitor Insights). Both
+ * "Finish" and "Add later" complete onboarding; nothing in the app needs competitors.
+ */
 export function StepCompetitors() {
   const { t, locale } = useI18n();
+  const router = useRouter();
   const queryClient = useQueryClient();
   const { state, go, moving } = useWizard();
   const [handle, setHandle] = useState("");
@@ -39,7 +45,23 @@ export function StepCompetitors() {
 
   const competitors = state.competitors;
   const ready = competitors.filter((c) => c.status === "ready").length;
-  const missing = Math.max(0, MIN_READY_COMPETITORS - ready);
+
+  const finish = useMutation<{ status: "completed" }, ApiClientError, { skipped: boolean }>({
+    meta: { handlesErrors: true },
+    mutationFn: () => apiFetch("/api/onboarding/complete", { method: "POST" }),
+    onError: (e) => {
+      const reason = Array.isArray(e.details) ? (e.details as Array<{ message?: string }>)[0]?.message : undefined;
+      if (reason !== "instagram_required") return notify.error(errorMessage(e, t));
+      // An admin now requires Instagram: back to step 1.
+      notify.error(t("onboarding.blockers.instagram_required"));
+      void go("instagram", "jump");
+    },
+    onSuccess: () => {
+      // The (user) layout now lets them in.
+      router.replace("/dashboard?welcome=1");
+      router.refresh();
+    },
+  });
   const updateList = (update: (list: OnboardingCompetitorDto[]) => OnboardingCompetitorDto[]) =>
     queryClient.setQueryData<OnboardingStateDto>(qk.onboarding, (s) => s && { ...s, competitors: update(s.competitors) });
 
@@ -84,10 +106,16 @@ export function StepCompetitors() {
     <StepFrame
       step="competitors"
       title={t("onboarding.steps.competitors.title")}
-      helper={t("onboarding.steps.competitors.helper", { min: MIN_READY_COMPETITORS })}
-      onBack={() => go("business", "back")}
-      primary={{ label: t("onboarding.continue"), onClick: () => go("posts", "forward"), disabled: missing > 0, busy: moving }}
-      blockedNote={missing > 0 ? t("onboarding.competitors.needMore", { count: missing }) : null}
+      helper={t("onboarding.steps.competitors.helper")}
+      onBack={() => go("goals", "back")}
+      primary={{ label: t("onboarding.finish"), onClick: () => finish.mutate({ skipped: false }), busy: moving || finish.isPending, icon: <Check className="size-4" /> }}
+      secondary={
+        competitors.length === 0 && (
+          <Button variant="ghost" size="md" onClick={() => finish.mutate({ skipped: true })} disabled={finish.isPending}>
+            {t("onboarding.competitors.addLater")}
+          </Button>
+        )
+      }
       reportContext={{ ready, listed: competitors.length, statuses: competitors.map((c) => c.status) }}
     >
       <form onSubmit={submit} className="rounded-panel border border-border p-4">
@@ -125,17 +153,10 @@ export function StepCompetitors() {
         )}
       </form>
 
-      <div className="mt-6 mb-2 flex items-center justify-between gap-3">
-        <p className="text-body font-semibold">{t("onboarding.competitors.readyCount", { ready, min: MIN_READY_COMPETITORS })}</p>
-        <div className="flex w-32 gap-1" aria-hidden="true">
-          {Array.from({ length: MIN_READY_COMPETITORS }, (_, i) => (
-            <span key={i} className={cn("h-1.5 flex-1 rounded-pill", i < ready ? "bg-success" : "bg-border")} />
-          ))}
-        </div>
-      </div>
+      {ready > 0 && <p className="mt-6 mb-2 text-body font-semibold">{t("onboarding.competitors.tracked", { count: ready })}</p>}
 
       {competitors.length === 0 ? (
-        <EmptyState icon={AtSign} title={t("onboarding.competitors.emptyTitle")} hint={t("onboarding.competitors.emptyHint")} className="rounded-panel border border-dashed border-border py-10" />
+        <EmptyState icon={AtSign} title={t("onboarding.competitors.emptyTitle")} hint={t("onboarding.competitors.emptyHint")} className="mt-6 rounded-panel border border-dashed border-border py-8" />
       ) : (
         <ul className="divide-y divide-separator rounded-panel border border-border" aria-live="polite">
           {competitors.map((c) => (

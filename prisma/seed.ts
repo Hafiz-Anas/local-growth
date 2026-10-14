@@ -281,7 +281,7 @@ async function seedSelfSignup(passwordHash: string) {
       createdAt: at(0),
       source: "SELF_SIGNUP",
       onboardingStatus: "IN_PROGRESS",
-      onboardingStep: 3,
+      onboardingStep: 2,
       businessType: "bakery",
       description: "Fresh Kuwaiti and Levantine bakes every morning — fatayer, maamoul and celebration cakes, with delivery in Salmiya.",
       products: ["Cheese fatayer", "Date maamoul", "Saffron cake"],

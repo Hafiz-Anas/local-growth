@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { AtSign, Camera, CircleCheck, Loader2 } from "lucide-react";
+import { AtSign, Camera, CircleCheck, HelpCircle, Loader2 } from "lucide-react";
 import { ConnectedNotice, MetaAccountPicker, MetaConnectButton, MetaOutcomeNotice, MissingPermissionsNotice, useMetaOutcome } from "@/components/instagram/meta-connect";
 import { Avatar } from "@/components/shared/avatar";
 import { Button } from "@/components/ui/button";
@@ -45,11 +45,11 @@ export function StepInstagram() {
       step="instagram"
       title={t("onboarding.steps.instagram.title")}
       helper={required ? t("onboarding.instagram.requiredHelper") : t("onboarding.steps.instagram.helper")}
-      primary={{ label: t("onboarding.continue"), onClick: () => go("business", "forward"), disabled: !connected, busy: moving }}
+      primary={{ label: t("onboarding.continue"), onClick: () => go("brand", "forward"), disabled: !connected, busy: moving }}
       secondary={
         !connected &&
         !required && (
-          <Button variant="ghost" size="md" onClick={() => go("business", "forward", { skipped: true })} disabled={moving}>
+          <Button variant="ghost" size="md" onClick={() => go("brand", "forward", { skipped: true })} disabled={moving}>
             {t("onboarding.instagram.skip")}
           </Button>
         )
@@ -95,6 +95,7 @@ export function StepInstagram() {
             <>
               <MetaConnectButton returnTo="onboarding" size="lg" className="w-full sm:w-auto" />
               <p className="mt-3 text-caption text-muted">{t("instagramConnect.connectHint")}</p>
+              <ConnectHelp open={outcome === "no_account" || outcome === "declined"} />
             </>
           ) : (
             <p role="status" className="text-caption text-warning">
@@ -187,5 +188,27 @@ function MockConnectForm({ initialHandle, onConnected }: { initialHandle: string
       )}
       <p className="mt-3 text-caption text-muted">{t("onboarding.instagram.mockNote")}</p>
     </form>
+  );
+}
+
+/**
+ * Why a connection can fail and how to fix it: Instagram only shares data for professional
+ * (Business or Creator) accounts linked to a Facebook Page. Opens by itself after Facebook
+ * reported no usable account.
+ */
+function ConnectHelp({ open }: { open: boolean }) {
+  const { t } = useI18n();
+  return (
+    <details open={open} className="mt-4 rounded-card bg-hover px-3 py-2 text-caption" data-testid="connect-help">
+      <summary className="flex cursor-pointer items-center gap-1.5 font-semibold">
+        <HelpCircle className="size-4 shrink-0" aria-hidden="true" />
+        {t("onboarding.instagram.help.title")}
+      </summary>
+      <ol className="mt-2 list-decimal space-y-1.5 ps-5">
+        <li>{t("onboarding.instagram.help.professional")}</li>
+        <li>{t("onboarding.instagram.help.page")}</li>
+        <li>{t("onboarding.instagram.help.login")}</li>
+      </ol>
+    </details>
   );
 }

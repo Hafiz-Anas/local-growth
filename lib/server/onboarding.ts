@@ -1,9 +1,11 @@
 import "server-only";
+import { after } from "next/server";
 import {
+  DEFAULT_AIM,
+  DEFAULT_GOALS,
+  DEFAULT_TIMELINE,
   EVENT_STEPS,
   MAX_ONBOARDING_COMPETITORS,
-  MIN_READY_COMPETITORS,
-  ONBOARDING_POST_SLOTS,
   ONBOARDING_STEPS,
   stepId,
   stepNumber,
@@ -21,11 +23,12 @@ import type {
   CompetitorValidation,
   OnboardingCompetitorDto,
   OnboardingEventType,
+  OnboardingPrefillDto,
   OnboardingStateDto,
   PlanId,
 } from "@/types";
 import { logActivity } from "./activity";
-import { currentBrandContext, getBrandBasics, listBrandPosts } from "./brand";
+import { buildBrandContext, currentBrandContext, getBrandBasics, listBrandPosts } from "./brand";
 import { MAX_COMPETITORS } from "./competitors";
 import { requireBusiness, type BusinessContext } from "./guards";
 import { ApiError, notFound } from "./http";
@@ -136,7 +139,7 @@ async function listOnboardingCompetitors(businessId: string): Promise<Onboarding
 }
 
 export async function getOnboardingState(businessId: string, userId: string): Promise<OnboardingStateDto> {
-  const [business, user, competitors, posts, brand, brandContext, instagram, instagramRequired] = await Promise.all([
+  const [business, user, competitors, posts, brand, voice, instagram, instagramRequired] = await Promise.all([
     db.business.findUnique({
       where: { id: businessId },
       select: {
@@ -147,6 +150,12 @@ export async function getOnboardingState(businessId: string, userId: string): Pr
         description: true,
         products: true,
         targetAudience: true,
+        niche: true,
+        aim: true,
+        goals: true,
+        timeline: true,
+        exampleCaption: true,
+        onboardingPrefill: true,
         instagramHandle: true,
         onboardingStatus: true,
         onboardingStep: true,
@@ -156,7 +165,7 @@ export async function getOnboardingState(businessId: string, userId: string): Pr
     listOnboardingCompetitors(businessId),
     listBrandPosts(businessId),
     getBrandBasics(businessId),
-    currentBrandContext(businessId),
+    db.brandVoice.findUnique({ where: { businessId }, select: { defaultHashtags: true } }),
     getConnectionDto(businessId),
     getRequireInstagramConnection(),
   ]);
@@ -174,12 +183,18 @@ export async function getOnboardingState(businessId: string, userId: string): Pr
       description: business.description,
       products: business.products,
       targetAudience: business.targetAudience,
+      niche: business.niche,
+      aim: business.aim,
+      goals: business.goals,
+      timeline: business.timeline,
+      exampleCaption: business.exampleCaption,
     },
     instagram: { ...instagram, handle: business.instagramHandle, required: instagramRequired },
     competitors,
     posts,
     brand,
-    brandContext,
+    hashtags: voice?.defaultHashtags ?? [],
+    prefill: readPrefill(business.onboardingPrefill),
   };
 }
 
@@ -189,29 +204,26 @@ async function hasWorkingConnection(businessId: string): Promise<boolean> {
   return (await db.instagramConnection.count({ where: { businessId, status: "CONNECTED" } })) > 0;
 }
 
-/** Why a step can't be left yet (null when it can). Mirrors the checks the wizard shows. */
+/**
+ * Why a step can't be left yet (null when it can). Only the business name is needed (it's
+ * asked at sign-up); everything else has a default or is optional, and nothing waits for the AI.
+ */
 async function blockerFor(businessId: string, step: OnboardingStepId): Promise<string | null> {
   switch (step) {
-    case "business": {
-      const b = await db.business.findUnique({ where: { id: businessId }, select: { businessType: true, location: true, description: true, products: true } });
-      if (!b?.businessType || !b.location || !b.description || b.products.length === 0) return "business_incomplete";
-      return null;
-    }
     case "instagram":
       return (await getRequireInstagramConnection()) && !(await hasWorkingConnection(businessId)) ? "instagram_required" : null;
-    case "competitors": {
-      const ready = await db.competitor.count({ where: { businessId, validationStatus: "READY" } });
-      return ready >= MIN_READY_COMPETITORS ? null : "not_enough_competitors";
+    case "brand": {
+      const b = await db.business.findUnique({ where: { id: businessId }, select: { name: true } });
+      return b?.name.trim() ? null : "business_name_missing";
     }
-    case "posts": {
-      const posts = await db.brandPost.count({ where: { businessId } });
-      return posts === ONBOARDING_POST_SLOTS ? null : "posts_incomplete";
-    }
-    case "review":
-      return (await currentBrandContext(businessId)) ? null : "brand_context_missing";
     default:
       return null;
   }
+}
+
+/** The stored pre-fill (Business.onboardingPrefill), or null before the brand step asked for it. */
+function readPrefill(stored: Prisma.JsonValue | null): OnboardingPrefillDto | null {
+  return stored && typeof stored === "object" && !Array.isArray(stored) ? (stored as unknown as OnboardingPrefillDto) : null;
 }
 
 /**
@@ -232,9 +244,8 @@ export async function moveToStep(
   const toN = stepNumber(to);
 
   if (direction === "forward") {
-    if (toN !== fromN + 1 || to === "result") throw new ApiError(400, "validation_error", "Finish the current step first.", [{ path: "step", message: "out_of_order" }]);
-    // Example posts can be skipped (and added later in Settings → Brand profile).
-    const blocker = from === "posts" && details?.skipped ? null : await blockerFor(businessId, from);
+    if (toN !== fromN + 1) throw new ApiError(400, "validation_error", "Finish the current step first.", [{ path: "step", message: "out_of_order" }]);
+    const blocker = await blockerFor(businessId, from);
     if (blocker) {
       await recordError(businessId, from, { reason: blocker });
       throw new ApiError(400, "validation_error", "This step isn't complete yet.", [{ path: "step", message: blocker }]);
@@ -254,39 +265,48 @@ export async function moveToStep(
   if (direction === "forward" && from === "instagram" && details?.skipped) {
     await logActivity({ businessId, userId: session.userId, action: "onboarding.instagram_skipped" });
   }
-  if (direction === "forward" && from === "posts" && details?.skipped) {
-    await logActivity({ businessId, userId: session.userId, action: "onboarding.posts_skipped", details: { posts: details.posts ?? null } });
-  }
   return to;
 }
 
-/** The brand profile was built: the wizard moves from "review" to "result". */
-export async function markBrandBuilt(businessId: string, version: number) {
-  await db.$transaction(async (tx) => {
-    const durationMs = await visitDuration(businessId, "review", tx);
-    await recordEvent(businessId, "review", "completed", { durationMs, details: { version } }, tx);
-    await recordEvent(businessId, "result", "started", {}, tx);
-    await tx.business.update({ where: { id: businessId }, data: { onboardingStep: stepNumber("result") } });
-  });
-}
-
-/** "Confirm" on the brand-profile screen: onboarding is done. */
+/**
+ * "Finish" (from the last step, or "Skip" on it): onboarding is done. Goals the owner didn't
+ * touch get their defaults; the brand profile is built after the response, so finishing never
+ * waits for the AI (an unavailable AI leaves the template profile, editable in Settings).
+ */
 export async function completeOnboarding(context: OnboardingContext) {
   const { businessId, session } = context;
   if ((await getRequireInstagramConnection()) && !(await hasWorkingConnection(businessId))) {
-    await recordError(businessId, "result", { reason: "instagram_required" });
+    await recordError(businessId, context.step, { reason: "instagram_required" });
     throw new ApiError(400, "validation_error", "Connect Instagram to finish.", [{ path: "step", message: "instagram_required" }]);
   }
-  if (!(await currentBrandContext(businessId))) {
-    await recordError(businessId, "result", { reason: "brand_context_missing" });
-    throw new ApiError(400, "validation_error", "Build your brand profile first.", [{ path: "step", message: "brand_context_missing" }]);
-  }
+  const business = await db.business.findUniqueOrThrow({ where: { id: businessId }, select: { aim: true, goals: true, timeline: true } });
   await db.$transaction(async (tx) => {
-    const durationMs = await visitDuration(businessId, "result", tx);
-    await recordEvent(businessId, "result", "completed", { durationMs }, tx);
-    await tx.business.update({ where: { id: businessId }, data: { onboardingStatus: "COMPLETED", onboardingStep: stepNumber("result") } });
+    const durationMs = await visitDuration(businessId, context.step, tx);
+    await recordEvent(businessId, context.step, "completed", { durationMs, details: { finished: true } }, tx);
+    await tx.business.update({
+      where: { id: businessId },
+      data: {
+        onboardingStatus: "COMPLETED",
+        onboardingStep: ONBOARDING_STEPS.length,
+        onboardingDeferredAt: null,
+        aim: business.aim ?? DEFAULT_AIM,
+        goals: business.goals.length ? business.goals : DEFAULT_GOALS,
+        timeline: business.timeline ?? DEFAULT_TIMELINE,
+        // Their goals are set: no "set your goals" prompt later.
+        goalsPromptDoneAt: new Date(),
+      },
+    });
     await logActivity({ businessId, userId: session.userId, action: "onboarding.completed" }, tx);
   });
+  if (!(await currentBrandContext(businessId))) {
+    after(() => buildBrandContext(businessId, session.userId).then(() => undefined).catch((e) => console.error("[onboarding] brand profile build failed", (e as Error).message)));
+  }
+}
+
+/** "Finish later": the app opens; the wizard keeps its place and the dashboard links back to it. */
+export async function deferOnboarding(context: OnboardingContext) {
+  await db.business.update({ where: { id: context.businessId }, data: { onboardingDeferredAt: new Date() } });
+  await recordEvent(context.businessId, context.step, "abandoned", { details: { reason: "finish_later" } });
 }
 
 // Competitors ----------------------------------------------------------------------
@@ -403,7 +423,7 @@ export async function getAdminOnboarding(): Promise<AdminOnboardingDto> {
     },
   });
 
-  const asEventStep = (step: string): EventStepId => ((EVENT_STEPS as readonly string[]).includes(step) ? (step as EventStepId) : "business");
+  const asEventStep = (step: string): EventStepId => ((EVENT_STEPS as readonly string[]).includes(step) ? (step as EventStepId) : "brand");
 
   const businesses: AdminOnboardingBusinessDto[] = rows.map((b) => {
     const events = b.onboardingEvents;
@@ -418,7 +438,7 @@ export async function getAdminOnboarding(): Promise<AdminOnboardingDto> {
       }
     }
     const errors = events.filter((e) => e.event === "ERROR");
-    const completed = b.onboardingStatus === "COMPLETED" ? [...events].reverse().find((e) => e.step === "result" && e.event === "COMPLETED") : undefined;
+    const completed = b.onboardingStatus === "COMPLETED" ? [...events].reverse().find((e) => e.event === "COMPLETED" && (e.step === "result" || (e.details as { finished?: boolean } | null)?.finished === true)) : undefined;
     const owner = b.users[0];
     return {
       id: b.id,
@@ -428,7 +448,7 @@ export async function getAdminOnboarding(): Promise<AdminOnboardingDto> {
       source: lower(b.source),
       status: lower(b.onboardingStatus),
       step: stepId(b.onboardingStep),
-      reached: b.onboardingStatus === "COMPLETED" ? "result" : stepId(furthest),
+      reached: b.onboardingStatus === "COMPLETED" ? ONBOARDING_STEPS[ONBOARDING_STEPS.length - 1] : stepId(furthest),
       plan: lower(b.plan) as PlanId,
       createdAt: b.createdAt.toISOString(),
       completedAt: completed?.createdAt.toISOString() ?? null,

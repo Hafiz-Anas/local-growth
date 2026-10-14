@@ -272,6 +272,24 @@ model Business {
   /// 1–7: instagram, business, competitors, posts, brand, review, result (config/onboarding.ts).
   onboardingStep    Int              @default(1)
   onboardingInvitedAt DateTime?
+  /// Set by "Finish later": the app opens while onboarding stays IN_PROGRESS (the dashboard links back).
+  onboardingDeferredAt DateTime?
+  /// What onboarding's AI pre-fill suggested (niche, tone, hashtags…), kept so it runs once.
+  onboardingPrefill Json?
+
+  // Brand focus and goals (onboarding "Confirm your brand" / "Goals"; editable in Settings) ----
+  /// Niche / theme in the owner's words, e.g. "Specialty coffee roastery".
+  niche          String?
+  /// Main aim (config/onboarding.ts BUSINESS_AIMS); null for businesses that haven't set it yet.
+  aim            String?
+  /// Goals (BUSINESS_GOALS), several allowed.
+  goals          String[]  @default([])
+  /// GOAL_TIMELINES.
+  timeline       String?
+  /// One example caption, for new accounts with few posts.
+  exampleCaption String?
+  /// Existing businesses get a one-time prompt to set niche and goals; set when saved or dismissed.
+  goalsPromptDoneAt DateTime?
   source            BusinessSource   @default(ADMIN_CREATED)
 
   users               User[]

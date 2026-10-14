@@ -27,7 +27,7 @@ export async function generateCaptions(
 ) {
   const business = await db.business.findUniqueOrThrow({
     where: { id: businessId },
-    select: { name: true, nameAr: true, instagramHandle: true, languages: true, brandVoice: { select: { toneLevel: true, brandWords: true, defaultHashtags: true } } },
+    select: { name: true, nameAr: true, instagramHandle: true, languages: true, niche: true, aim: true, goals: true, timeline: true, exampleCaption: true, brandVoice: { select: { toneLevel: true, brandWords: true, defaultHashtags: true } } },
   });
   const [profile, brandContext] = await Promise.all([catalogProfile(businessId), brandContextForCaptions(businessId)]);
   const catalog = getContentCatalog(businessId, business.name, profile);
@@ -51,5 +51,6 @@ export async function generateCaptions(
     },
     brandContext,
     profile,
+    focus: { niche: business.niche, aim: business.aim, goals: business.goals, timeline: business.timeline, exampleCaption: business.exampleCaption },
   });
 }

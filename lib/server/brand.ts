@@ -98,6 +98,18 @@ export function postingLanguages(stored: string[]): InstagramLanguage[] {
  * from the example posts' captions plus the connected account's recent posts.
  * Instagram being unreachable never blocks the build — the example posts suffice.
  */
+/** Up to 12 recent captions of the connected account (none when not connected or unreadable). */
+async function recentInstagramCaptions(businessId: string): Promise<string[]> {
+  try {
+    const account = await getInstagramAccount(businessId);
+    if (!account.connected) return [];
+    const media = await getInstagramService().getMedia(account, { limit: 12 });
+    return media.map((m) => m.caption).filter((c) => c.trim());
+  } catch {
+    return [];
+  }
+}
+
 async function learnPostingLanguages(businessId: string, captions: string[]): Promise<InstagramLanguage[] | null> {
   const all = [...captions];
   try {
@@ -232,6 +244,11 @@ export async function buildBrandContext(businessId: string, actorId: string): Pr
       description: true,
       products: true,
       targetAudience: true,
+      niche: true,
+      aim: true,
+      goals: true,
+      timeline: true,
+      exampleCaption: true,
       languages: true,
       onboardingStatus: true,
       brandColors: true,
@@ -242,7 +259,9 @@ export async function buildBrandContext(businessId: string, actorId: string): Pr
     },
   });
   if (!business) throw notFound("Business");
-  // Example posts are optional (they can be skipped in onboarding); the profile is then built from the business details.
+  // Example posts are optional (onboarding no longer asks for them): the profile is then built from the
+  // business details and the account's recent captions.
+  const recentCaptions = business.brandPosts.length ? [] : await recentInstagramCaptions(businessId);
 
   // During onboarding the language is learned from the captions and saved; afterwards
   // the saved value is used, since it can be changed in Settings → Brand profile.
@@ -289,6 +308,8 @@ export async function buildBrandContext(businessId: string, actorId: string): Pr
       wordsToUse: voice.brandWords,
       wordsToAvoid: voice.wordsToAvoid,
       competitorHandles: business.competitors.map((c) => c.handle),
+      focus: { niche: business.niche, aim: business.aim, goals: business.goals, timeline: business.timeline, exampleCaption: business.exampleCaption },
+      recentCaptions,
     });
     const row = await db.brandContext.update({
       where: { id: created.id },

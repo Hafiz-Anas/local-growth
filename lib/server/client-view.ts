@@ -1,4 +1,5 @@
 import "server-only";
+import { ONBOARDING_STEPS } from "@/config/onboarding";
 import { db } from "@/lib/db";
 import { getInstagramService } from "@/lib/services/instagram";
 import { initials, toneFor } from "@/lib/utils";
@@ -31,6 +32,10 @@ export async function getClientView(businessId: string): Promise<Client | null> 
       avatarUrl: true,
       plan: true,
       createdAt: true,
+      onboardingStatus: true,
+      onboardingStep: true,
+      aim: true,
+      goalsPromptDoneAt: true,
       users: { where: { role: "USER" }, select: { id: true, email: true }, orderBy: { createdAt: "asc" }, take: 1 },
       instagramConnection: { select: { status: true, tokenExpiresAt: true, connectedAt: true, provider: true, missingPermissions: true } },
       brandVoice: { select: { whatsappNumber: true } },
@@ -79,6 +84,10 @@ export async function getClientView(businessId: string): Promise<Client | null> 
     avatarInitials: initials(row.name),
     instagramProvider: conn?.provider === "META" ? "meta" : "mock",
     instagramIssue,
+    setup: {
+      onboardingStepsLeft: row.onboardingStatus === "IN_PROGRESS" ? Math.max(1, ONBOARDING_STEPS.length - row.onboardingStep + 1) : null,
+      goalsPromptDue: row.onboardingStatus === "COMPLETED" && !row.aim && !row.goalsPromptDoneAt,
+    },
   };
 }
 

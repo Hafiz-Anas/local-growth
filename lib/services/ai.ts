@@ -3,6 +3,8 @@ import { logIntegration } from "@/lib/server/integration-log";
 import type { CaptionStyle, PostPurpose, PurposePattern, StyleNotes } from "@/types";
 import { getContentCatalog, type CatalogProfile } from "./catalog";
 import { cleanAssistantAnswer } from "./text/assistant";
+import type { BusinessFocus } from "./text/focus";
+import { parsePrefill, type PrefillSuggestion } from "./text/prefill";
 import { parseReportSummary } from "./text/report";
 import { parseStrategy, type StrategyRecommendation } from "./text/strategy";
 import { TextGenerationError, sanitizeTextError, type TextFailureReason } from "./text/errors";
@@ -12,11 +14,13 @@ import { composeCaption, cleanReply, greetName, isArabic, parseBrandContext, par
 import {
   assistantPrompt,
   brandContextPrompt,
+  brandPrefillPrompt,
   captionPrompt,
   replyPrompt,
   reportSummaryPrompt,
   strategyPrompt,
   type AssistantPromptInput,
+  type BrandPrefillPromptInput,
   type ReportSummaryPromptInput,
   type StrategyPromptInput,
   type TextPrompt,
@@ -62,6 +66,8 @@ export interface CaptionRequest {
   brandContext?: BrandContextForCaptions | null;
   /** Business profile from onboarding (drives the generic catalogue). */
   profile?: CatalogProfile;
+  /** Niche, aim, goals… (onboarding / Settings → Goals). */
+  focus?: BusinessFocus;
   count: number;
   /** Bump to get different results for the same inputs (regenerate). */
   variant: number;
@@ -82,6 +88,8 @@ export interface ReplyRequest {
   commentText: string;
   commenterUsername: string;
   brandVoice: BrandVoiceInput;
+  /** What the business does (Business.niche), so replies sound like it. */
+  niche?: string | null;
   /** A public reply under a comment (default) or a private direct-message reply. */
   channel?: "comment" | "dm";
 }
@@ -111,6 +119,10 @@ export interface BrandContextInput {
   wordsToUse: string[];
   wordsToAvoid: string[];
   competitorHandles: string[];
+  /** Niche, aim, goals, example caption (onboarding). */
+  focus?: BusinessFocus;
+  /** Recent Instagram captions, used when there are no example posts (onboarding no longer asks for them). */
+  recentCaptions?: string[];
 }
 
 /** What the AI learned; stored as a BrandContext version. */
@@ -135,7 +147,16 @@ export interface AIService {
   strategy(request: StrategyRequest): Promise<StrategyAnswer>;
   /** The weekly report's plain-language summary (EN + AR). A failure says why; the report then has numbers only. */
   weeklySummary(request: ReportSummaryRequest): Promise<ReportSummaryAnswer>;
+  /** Onboarding: niche, tone, hashtags and products suggested from the Instagram bio and posts. A failure says why; the wizard then leaves those fields empty. */
+  brandPrefill(request: BrandPrefillRequest): Promise<BrandPrefillAnswer>;
 }
+
+export interface BrandPrefillRequest {
+  businessId: string;
+  prompt: BrandPrefillPromptInput;
+}
+
+export type BrandPrefillAnswer = { ok: true; suggestion: PrefillSuggestion } | { ok: false; reason: TextFailureReason };
 
 export interface ReportSummaryRequest {
   businessId: string;
@@ -363,9 +384,14 @@ export class MockAIService implements AIService {
   async weeklySummary(): Promise<ReportSummaryAnswer> {
     return { ok: false, reason: "not_configured" };
   }
+
+  /** MOCK: no suggestions; the wizard keeps only what code reads (hashtags). */
+  async brandPrefill(): Promise<BrandPrefillAnswer> {
+    return { ok: false, reason: "not_configured" };
+  }
 }
 
-type AICall = "ai.captions" | "ai.reply.comment" | "ai.reply.dm" | "ai.brand_context" | "ai.assistant" | "ai.strategy" | "ai.report";
+type AICall = "ai.captions" | "ai.reply.comment" | "ai.reply.dm" | "ai.brand_context" | "ai.assistant" | "ai.strategy" | "ai.report" | "ai.prefill";
 
 /**
  * Gemini text model (prompts in ./text/prompts.ts). Never fails: when the
@@ -391,7 +417,7 @@ export class GeminiAIService implements AIService {
     const instead =
       call === "ai.report"
         ? { text: "published the report with numbers only", fallback: "numbers_only" }
-        : call === "ai.assistant" || call === "ai.strategy"
+        : call === "ai.assistant" || call === "ai.strategy" || call === "ai.prefill"
           ? { text: "told the user the AI is unavailable", fallback: "unavailable" }
           : { text: "used the template text instead", fallback: "template" };
     const gate = (this.gate ??= new TextRequestGate(config?.rpm ?? DEFAULT_GEMINI_TEXT_RPM, config?.rpd ?? DEFAULT_GEMINI_TEXT_RPD));
@@ -463,6 +489,7 @@ export class GeminiAIService implements AIService {
           brandSummary: context?.summary || null,
           captionStyle: context?.captionStyle ?? null,
           purposePattern: context?.purposePatterns.find((p) => p.purpose === request.occasionId)?.description ?? null,
+          focus: request.focus,
         }),
       async (answer) => {
         const captions = parseCaptions(answer).slice(0, request.count).map((c) => composeCaption(c, allowedTags, request.brandVoice.defaultHashtags, avoid));
@@ -492,6 +519,7 @@ export class GeminiAIService implements AIService {
           channel,
           toneLevel: request.brandVoice.toneLevel,
           brandWords: request.brandVoice.brandWords,
+          niche: request.niche ?? null,
         }),
       (answer) => ({ text: cleanReply(answer), language }),
       () => this.mock.draftReply(request),
@@ -542,6 +570,17 @@ export class GeminiAIService implements AIService {
       request.businessId,
       () => reportSummaryPrompt(request.prompt),
       (answer) => ({ ok: true, ...parseReportSummary(answer, request.prompt.numbers) }),
+      (reason) => ({ ok: false, reason }),
+    );
+  }
+
+  async brandPrefill(request: BrandPrefillRequest): Promise<BrandPrefillAnswer> {
+    const p = request.prompt;
+    return this.run<BrandPrefillAnswer>(
+      "ai.prefill",
+      request.businessId,
+      () => brandPrefillPrompt(p),
+      (answer) => ({ ok: true, suggestion: parsePrefill(answer, { candidates: p.hashtagCandidates, sourceText: [p.bio, ...p.captions].join(" ") }) }),
       (reason) => ({ ok: false, reason }),
     );
   }

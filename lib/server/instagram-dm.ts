@@ -130,7 +130,7 @@ async function storeMessage(businessId: string, message: IncomingMessage, text: 
 async function draftForConversation(businessId: string, message: IncomingMessage, username: string | null, avatarUrl: string | null) {
   const business = await db.business.findUnique({
     where: { id: businessId },
-    select: { name: true, nameAr: true, brandVoice: { select: { toneLevel: true, brandWords: true, defaultHashtags: true } } },
+    select: { name: true, nameAr: true, niche: true, brandVoice: { select: { toneLevel: true, brandWords: true, defaultHashtags: true } } },
   });
   if (!business) return;
   const pending = await db.replyDraft.findFirst({ where: { businessId, channel: "DM", recipientId: message.customerId, status: "PENDING" }, select: { id: true, commentText: true } });
@@ -145,6 +145,7 @@ async function draftForConversation(businessId: string, message: IncomingMessage
       businessId,
       businessName: business.name,
       businessNameAr: business.nameAr,
+      niche: business.niche,
       commentText: message.text,
       commenterUsername: username ?? "",
       brandVoice: { toneLevel: voice?.toneLevel ?? 50, brandWords: voice?.brandWords ?? [], defaultHashtags: voice?.defaultHashtags ?? [] },

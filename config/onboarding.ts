@@ -5,15 +5,17 @@
  */
 
 /**
- * Wizard steps in order. `Business.onboardingStep` is the 1-based index into this list.
- * Connecting Instagram comes first (migration 20261009090000_onboarding_instagram_first
- * moved businesses that were mid-way under the old business-first order).
+ * Wizard steps in order (light by design: connect, confirm what the AI filled in, tap a few
+ * choices, optionally add competitors). `Business.onboardingStep` is the 1-based index into
+ * this list — reordering needs a data migration (20261014180000_simpler_onboarding remapped
+ * the old 7-step wizard). Only "brand" asks for anything (the business name); the rest have
+ * defaults or are optional, and nothing waits for the AI.
  */
-export const ONBOARDING_STEPS = ["instagram", "business", "competitors", "posts", "brand", "review", "result"] as const;
+export const ONBOARDING_STEPS = ["instagram", "brand", "goals", "competitors"] as const;
 export type OnboardingStepId = (typeof ONBOARDING_STEPS)[number];
 
-/** Steps shown in the progress bar ("result" is the end of "review"). */
-export const PROGRESS_STEPS = ONBOARDING_STEPS.slice(0, 6);
+/** Steps shown in the progress bar. */
+export const PROGRESS_STEPS = ONBOARDING_STEPS;
 
 /** Event steps also include the sign-up form, which happens before the wizard. */
 export const EVENT_STEPS = ["signup", ...ONBOARDING_STEPS] as const;
@@ -33,9 +35,7 @@ export type InstagramLanguage = (typeof INSTAGRAM_LANGUAGES)[number];
 /** Posting language before it is learned from the brand's captions. */
 export const DEFAULT_INSTAGRAM_LANGUAGES: InstagramLanguage[] = ["ar", "en"];
 
-/** Competitors that must be Ready before step 3 can continue. */
-export const MIN_READY_COMPETITORS = 5;
-/** Handles (ready or not) a business can list during onboarding. */
+/** Handles (ready or not) a business can list during onboarding (competitors are optional). */
 export const MAX_ONBOARDING_COMPETITORS = 15;
 
 /** Posts collected in onboarding; the brand profile in Settings allows more. */
@@ -54,3 +54,25 @@ export const MAX_BRAND_COLORS = 6;
 
 /** `#rrggbb` */
 export const HEX_COLOR = /^#[0-9a-f]{6}$/i;
+
+// ─── Brand focus and goals (quick chips, each with a default) ───────────────
+
+export const BUSINESS_AIMS = ["more_customers", "more_followers", "more_engagement", "brand_awareness", "more_visits"] as const;
+export type BusinessAim = (typeof BUSINESS_AIMS)[number];
+export const DEFAULT_AIM: BusinessAim = "more_customers";
+
+export const BUSINESS_GOALS = ["post_consistently", "grow_reach", "more_inquiries", "promote_offers", "launch_products", "build_community"] as const;
+export type BusinessGoal = (typeof BUSINESS_GOALS)[number];
+export const DEFAULT_GOALS: BusinessGoal[] = ["post_consistently", "grow_reach"];
+
+export const GOAL_TIMELINES = ["1_month", "3_months", "6_months", "ongoing"] as const;
+export type GoalTimeline = (typeof GOAL_TIMELINES)[number];
+export const DEFAULT_TIMELINE: GoalTimeline = "3_months";
+
+/** Brand tone as three taps (the slider in Settings is finer): values on the 0–100 tone scale. */
+export const TONE_PRESETS = { formal: 20, friendly: 50, casual: 80 } as const;
+export type TonePreset = keyof typeof TONE_PRESETS;
+export const tonePresetOf = (toneLevel: number): TonePreset => (toneLevel < 34 ? "formal" : toneLevel < 67 ? "friendly" : "casual");
+
+/** Below this many posts with a caption, onboarding offers the optional "pick a tone / add an example caption" fallback. */
+export const FEW_POSTS = 3;

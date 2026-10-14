@@ -1,7 +1,8 @@
 "use client";
 
-import { startTransition, useEffect, useRef, type ReactNode } from "react";
-import { LogOut } from "lucide-react";
+import { startTransition, useEffect, useRef, useState, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
+import { Clock, LogOut } from "lucide-react";
 import { LogoMark, Wordmark } from "@/components/brand/logo";
 import { LanguageToggle, ThemeToggle } from "@/components/layout/toggles";
 import { ErrorState, Skeleton } from "@/components/shared/states";
@@ -9,22 +10,20 @@ import { VerifyEmailBanner } from "@/components/shared/verify-email-banner";
 import { Button } from "@/components/ui/button";
 import { PROGRESS_STEPS, stepNumber, type OnboardingStepId } from "@/config/onboarding";
 import { beaconOnboardingEvent, reportOnboardingEvent, useOnboardingState } from "@/lib/api/brand";
+import { apiFetch } from "@/lib/api/client";
 import { logoutAction } from "@/lib/auth/actions";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 import { StepBrand } from "./steps/step-brand";
-import { StepBusiness } from "./steps/step-business";
 import { StepCompetitors } from "./steps/step-competitors";
+import { StepGoals } from "./steps/step-goals";
 import { StepInstagram } from "./steps/step-instagram";
-import { StepPosts } from "./steps/step-posts";
-import { StepResult } from "./steps/step-result";
-import { StepReview } from "./steps/step-review";
 import { WizardProvider } from "./wizard-context";
 
 /**
- * Self-onboarding wizard: full screen, no sidebar. The server keeps the
- * current step, so leaving and logging in again resumes in the same place.
- * Step openings and page closes are reported for the admin Onboarding page.
+ * Self-onboarding wizard: full screen, no sidebar, four light steps. The server keeps the
+ * current step and every step saves on Continue, so "Finish later" (or leaving) resumes in the
+ * same place. Step openings and page closes are reported for the admin Onboarding page.
  */
 export function OnboardingWizard({
   userName,
@@ -55,6 +54,20 @@ export function OnboardingWizard({
     return () => window.removeEventListener("pagehide", onHide);
   }, []);
 
+  const router = useRouter();
+  const [deferring, setDeferring] = useState(false);
+  const finishLater = async () => {
+    setDeferring(true);
+    current.current = null;
+    try {
+      await apiFetch("/api/onboarding/defer", { method: "POST" });
+      router.push("/dashboard");
+      router.refresh();
+    } catch {
+      setDeferring(false);
+    }
+  };
+
   const logout = () => {
     if (current.current) beaconOnboardingEvent(current.current, "abandoned", { reason: "logged_out" });
     current.current = null;
@@ -71,6 +84,12 @@ export function OnboardingWizard({
             <Wordmark className="hidden text-[18px] sm:inline" />
           </span>
           <span className="ms-auto" />
+          {step && (
+            <Button variant="ghost" size="sm" onClick={finishLater} disabled={deferring}>
+              <Clock className="size-4" aria-hidden="true" />
+              {t("onboarding.finishLater")}
+            </Button>
+          )}
           <ThemeToggle />
           <LanguageToggle compact />
           <Button variant="ghost" size="sm" onClick={logout} title={t("onboarding.logoutHint", { name: userName })}>
@@ -99,41 +118,37 @@ export function OnboardingWizard({
 function StepRouter({ step }: { step: OnboardingStepId }): ReactNode {
   // Each step keeps its own form state; keyed so returning to a step starts from the saved values.
   switch (step) {
-    case "business":
-      return <StepBusiness key={step} />;
     case "instagram":
       return <StepInstagram key={step} />;
-    case "competitors":
-      return <StepCompetitors key={step} />;
-    case "posts":
-      return <StepPosts key={step} />;
     case "brand":
       return <StepBrand key={step} />;
-    case "review":
-      return <StepReview key={step} />;
-    case "result":
-      return <StepResult key={step} />;
+    case "goals":
+      return <StepGoals key={step} />;
+    case "competitors":
+      return <StepCompetitors key={step} />;
   }
 }
 
-/** Instagram-stories style segments, one per step, plus "Step 1 of 6 · Connect Instagram". */
+/** Rough minutes left from each step (connect ~1.5, confirm ~1, goals and competitors well under a minute). */
+const MINUTES_LEFT = { instagram: 3, brand: 2, goals: 1, competitors: 1 } as const;
+
+/** Instagram-stories style segments, one per step, plus "Step 1 of 4 · Connect Instagram · about 3 min left". */
 function Progress({ step }: { step: OnboardingStepId | null }) {
   const { t } = useI18n();
   const n = step ? Math.min(stepNumber(step), PROGRESS_STEPS.length) : 0;
-  const done = step === "result";
   return (
     <div className="mx-auto w-full max-w-[680px] px-4 pb-3">
       <div className="flex gap-1" role="progressbar" aria-valuemin={1} aria-valuemax={PROGRESS_STEPS.length} aria-valuenow={n} aria-label={t("onboarding.progressLabel")}>
         {PROGRESS_STEPS.map((id, i) => (
           <span
             key={id}
-            className={cn("h-[3px] flex-1 rounded-pill transition-colors", i < n - 1 || done ? "bg-foreground" : i === n - 1 ? "bg-ig-gradient" : "bg-border")}
+            className={cn("h-[3px] flex-1 rounded-pill transition-colors", i < n - 1 ? "bg-foreground" : i === n - 1 ? "bg-ig-gradient" : "bg-border")}
           />
         ))}
       </div>
       {step && (
         <p className="mt-2 text-caption text-muted">
-          {done ? t("onboarding.almostDone") : t("onboarding.stepOf", { n, total: PROGRESS_STEPS.length, name: t(`onboarding.steps.${step}.short`) })}
+          {t("onboarding.stepOf", { n, total: PROGRESS_STEPS.length, name: t(`onboarding.steps.${step}.short`) })} · {t("onboarding.minutesLeft", { minutes: MINUTES_LEFT[step] })}
         </p>
       )}
     </div>

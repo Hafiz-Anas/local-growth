@@ -16,7 +16,7 @@ import {
 const post = (postedAt: string, likes: number, comments: number, extra: Partial<AssistantPost> = {}): AssistantPost => ({ postedAt, type: "image", caption: "Fresh cashews", likes, comments, reach: 0, saves: 0, ...extra });
 
 const facts = (overrides: Partial<AssistantFacts> = {}): AssistantFacts => ({
-  business: { name: "Mathanet Baity", nameAr: "مطحنة بيتي", type: "roastery", location: "Shuwaikh", description: null, products: [], targetAudience: null, languages: ["ar", "en"], timezone: "Asia/Kuwait" },
+  business: { name: "Mathanet Baity", nameAr: "مطحنة بيتي", type: "roastery", location: "Shuwaikh", description: null, products: [], targetAudience: null, languages: ["ar", "en"], timezone: "Asia/Kuwait", focus: { niche: null, aim: null, goals: [], timeline: null } },
   brand: { summary: null, captionStyle: null, postTypes: [], toneLevel: 50, wordsToUse: [], wordsToAvoid: [], hashtags: ["#mathanet_baity"] },
   instagram: { status: "connected", username: "mathanet_baity", lastSyncAt: "2026-10-14T06:00:00.000Z" },
   profile: { followers: 2000, following: 10, posts: 50 },

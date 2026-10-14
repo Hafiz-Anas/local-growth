@@ -1268,12 +1268,12 @@
       "instagram": {
         "short": "Instagram",
         "title": "Connect your Instagram",
-        "helper": "Start here — connecting lets us read your posts and post for you. You can skip this for now."
+        "helper": "Connecting lets the AI learn your brand from your posts — you'll just confirm what it finds."
       },
       "competitors": {
         "short": "Competitors",
-        "title": "Your competitors",
-        "helper": "Add at least {min} Instagram accounts you compete with. We'll watch what works for them."
+        "title": "Competitors (optional)",
+        "helper": "Add a few accounts you compete with to compare yourself with them — or add them later."
       },
       "posts": {
         "short": "Your posts",
@@ -1281,9 +1281,10 @@
         "helper": "Choose posts you're proud of and tell us what each one is for."
       },
       "brand": {
-        "short": "Brand basics",
-        "title": "Brand basics",
-        "helper": "Just the essentials — you can change all of this later in Settings."
+        "short": "Your brand",
+        "title": "Confirm your brand",
+        "helper": "We filled this in from your Instagram. Check it, change anything, and continue.",
+        "helperManual": "Check these details and continue — everything can be changed later in Settings."
       },
       "review": {
         "short": "Review",
@@ -1294,6 +1295,11 @@
         "short": "Brand profile",
         "title": "Here's what we learned about your brand",
         "helper": "Edit anything that doesn't sound right, then confirm."
+      },
+      "goals": {
+        "short": "Goals",
+        "title": "What do you want from Instagram?",
+        "helper": "Tap what fits — the defaults are fine. You can change them later in Settings."
       }
     },
     "blockers": {
@@ -1302,7 +1308,8 @@
       "posts_incomplete": "Add all 5 posts before continuing.",
       "brand_context_missing": "Build your brand profile first.",
       "out_of_order": "Finish the current step first.",
-      "instagram_required": "Connect Instagram to continue."
+      "instagram_required": "Connect Instagram to continue.",
+      "business_name_missing": "Add your business name to continue."
     },
     "report": {
       "link": "Report a problem",
@@ -1348,7 +1355,13 @@
       "later": "You can connect or change the account any time in Settings → Instagram.",
       "metaWhy": "Connect with Facebook to import your Instagram profile, recent posts and insights. We never post without your approval.",
       "required": "Connecting Instagram is required to finish setting up.",
-      "requiredHelper": "Connect your Instagram business account to continue — it lets us read your posts and post for you."
+      "requiredHelper": "Connect your Instagram business account to continue — it lets us read your posts and post for you.",
+      "help": {
+        "title": "Can't connect? Check these",
+        "professional": "Your Instagram must be a professional account: in Instagram, Settings → Account type and tools → Switch to professional account (Business or Creator).",
+        "page": "Link it to a Facebook Page: in Instagram, Edit profile → Page → connect or create a Page.",
+        "login": "Then press Connect and log in with the Facebook account that manages that Page, and allow access to the Instagram account."
+      }
     },
     "competitors": {
       "displayName": "Display name (optional)",
@@ -1374,7 +1387,9 @@
         "private": "This account is private, so we can't see its posts. Try another competitor.",
         "not_found": "We couldn't find a public business or creator account with this username. Check the spelling — personal and private accounts can't be read.",
         "own_account": "This is your own account — add a competitor instead."
-      }
+      },
+      "addLater": "Add later",
+      "tracked": "{count} ready to compare"
     },
     "posts": {
       "needMore": "Add {count} more post(s).",
@@ -1398,7 +1413,31 @@
       "wordsToUseHint": "Phrases that sound like you, e.g. “roasted daily”.",
       "wordsToAvoidHint": "Words you never want in your captions, e.g. “cheap”.",
       "wordPlaceholder": "Add a word",
-      "avoidPlaceholder": "Add a word to avoid"
+      "avoidPlaceholder": "Add a word to avoid",
+      "filling": "Reading your bio and recent posts…",
+      "filled": "Filled in from your Instagram — check it and change anything.",
+      "notFilled": "Fill in what you like — all of it can be changed later in Settings.",
+      "name": "Business name",
+      "nameNeeded": "Add your business name to continue.",
+      "niche": "Niche / theme",
+      "nichePlaceholder": "e.g. Specialty coffee roastery",
+      "type": "Type of business",
+      "tone": "Tone",
+      "toneHint": "How your posts and replies should sound.",
+      "tones": {
+        "formal": "Formal",
+        "friendly": "Friendly",
+        "casual": "Casual"
+      },
+      "hashtags": "Your hashtags",
+      "hashtagsHint": "Hashtags you already use. The AI only uses these in captions.",
+      "fallbackTitle": "New to Instagram? (optional)",
+      "fallbackHint": "Pick a tone above, and add one example caption so the AI gets your style.",
+      "exampleCaption": "Example caption",
+      "exampleCaptionPlaceholder": "Write a caption the way you'd post it…",
+      "more": "More details (optional)",
+      "productsHint": "Products or services to feature in posts.",
+      "productsPlaceholder": "Add a product"
     },
     "review": {
       "build": "Build my brand profile",
@@ -1422,7 +1461,49 @@
       "confirm": "Confirm and finish",
       "missingTitle": "No brand profile yet",
       "missingHint": "Go back to Review and build it."
+    },
+    "finishLater": "Finish later",
+    "finish": "Finish",
+    "minutesLeft": "about {minutes} min left"
+  },
+  "goals": {
+    "title": "Goals",
+    "settingsHint": "The AI points captions, answers, recommendations and reports at these.",
+    "saved": "Goals saved.",
+    "aim": "Main aim",
+    "goals": "Goals",
+    "goalsHint": "Pick any that fit.",
+    "pickOne": "Pick at least one goal.",
+    "timeline": "Timeline",
+    "aims": {
+      "more_customers": "More customers",
+      "more_followers": "More followers",
+      "more_engagement": "More engagement",
+      "brand_awareness": "Brand awareness",
+      "more_visits": "More shop visits"
+    },
+    "goalOptions": {
+      "post_consistently": "Post consistently",
+      "grow_reach": "Reach more people",
+      "more_inquiries": "More DMs & questions",
+      "promote_offers": "Promote offers",
+      "launch_products": "Launch products",
+      "build_community": "Build a community"
+    },
+    "timelines": {
+      "1_month": "1 month",
+      "3_months": "3 months",
+      "6_months": "6 months",
+      "ongoing": "Ongoing"
     }
+  },
+  "setup": {
+    "finishTitle": "Finish setting up",
+    "finishBody": "{count} quick steps left — about a minute each.",
+    "finishAction": "Continue setup",
+    "goalsTitle": "Set your goals (30 seconds)",
+    "goalsBody": "Tell us your niche and what you want from Instagram, so the AI works towards it.",
+    "notNow": "Not now"
   },
   "brand": {
     "tone": {
@@ -1554,9 +1635,10 @@
       "instagram": "Instagram",
       "competitors": "Competitors",
       "posts": "Your posts",
-      "brand": "Brand basics",
+      "brand": "Your brand",
       "review": "Review",
-      "result": "Brand profile"
+      "result": "Brand profile",
+      "goals": "Goals"
     },
     "businesses": "Businesses",
     "emptyTitle": "No sign-ups yet",

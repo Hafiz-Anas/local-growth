@@ -6,6 +6,8 @@ import { createServer } from "node:http";
  * - recommendations requests (responseSchema with "recommendations") get 3 numbered recommendations;
  * - weekly report summaries (responseSchema with "summary_en") get a summary without numbers, or —
  *   for the business named in `state.inventNumbersFor` — one with an invented number (must be rejected);
+ * - onboarding pre-fill (responseSchema with "business_type") gets a bakery niche, tone 70 and the first
+ *   two hashtag candidates;
  * - chat requests get an answer echoing the question (Arabic for an Arabic question);
  * - a question containing "[down]", or `state.fail`, gets a 503.
  */
@@ -13,7 +15,7 @@ import { createServer } from "node:http";
 export interface StubCall {
   system: string;
   turns: Array<{ role: string; text: string }>;
-  kind: "strategy" | "report" | "chat";
+  kind: "strategy" | "report" | "prefill" | "chat";
 }
 
 export const STUB_PORT = Number(process.env.E2E_GEMINI_STUB_PORT ?? 4010);
@@ -55,7 +57,7 @@ export async function startGeminiStub(port = STUB_PORT) {
       const body = JSON.parse(raw || "{}") as RequestBody;
       const turns = (body.contents ?? []).map((c) => ({ role: c.role, text: c.parts.map((p) => p.text).join("") }));
       const props = body.generationConfig?.responseSchema?.properties ?? {};
-      const kind = props.recommendations ? "strategy" : props.summary_en ? "report" : "chat";
+      const kind = props.recommendations ? "strategy" : props.summary_en ? "report" : props.business_type ? "prefill" : "chat";
       calls.push({ system: body.systemInstruction?.parts[0]?.text ?? "", turns, kind });
       const question = turns.at(-1)?.text ?? "";
       res.setHeader("content-type", "application/json");
@@ -68,6 +70,10 @@ export async function startGeminiStub(port = STUB_PORT) {
       if (kind === "strategy") {
         state.analyses += 1;
         text = JSON.stringify(stubRecommendations(state.analyses));
+      } else if (kind === "prefill") {
+        const system = body.systemInstruction?.parts[0]?.text ?? "";
+        const candidates = (system.match(/<hashtag_candidates>\n([^<]*)\n<\/hashtag_candidates>/)?.[1] ?? "").split(/\s+/).filter((t) => t.startsWith("#"));
+        text = JSON.stringify({ business_type: "bakery", niche: "Home bakery for celebration cakes", tone_level: 70, hashtags: candidates.slice(0, 2), products: [] });
       } else if (kind === "report") {
         const system = body.systemInstruction?.parts[0]?.text ?? "";
         const invent = Boolean(state.inventNumbersFor) && system.includes(state.inventNumbersFor);

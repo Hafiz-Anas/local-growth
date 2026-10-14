@@ -37,6 +37,7 @@ function facts(overrides: Partial<AssistantFacts> = {}): AssistantFacts {
       targetAudience: null,
       languages: ["ar", "en"],
       timezone: "Asia/Kuwait",
+      focus: { niche: "Specialty roastery", aim: "more_customers", goals: ["post_consistently"], timeline: "3_months" },
     },
     brand: { summary: "A family roastery.", captionStyle: "Short and warm.", postTypes: [], toneLevel: 60, wordsToUse: ["fresh roast"], wordsToAvoid: ["cheap"], hashtags: ["#mathanet_baity"] },
     instagram: { status: "connected", username: "mathanet_baity", lastSyncAt: "2026-10-14T06:00:00.000Z" },

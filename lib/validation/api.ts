@@ -1,8 +1,11 @@
 import { z } from "zod";
 import { FEATURE_KEYS } from "@/config/features";
 import {
+  BUSINESS_AIMS,
+  BUSINESS_GOALS,
   BUSINESS_TYPES,
   EVENT_STEPS,
+  GOAL_TIMELINES,
   HEX_COLOR,
   INSTAGRAM_LANGUAGES,
   MAX_BRAND_COLORS,
@@ -417,3 +420,28 @@ export const assistantMessageSchema = z.object({
 
 /** PATCH /api/recommendations/:id — the owner's decision ("new" undoes accept/dismiss). */
 export const recommendationStatusSchema = z.object({ status: z.enum(["new", "accepted", "dismissed", "done"]) });
+
+const hashtagItem = z.string().trim().min(2).max(60).transform((v) => `#${v.replace(/^#+/, "")}`);
+
+/** PUT /api/onboarding/brand — "Confirm your brand" (everything optional but the name). */
+export const onboardingBrandSchema = z.object({
+  businessName: text(120),
+  businessType: z.enum(BUSINESS_TYPES).nullable(),
+  niche: optionalText(80),
+  toneLevel: z.number().int().min(0).max(100),
+  hashtags: z.array(hashtagItem).max(12),
+  products: z.array(z.string().trim().min(1).max(60)).max(10),
+  exampleCaption: optionalText(2200),
+});
+
+/** Aim, goals and timeline (onboarding "Goals", Settings → Goals, the one-time prompt). */
+export const goalsSchema = z.object({
+  aim: z.enum(BUSINESS_AIMS),
+  goals: z.array(z.enum(BUSINESS_GOALS)).min(1).max(BUSINESS_GOALS.length),
+  timeline: z.enum(GOAL_TIMELINES),
+  /** Settings and the prompt also edit the niche. */
+  niche: optionalText(80).optional(),
+});
+
+/** POST /api/onboarding/prefill — the language the niche is suggested in. */
+export const prefillSchema = z.object({ locale: z.enum(["en", "ar"]).default("en") });
