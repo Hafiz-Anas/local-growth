@@ -3,6 +3,7 @@
 import { startTransition, type ReactNode } from "react";
 import Link from "next/link";
 import { CircleUserRound, Languages, LogOut, Moon, Settings, ShieldCheck, Sun } from "lucide-react";
+import { PlanBadge } from "@/components/shared/client-row";
 import { useTheme } from "next-themes";
 import { Avatar } from "@/components/shared/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -17,7 +18,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { logoutAction } from "@/lib/auth/actions";
 import { useI18n } from "@/lib/i18n/provider";
-import type { MediaTone, Role } from "@/types";
+import type { MediaTone, PlanId, Role } from "@/types";
 
 export interface MenuUser {
   name: string;
@@ -30,6 +31,10 @@ export interface MenuUser {
   secondary: string;
   profileHref: string;
   settingsHref: string;
+  /** The business's plan (users only), shown in the menu. */
+  plan?: PlanId;
+  /** Extra links shown in the menu on phones only (where the tab bar has no room). */
+  shortcuts?: Array<{ href: string; label: string; icon: ReactNode }>;
 }
 
 /** Identity fields resolved on the server; shells add the localized secondary line and links. */
@@ -48,7 +53,7 @@ export function AdminShield() {
   );
 }
 
-/** Shared menu body: identity header with role, then profile / settings / theme / language / log out. */
+/** Shared menu body: identity header with role and plan, then profile / settings / theme / language / log out. */
 function ProfileMenuBody({ user }: { user: MenuUser }) {
   const { t, locale, setLocale } = useI18n();
   const { resolvedTheme, setTheme } = useTheme();
@@ -62,13 +67,24 @@ function ProfileMenuBody({ user }: { user: MenuUser }) {
           <span className="block truncate">
             <bdi>{user.email}</bdi>
           </span>
-          <Badge variant={user.role === "admin" ? "neutral" : "blue"} size="sm" className="mt-1.5">
-            {user.role === "admin" && <ShieldCheck />}
-            {user.role === "admin" ? t("roles.admin") : t("roles.user")}
-          </Badge>
+          <span className="mt-1.5 flex flex-wrap items-center gap-1.5">
+            <Badge variant={user.role === "admin" ? "neutral" : "blue"} size="sm">
+              {user.role === "admin" && <ShieldCheck />}
+              {user.role === "admin" ? t("roles.admin") : t("roles.user")}
+            </Badge>
+            {user.plan && <PlanBadge plan={user.plan} className="h-5 px-2 text-[11px]" />}
+          </span>
         </span>
       </DropdownMenuLabel>
       <DropdownMenuSeparator />
+      {user.shortcuts?.map((s) => (
+        <DropdownMenuItem key={s.href} asChild className="md:hidden">
+          <Link href={s.href}>
+            {s.icon}
+            {s.label}
+          </Link>
+        </DropdownMenuItem>
+      ))}
       <DropdownMenuItem asChild>
         <Link href={user.profileHref}>
           <CircleUserRound />
@@ -81,11 +97,11 @@ function ProfileMenuBody({ user }: { user: MenuUser }) {
           {t("topbar.settings")}
         </Link>
       </DropdownMenuItem>
-      <DropdownMenuItem onSelect={() => setTheme(dark ? "light" : "dark")}>
+      <DropdownMenuItem onSelect={() => setTheme(dark ? "light" : "dark")} data-testid="menu-theme">
         {dark ? <Sun /> : <Moon />}
-        {t("topbar.appearance")}
+        {dark ? t("topbar.switchToLight") : t("topbar.switchToDark")}
       </DropdownMenuItem>
-      <DropdownMenuItem onSelect={() => setLocale(locale === "en" ? "ar" : "en")}>
+      <DropdownMenuItem onSelect={() => setLocale(locale === "en" ? "ar" : "en")} data-testid="menu-language">
         <Languages />
         {t("topbar.language")}
       </DropdownMenuItem>
@@ -102,7 +118,7 @@ function ProfileMenuBody({ user }: { user: MenuUser }) {
 export function ProfileMenu({ user }: { user: MenuUser }) {
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="rounded-pill outline-none focus-visible:ring-2 focus-visible:ring-primary/40" aria-label={user.name}>
+      <DropdownMenuTrigger className="rounded-pill outline-none focus-visible:ring-2 focus-visible:ring-primary/40" aria-label={user.name} data-testid="profile-menu-trigger">
         <Avatar src={user.avatarUrl} initials={user.initials} tone={user.tone} size="sm" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">

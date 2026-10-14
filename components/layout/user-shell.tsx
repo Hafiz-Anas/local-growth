@@ -3,12 +3,11 @@
 import type { ReactNode } from "react";
 import { startTransition } from "react";
 import Link from "next/link";
-import { Eye, Lightbulb, MapPin } from "lucide-react";
+import { Eye, MapPin } from "lucide-react";
 import type { NavItem } from "@/config/navigation";
 import { LogoMark } from "@/components/brand/logo";
 import { useActiveClient } from "@/components/providers/active-client-provider";
 import { Avatar } from "@/components/shared/avatar";
-import { PlanBadge } from "@/components/shared/client-row";
 import { ConnectionPill } from "@/components/shared/connection-pill";
 import { InstagramIssueBanner } from "@/components/shared/instagram-issue-banner";
 import { VerifyEmailBanner } from "@/components/shared/verify-email-banner";
@@ -21,9 +20,9 @@ import type { UiPreferences } from "@/types";
 import { AssistantBanner, useAssistantBanner } from "@/components/assistant/assistant-panel";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { MobileTabBar } from "./mobile-tab-bar";
+import { NavIcon } from "./nav-icon";
 import { CONTENT_INSET, ProfileMenu, type MenuUser, type MenuUserBase } from "./profile-menu";
 import { Sidebar } from "./sidebar";
-import { LanguageToggle, ThemeToggle } from "./toggles";
 
 /** `nav` is built on the server from the enabled features — hidden items never reach the browser. */
 export function UserShell({
@@ -48,7 +47,17 @@ export function UserShell({
   const user: MenuUser =
     base.role === "admin"
       ? { ...base, secondary: t("roles.admin"), profileHref: "/admin/profile", settingsHref: "/admin/system" }
-      : { ...base, secondary: client.instagramHandle === null ? client.businessName : `@${client.handle}`, profileHref: "/dashboard", settingsHref: "/settings" };
+      : {
+          ...base,
+          secondary: client.instagramHandle === null ? client.businessName : `@${client.handle}`,
+          profileHref: "/dashboard",
+          settingsHref: "/settings",
+          plan: client.plan,
+          // Phones: the tab bar is full, so these live in the menu.
+          shortcuts: nav
+            .filter((item) => item.href === "/recommendations" || item.href === "/reports")
+            .map((item) => ({ href: item.href, label: t(item.labelKey), icon: <NavIcon name={item.icon} className="size-4" /> })),
+        };
 
   const main = nav.filter((i) => i.href !== "/settings");
   const bottom = nav.filter((i) => i.href === "/settings");
@@ -102,24 +111,9 @@ export function UserShell({
             </div>
 
             <div className="ms-auto flex items-center gap-1 sm:gap-2">
-              <ConnectionPill status={client.connection} withIcon className="hidden sm:inline-flex" />
-              <PlanBadge plan={client.plan} className="hidden sm:inline-flex" />
-              {/* Phones: the bottom tab bar is full, so Recommendations sits in the header (until the mobile redesign). */}
-              {nav.some((item) => item.href === "/recommendations") && (
-                <Button asChild variant="ghost" size="icon-sm" className="md:hidden">
-                  <Link href="/recommendations" aria-label={t("nav.recommendations")}>
-                    <Lightbulb aria-hidden="true" />
-                  </Link>
-                </Button>
-              )}
+              {/* Only the Instagram connection here; plan, language and appearance are in the profile menu. */}
+              <ConnectionPill status={client.connection} withIcon />
               <NotificationBell />
-              <ThemeToggle />
-              <span className="hidden lg:inline-flex">
-                <LanguageToggle />
-              </span>
-              <span className="lg:hidden">
-                <LanguageToggle compact />
-              </span>
               <ProfileMenu user={user} />
             </div>
           </div>

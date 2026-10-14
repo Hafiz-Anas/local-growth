@@ -23,7 +23,9 @@ async function login(p: Page, account: { email: string; password: string }) {
 
 async function switchLanguage(p: Page, to: "en" | "ar") {
   const saved = p.waitForResponse((r) => r.url().includes("/api/me/preferences") && r.request().method() === "PATCH");
-  await p.getByRole("button", { name: to === "ar" ? "Change language" : "تغيير اللغة" }).first().click();
+  // Language lives in the profile menu (the header only shows the Instagram connection).
+  await p.getByTestId("profile-menu-trigger").click();
+  await p.getByTestId("menu-language").click();
   await expect(p.locator("html")).toHaveAttribute("dir", to === "ar" ? "rtl" : "ltr");
   await saved;
 }
