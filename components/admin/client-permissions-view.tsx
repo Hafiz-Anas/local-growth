@@ -196,7 +196,7 @@ export function ClientPermissionsView({ clientId }: { clientId: string }) {
                 const moduleOn = module.moduleKey ? perms[module.moduleKey] : true;
                 return (
                   <Card key={module.id}>
-                    <CardHeader className={cn(moduleOn && "border-b border-separator")}>
+                    <CardHeader className={cn(moduleOn && module.subFeatures.length > 0 && "border-b border-separator")}>
                       <div>
                         <CardTitle>{t(`features.modules.${module.id}`)}</CardTitle>
                         <CardDescription>{t(`features.moduleHints.${module.id}`)}</CardDescription>

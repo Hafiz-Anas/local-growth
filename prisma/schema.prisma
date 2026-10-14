@@ -169,6 +169,18 @@ enum OnboardingEventType {
   ABANDONED
 }
 
+/// What kind of answer the AI assistant gives (the user picks it per question).
+enum AssistantMode {
+  POST
+  ANALYTICS
+  COMPETITORS
+}
+
+enum AssistantRole {
+  USER
+  ASSISTANT
+}
+
 // ─── Accounts ────────────────────────────────────────────────────────────────
 
 model User {
@@ -200,6 +212,7 @@ model User {
   activity            ActivityLog[]
   postDrafts          PostDraft[]          @relation("DraftAuthor")
   reviewedReplies     ReplyDraft[]         @relation("ReplyReviewer")
+  assistantChats      AssistantConversation[]
 
   @@index([businessId])
   @@index([role, status])
@@ -264,6 +277,7 @@ model Business {
   metaPending         MetaPendingConnection?
   directMessages      InstagramDirectMessage[]
   keywordTriggers     KeywordReplyTrigger[]
+  assistantChats      AssistantConversation[]
 }
 
 /// One row per (business, feature key). A sub-feature ("engagement.dmRules") is
@@ -796,4 +810,41 @@ model ActivityLog {
 
   @@index([businessId, createdAt])
   @@index([createdAt])
+}
+
+// ─── AI assistant ────────────────────────────────────────────────────────────
+
+/// A chat with the AI assistant. History belongs to the business (any of its users can continue it).
+model AssistantConversation {
+  id         String   @id @default(cuid())
+  businessId String
+  /// Who started it. Kept nullable so the chat survives user deletion.
+  userId     String?
+  /// The first question, shortened.
+  title      String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  business Business           @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  user     User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
+  messages AssistantMessage[]
+
+  @@index([businessId, updatedAt])
+}
+
+/// One question or answer. Only answered turns are stored: when the AI is unavailable
+/// neither the question nor an answer is saved, so the history never holds a fake reply.
+model AssistantMessage {
+  id             String        @id @default(cuid())
+  conversationId String
+  role           AssistantRole
+  mode           AssistantMode
+  content        String
+  /// "en" | "ar": the language the user wrote in (the answer uses it too).
+  language       String
+  createdAt      DateTime      @default(now())
+
+  conversation AssistantConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
 }

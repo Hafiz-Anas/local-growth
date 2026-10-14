@@ -6,6 +6,7 @@ export type NavIcon =
   | "generator"
   | "experiment"
   | "engagement"
+  | "assistant"
   | "settings"
   | "clients"
   | "onboarding"
@@ -28,6 +29,7 @@ export const USER_NAV: NavItem[] = [
   { href: "/post-generator", labelKey: "nav.postGenerator", icon: "generator", feature: "postGenerator", mobile: true },
   { href: "/experiment", labelKey: "nav.experiment", icon: "experiment", feature: "experiment", mobile: true },
   { href: "/engagement", labelKey: "nav.engagement", icon: "engagement", feature: "engagement", mobile: true },
+  { href: "/assistant", labelKey: "nav.assistant", icon: "assistant", feature: "assistant" },
   { href: "/settings", labelKey: "nav.settings", icon: "settings" },
 ];
 

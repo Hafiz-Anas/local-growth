@@ -10,6 +10,7 @@ import {
   POST_PURPOSES,
 } from "@/config/onboarding";
 import { MAX_RULE_KEYWORDS, MAX_RULE_POSTS, PRIVATE_REPLY_MAX, PUBLIC_REPLY_MAX, normalizeText } from "@/lib/keyword-replies";
+import { ASSISTANT_MAX_QUESTION, ASSISTANT_MODES } from "@/lib/services/text/assistant";
 import { normalizeTheme } from "@/lib/theme-script";
 import { emailSchema, newPasswordSchema } from "./auth";
 
@@ -399,4 +400,11 @@ export const activityQuery = z.object({
   action: z.string().max(60).optional(),
   cursor: z.string().max(200).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(25),
+});
+
+/** POST /api/assistant/messages — a question for the AI assistant (no conversationId = a new chat). */
+export const assistantMessageSchema = z.object({
+  conversationId: z.string().min(1).max(64).regex(/^[\w-]+$/).optional(),
+  mode: z.enum(ASSISTANT_MODES),
+  text: text(ASSISTANT_MAX_QUESTION),
 });

@@ -5,10 +5,12 @@ import { defineConfig } from "@playwright/test";
  * seed — start it against a throwaway database first, never your real one:
  *
  *   DATABASE_URL=…/lge_e2e  npx prisma migrate deploy && npx prisma db seed
- *   DATABASE_URL=…/lge_e2e INSTAGRAM_PROVIDER=mock STORAGE_PROVIDER=local META_APP_SECRET=e2e-secret npx next dev -p 3001
+ *   DATABASE_URL=…/lge_e2e INSTAGRAM_PROVIDER=mock STORAGE_PROVIDER=local META_APP_SECRET=e2e-secret \
+ *     AI_PROVIDER=gemini GEMINI_API_KEY=e2e-not-a-real-key GEMINI_API_BASE=http://127.0.0.1:4010/v1beta npx next dev -p 3001
  *   DATABASE_URL=…/lge_e2e META_APP_SECRET=e2e-secret E2E_BASE_URL=http://localhost:3001 npm run test:e2e
  *
- * The tests change data (rules, permissions) and refuse any non-local URL.
+ * The assistant spec starts its own Gemini stub on port 4010 (E2E_GEMINI_STUB_PORT), so Google is never called.
+ * The tests change data (rules, permissions, chats) and refuse any non-local URL.
  * E2E_BROWSER_CHANNEL=chrome uses the installed Chrome instead of Playwright's Chromium.
  */
 const baseURL = process.env.E2E_BASE_URL ?? "http://localhost:3000";

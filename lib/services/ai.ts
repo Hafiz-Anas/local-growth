@@ -2,11 +2,12 @@ import "server-only";
 import { logIntegration } from "@/lib/server/integration-log";
 import type { CaptionStyle, PostPurpose, PurposePattern, StyleNotes } from "@/types";
 import { getContentCatalog, type CatalogProfile } from "./catalog";
-import { TextGenerationError, sanitizeTextError } from "./text/errors";
+import { cleanAssistantAnswer } from "./text/assistant";
+import { TextGenerationError, sanitizeTextError, type TextFailureReason } from "./text/errors";
 import { TextRequestGate } from "./text/gate";
 import { DEFAULT_GEMINI_TEXT_MODEL, DEFAULT_GEMINI_TEXT_RPD, DEFAULT_GEMINI_TEXT_RPM, generateGeminiText, readGeminiTextConfig } from "./text/gemini";
 import { composeCaption, cleanReply, greetName, isArabic, parseBrandContext, parseCaptions, replyLanguage, stripAvoided } from "./text/output";
-import { brandContextPrompt, captionPrompt, replyPrompt, type TextPrompt } from "./text/prompts";
+import { assistantPrompt, brandContextPrompt, captionPrompt, replyPrompt, type AssistantPromptInput, type TextPrompt } from "./text/prompts";
 
 /**
  * AI caption, reply and brand-profile generation. Routes depend on this
@@ -112,7 +113,20 @@ export interface AIService {
   draftReply(request: ReplyRequest): Promise<{ text: string; language: "en" | "ar" }>;
   /** Reads the onboarding inputs (business, posts, basics) and describes the brand. */
   buildBrandContext(input: BrandContextInput): Promise<BrandContextDraft>;
+  /**
+   * Answers a question in the client chat. Never falls back to made-up text:
+   * when the model can't answer, the result says why and the UI shows that.
+   */
+  chat(request: AssistantRequest): Promise<AssistantAnswer>;
 }
+
+export interface AssistantRequest {
+  /** For the integration log when the real model fails. */
+  businessId: string;
+  prompt: AssistantPromptInput;
+}
+
+export type AssistantAnswer = { ok: true; text: string } | { ok: false; reason: TextFailureReason };
 
 /** Thrown when the provider can't build a brand profile (the route stores a FAILED version). */
 export class BrandContextError extends Error {}
@@ -303,15 +317,20 @@ export class MockAIService implements AIService {
     if (input.description?.includes("[ai-fail]")) throw new BrandContextError("Mock AI failure requested by the business description.");
     return mockBrandContext(input);
   }
+
+  /** MOCK: there is no model to ask, so the chat says the assistant is unavailable (never a canned answer). */
+  async chat(): Promise<AssistantAnswer> {
+    return { ok: false, reason: "not_configured" };
+  }
 }
 
-type AICall = "ai.captions" | "ai.reply.comment" | "ai.reply.dm" | "ai.brand_context";
+type AICall = "ai.captions" | "ai.reply.comment" | "ai.reply.dm" | "ai.brand_context" | "ai.assistant";
 
 /**
  * Gemini text model (prompts in ./text/prompts.ts). Never fails: when the
  * model can't answer (quota, billing, key, timeout, safety block, malformed
- * answer) it returns the mock's text and logs the reason to the integration
- * log. A request gate keeps calls within the free tier (GEMINI_TEXT_RPM / GEMINI_TEXT_RPD).
+ * answer) it returns the mock's text — or, for the chat, the reason — and logs
+ * the reason to the integration log. A request gate keeps calls within the free tier (GEMINI_TEXT_RPM / GEMINI_TEXT_RPD).
  */
 export class GeminiAIService implements AIService {
   private readonly mock = new MockAIService();
@@ -324,9 +343,11 @@ export class GeminiAIService implements AIService {
     businessId: string | null | undefined,
     prompt: () => TextPrompt,
     toResult: (answer: string) => T | Promise<T>,
-    fallback: () => Promise<T>,
+    fallback: (reason: TextFailureReason) => T | Promise<T>,
   ): Promise<T> {
     const config = readGeminiTextConfig();
+    // What the user gets instead of a model answer, for the log.
+    const instead = call === "ai.assistant" ? { text: "showed the assistant as unavailable", fallback: "unavailable" } : { text: "used the template text instead", fallback: "template" };
     const gate = (this.gate ??= new TextRequestGate(config?.rpm ?? DEFAULT_GEMINI_TEXT_RPM, config?.rpd ?? DEFAULT_GEMINI_TEXT_RPD));
     const model = config?.model ?? DEFAULT_GEMINI_TEXT_MODEL;
     const decision = gate.acquire();
@@ -336,13 +357,13 @@ export class GeminiAIService implements AIService {
       if (decision.budget && decision.reason === "daily_limit") {
         if (this.dailyBudgetLoggedUntil !== decision.until) {
           this.dailyBudgetLoggedUntil = decision.until;
-          await logIntegration({ businessId: businessId ?? null, provider: "gemini", level: "warning", call, errorCode: "daily_limit", message: `Reached the daily request budget (GEMINI_TEXT_RPD) — using the template text until ${new Date(decision.until).toISOString()}.`, details: { model, fallback: "template", resetsAt: new Date(decision.until).toISOString() } });
+          await logIntegration({ businessId: businessId ?? null, provider: "gemini", level: "warning", call, errorCode: "daily_limit", message: `Reached the daily request budget (GEMINI_TEXT_RPD) — ${instead.text} (the budget resets at ${new Date(decision.until).toISOString()}).`, details: { model, fallback: instead.fallback, resetsAt: new Date(decision.until).toISOString() } });
         }
       } else if (decision.budget && Date.now() - this.lastBudgetLog > 60_000) {
         this.lastBudgetLog = Date.now();
-        await logIntegration({ businessId: businessId ?? null, provider: "gemini", level: "warning", call, errorCode: "rate_limited", message: "Over the per-minute request budget (GEMINI_TEXT_RPM) — used the template text instead.", details: { model, fallback: "template" } });
+        await logIntegration({ businessId: businessId ?? null, provider: "gemini", level: "warning", call, errorCode: "rate_limited", message: `Over the per-minute request budget (GEMINI_TEXT_RPM) — ${instead.text}.`, details: { model, fallback: instead.fallback } });
       }
-      return fallback();
+      return fallback(decision.reason);
     }
     try {
       if (!config) throw new TextGenerationError("not_configured", "GEMINI_API_KEY is not set.");
@@ -357,10 +378,10 @@ export class GeminiAIService implements AIService {
         call,
         errorCode: failure.reason,
         httpStatus: failure.httpStatus,
-        message: `${failure.message} — used the template text instead.`,
-        details: { model, fallback: "template", ...(failure.providerCode && { providerCode: failure.providerCode }) },
+        message: `${failure.message} — ${instead.text}.`,
+        details: { model, fallback: instead.fallback, ...(failure.providerCode && { providerCode: failure.providerCode }) },
       });
-      return fallback();
+      return fallback(failure.reason);
     }
   }
 
@@ -442,6 +463,20 @@ export class GeminiAIService implements AIService {
         return draft.purposePatterns.length ? draft : { ...draft, purposePatterns: mockBrandContext(input).purposePatterns };
       },
       async () => mockBrandContext(input),
+    );
+  }
+
+  async chat(request: AssistantRequest): Promise<AssistantAnswer> {
+    return this.run<AssistantAnswer>(
+      "ai.assistant",
+      request.businessId,
+      () => assistantPrompt(request.prompt),
+      (answer) => {
+        const text = cleanAssistantAnswer(answer);
+        if (!text) throw new TextGenerationError("bad_output", "The model's answer was empty.", 200);
+        return { ok: true, text };
+      },
+      (reason) => ({ ok: false, reason }),
     );
   }
 }

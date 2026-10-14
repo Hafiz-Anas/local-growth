@@ -42,12 +42,14 @@ export const FEATURE_KEYS = [
   "engagement.autoReply",
   "engagement.whatsappPricing",
 
+  "assistant",
+
   "settings.brandVoice",
 ] as const;
 
 export interface FeatureModuleDef {
   /** Translation namespace: features.<id>.* */
-  id: "dashboard" | "competitors" | "postGenerator" | "experiment" | "engagement" | "settings";
+  id: "dashboard" | "competitors" | "postGenerator" | "experiment" | "engagement" | "assistant" | "settings";
   /** Module-level toggle; `null` when the module itself is always available (dashboard, settings). */
   moduleKey: FeatureKey | null;
   subFeatures: FeatureKey[];
@@ -89,6 +91,11 @@ export const FEATURE_MODULES: FeatureModuleDef[] = [
       "engagement.autoReply",
       "engagement.whatsappPricing",
     ],
+  },
+  {
+    id: "assistant",
+    moduleKey: "assistant",
+    subFeatures: [],
   },
   {
     id: "settings",

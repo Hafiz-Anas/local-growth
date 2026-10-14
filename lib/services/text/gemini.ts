@@ -54,7 +54,10 @@ export function readGeminiTextConfig(env: Record<string, string | undefined> = p
 export function geminiTextRequestBody(prompt: TextPrompt) {
   return {
     systemInstruction: { parts: [{ text: prompt.system }] },
-    contents: [{ role: "user", parts: [{ text: prompt.user }] }],
+    contents: [
+      ...(prompt.history ?? []).map((turn) => ({ role: turn.role, parts: [{ text: turn.text }] })),
+      { role: "user", parts: [{ text: prompt.user }] },
+    ],
     generationConfig: {
       temperature: prompt.temperature,
       maxOutputTokens: prompt.maxOutputTokens,

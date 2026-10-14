@@ -25,6 +25,7 @@ export const PLAN_PRESETS: Record<PlanId, Permissions> = {
     "postGenerator.regenerate",
     "engagement",
     "engagement.aiReplies",
+    "assistant",
     "settings.brandVoice",
   ]),
   growth: build([
@@ -43,6 +44,7 @@ export const PLAN_PRESETS: Record<PlanId, Permissions> = {
     "engagement.dmRules",
     "engagement.aiReplies",
     "engagement.whatsappPricing",
+    "assistant",
     "settings.brandVoice",
   ]),
   pro: build([...FEATURE_KEYS]),

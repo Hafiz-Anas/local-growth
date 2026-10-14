@@ -20,6 +20,8 @@ const KNOWN = new Set([
   "instagram_unavailable",
   "instagram_error",
   "ai_error",
+  "assistant_unavailable",
+  "assistant_limit",
   "image_unavailable",
   "email_unavailable",
   "dm_window_closed",

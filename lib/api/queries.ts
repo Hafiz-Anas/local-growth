@@ -5,6 +5,8 @@ import { useActiveClient } from "@/components/providers/active-client-provider";
 import { useI18n } from "@/lib/i18n/provider";
 import { notify } from "@/store/ui-store";
 import type {
+  AssistantOverviewDto,
+  AssistantThreadDto,
   BrandProfileDto,
   BrandVoiceDto,
   CompetitorDto,
@@ -43,6 +45,8 @@ export const qk = {
   brand: ["brand"] as const,
   brandColors: ["brand", "colors"] as const,
   instagramMedia: ["instagram-media"] as const,
+  assistant: ["assistant"] as const,
+  assistantThread: (id: string) => ["assistant", "thread", id] as const,
   preview: (businessId: string) => ["preview", businessId] as const,
   admin: {
     overview: ["admin", "overview"] as const,
@@ -170,4 +174,23 @@ export function useAction<TData = unknown, TVars = void, TContext = unknown>(opt
       throw new Error("read-only preview");
     }) as typeof mutation.mutateAsync,
   };
+}
+
+/**
+ * The AI assistant: modes, recent chats and today's allowance. Chats are the
+ * business's own, so admin preview doesn't load them (the panel says so instead).
+ */
+export function useAssistant(): UseQueryResult<AssistantOverviewDto, ApiClientError> {
+  const { isPreview } = useActiveClient();
+  return useQuery<AssistantOverviewDto, ApiClientError>({ queryKey: qk.assistant, queryFn: () => apiFetch<AssistantOverviewDto>("/api/assistant"), enabled: !isPreview });
+}
+
+/** One chat's messages; `null` = a new, empty chat. */
+export function useAssistantThread(id: string | null): UseQueryResult<AssistantThreadDto, ApiClientError> {
+  const { isPreview } = useActiveClient();
+  return useQuery<AssistantThreadDto, ApiClientError>({
+    queryKey: qk.assistantThread(id ?? "new"),
+    queryFn: () => apiFetch<AssistantThreadDto>(`/api/assistant/conversations/${id}`),
+    enabled: Boolean(id) && !isPreview,
+  });
 }

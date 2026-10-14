@@ -429,3 +429,41 @@ export interface PreviewDto {
     notifications: NotificationPrefs;
   };
 }
+
+// ─── AI assistant ────────────────────────────────────────────────────────────
+
+export type AssistantModeKey = "post" | "analytics" | "competitors";
+
+export interface AssistantMessageDto {
+  id: string;
+  role: "user" | "assistant";
+  mode: AssistantModeKey;
+  content: string;
+  language: "en" | "ar";
+  createdAt: string;
+}
+
+export interface AssistantConversationDto {
+  id: string;
+  title: string;
+  updatedAt: string;
+}
+
+/** GET /api/assistant — the modes this business can use, its recent chats and today's question allowance. */
+export interface AssistantOverviewDto {
+  modes: AssistantModeKey[];
+  conversations: AssistantConversationDto[];
+  /** Questions asked in the last 24 hours, and the per-business cap. */
+  usage: { used: number; limit: number };
+}
+
+/** GET /api/assistant/conversations/:id */
+export interface AssistantThreadDto extends AssistantConversationDto {
+  messages: AssistantMessageDto[];
+}
+
+/** POST /api/assistant/messages — the saved question and answer. */
+export interface AssistantReplyDto {
+  conversation: AssistantConversationDto;
+  messages: [AssistantMessageDto, AssistantMessageDto];
+}

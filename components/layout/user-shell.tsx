@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { startTransition } from "react";
 import Link from "next/link";
-import { Eye, MapPin } from "lucide-react";
+import { Bot, Eye, MapPin } from "lucide-react";
 import type { NavItem } from "@/config/navigation";
 import { LogoMark } from "@/components/brand/logo";
 import { useActiveClient } from "@/components/providers/active-client-provider";
@@ -100,6 +100,14 @@ export function UserShell({
             <div className="ms-auto flex items-center gap-1 sm:gap-2">
               <ConnectionPill status={client.connection} withIcon className="hidden sm:inline-flex" />
               <PlanBadge plan={client.plan} className="hidden sm:inline-flex" />
+              {/* Phones: the bottom tab bar is full, so the assistant sits in the header (until the mobile redesign). */}
+              {nav.some((item) => item.href === "/assistant") && (
+                <Button asChild variant="ghost" size="icon-sm" className="md:hidden">
+                  <Link href="/assistant" aria-label={t("nav.assistant")}>
+                    <Bot aria-hidden="true" />
+                  </Link>
+                </Button>
+              )}
               <ThemeToggle />
               <span className="hidden lg:inline-flex">
                 <LanguageToggle />

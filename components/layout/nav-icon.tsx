@@ -1,5 +1,6 @@
 import {
   Activity,
+  Bot,
   Compass,
   FlaskConical,
   House,
@@ -19,6 +20,7 @@ const ICONS: Record<NavIconName, LucideIcon> = {
   generator: SquarePlus,
   experiment: FlaskConical,
   engagement: MessageCircle,
+  assistant: Bot,
   settings: Settings,
   clients: Users,
   onboarding: Rocket,

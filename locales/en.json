@@ -44,7 +44,8 @@
     "overview": "Overview",
     "clients": "Clients",
     "system": "System",
-    "onboarding": "Onboarding"
+    "onboarding": "Onboarding",
+    "assistant": "AI Assistant"
   },
   "plans": {
     "starter": "Starter",
@@ -498,6 +499,65 @@
       "ar": "هلا والله 🤍 أرسلنا لك الأسعار — تقدر تطلب على الواتساب: {link}"
     }
   },
+  "assistant": {
+    "title": "AI Assistant",
+    "subtitle": "Ask about your Instagram: what to post, how your posts are doing and how you compare with competitors.",
+    "chats": "Your chats",
+    "newChat": "New chat",
+    "deleteChat": "Delete chat",
+    "deleteTitle": "Delete this chat?",
+    "deleteBody": "The questions and answers in this chat will be removed for everyone in your business. This can’t be undone.",
+    "deleteConfirm": "Delete",
+    "modeLabel": "What do you need help with?",
+    "inputLabel": "Your question",
+    "send": "Send",
+    "thinking": "Looking at your data…",
+    "introTitle": "How can I help?",
+    "disclaimer": "Answers are based on your stored Instagram data and brand profile. Double-check important numbers.",
+    "usage": "{used} of {limit} questions today",
+    "previewHint": "Chats are private to the business, so the assistant isn't shown in preview.",
+    "unavailable": {
+      "busy": "The assistant is busy right now. Please try again in a minute — your question is still in the box.",
+      "today": "The assistant has reached today's limit and will be back tomorrow. Your question is still in the box.",
+      "limit": "Your business has asked {limit} questions in the last 24 hours, the daily limit. Please try again later.",
+      "generic": "The assistant isn't available right now. Please try again in a little while — your question is still in the box."
+    },
+    "modes": {
+      "post": {
+        "label": "Post",
+        "hint": "Caption ideas, what to post next and content suggestions in your brand's voice.",
+        "placeholder": "e.g. What should I post this weekend?",
+        "intro": "Get caption ideas and suggestions for your next posts, based on your brand profile and what has worked for you.",
+        "examples": {
+          "q1": "What should I post next?",
+          "q2": "Write a caption for our best-selling product.",
+          "q3": "Give me three post ideas for this week."
+        }
+      },
+      "analytics": {
+        "label": "Analytics",
+        "hint": "Explains your own results: posts, likes, comments, reach and engagement.",
+        "placeholder": "e.g. How did my posts do this month?",
+        "intro": "Understand how your account is doing, using your real Instagram numbers.",
+        "examples": {
+          "q1": "How is my account doing this month?",
+          "q2": "Which of my posts did best, and why might that be?",
+          "q3": "When do my posts get the most reach?"
+        }
+      },
+      "competitors": {
+        "label": "Competitors",
+        "hint": "Compares you with the competitors you track, using only the data we have on them.",
+        "placeholder": "e.g. How do I compare with my competitors?",
+        "intro": "See how you compare with the competitors you track. If we don't have enough data, the assistant will say so.",
+        "examples": {
+          "q1": "How do I compare with my competitors?",
+          "q2": "Which competitor gets the most engagement?",
+          "q3": "How often do my competitors post?"
+        }
+      }
+    }
+  },
   "settings": {
     "title": "Settings",
     "instagram": {
@@ -773,6 +833,7 @@
       "postGenerator": "Post Generator",
       "experiment": "Posting Experiment",
       "engagement": "Engagement",
+      "assistant": "AI Assistant",
       "settings": "Settings"
     },
     "moduleHints": {
@@ -781,6 +842,7 @@
       "postGenerator": "AI caption drafts.",
       "experiment": "Posting-time experiments and scheduling.",
       "engagement": "Keyword replies and AI replies.",
+      "assistant": "Chat that answers questions about the client’s own Instagram.",
       "settings": "Business settings the client can edit."
     },
     "items": {
@@ -845,7 +907,9 @@
       "comment_unavailable": "The comment was deleted, so the private reply can't be sent.",
       "permission": "A permission is missing. Reconnect Instagram and allow messages.",
       "failed": "Instagram didn't deliver the message. Try again."
-    }
+    },
+    "assistant_unavailable": "The assistant isn't available right now. Please try again in a little while.",
+    "assistant_limit": "You've reached today's limit of questions for the assistant. Please try again tomorrow."
   },
   "states": {
     "loadFailed": "Couldn't load this",
