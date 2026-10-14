@@ -17,6 +17,7 @@ import { exitPreviewAction } from "@/lib/auth/actions";
 import { useI18n } from "@/lib/i18n/provider";
 import { PreferencesSync } from "@/components/providers/preferences-sync";
 import type { UiPreferences } from "@/types";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 import { MobileTabBar } from "./mobile-tab-bar";
 import { CONTENT_INSET, ProfileMenu, type MenuUser, type MenuUserBase } from "./profile-menu";
 import { Sidebar } from "./sidebar";
@@ -115,6 +116,7 @@ export function UserShell({
                   </Link>
                 </Button>
               )}
+              <NotificationBell />
               <ThemeToggle />
               <span className="hidden lg:inline-flex">
                 <LanguageToggle />

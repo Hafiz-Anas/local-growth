@@ -4,6 +4,7 @@ import { getMetaConfig } from "@/lib/services/meta/config";
 import { MetaApiError } from "@/lib/services/meta/errors";
 import { GraphClient, type GraphCallInfo, type GraphUsage } from "@/lib/services/meta/graph";
 import { logIntegration } from "./integration-log";
+import { notify } from "./notifications";
 
 /**
  * Graph clients bound to a business. Every failed call is written to the
@@ -57,7 +58,8 @@ function trackUsage(businessId: string, usage: GraphUsage | null, error?: MetaAp
 async function onFailure(businessId: string | null, error: MetaApiError) {
   if (!businessId) return;
   if (error.kind === "token_invalid") {
-    await db.instagramConnection.updateMany({ where: { businessId, provider: "META", status: "CONNECTED" }, data: { status: "NEEDS_RECONNECT" } });
+    const { count } = await db.instagramConnection.updateMany({ where: { businessId, provider: "META", status: "CONNECTED" }, data: { status: "NEEDS_RECONNECT" } });
+    if (count) await notify({ businessId, type: "instagram_reconnect", dedupeKey: "instagram_reconnect" });
   } else if (error.kind === "permission" && error.missingScopes.length) {
     const conn = await db.instagramConnection.findUnique({ where: { businessId }, select: { missingPermissions: true } });
     const merged = [...new Set([...(conn?.missingPermissions ?? []), ...error.missingScopes])];

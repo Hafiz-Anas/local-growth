@@ -4,6 +4,8 @@ import { createServer } from "node:http";
  * A local stand-in for Gemini's generateContent, for the e2e app started with
  * GEMINI_API_BASE=http://127.0.0.1:<port>/v1beta (see playwright.config.ts). Google is never called.
  * - recommendations requests (responseSchema with "recommendations") get 3 numbered recommendations;
+ * - weekly report summaries (responseSchema with "summary_en") get a summary without numbers, or —
+ *   for the business named in `state.inventNumbersFor` — one with an invented number (must be rejected);
  * - chat requests get an answer echoing the question (Arabic for an Arabic question);
  * - a question containing "[down]", or `state.fail`, gets a 503.
  */
@@ -11,7 +13,7 @@ import { createServer } from "node:http";
 export interface StubCall {
   system: string;
   turns: Array<{ role: string; text: string }>;
-  kind: "strategy" | "chat";
+  kind: "strategy" | "report" | "chat";
 }
 
 export const STUB_PORT = Number(process.env.E2E_GEMINI_STUB_PORT ?? 4010);
@@ -45,14 +47,15 @@ export function stubRecommendations(n: number) {
 
 export async function startGeminiStub(port = STUB_PORT) {
   const calls: StubCall[] = [];
-  const state = { fail: false, analyses: 0 };
+  const state = { fail: false, analyses: 0, inventNumbersFor: "" };
   const server = createServer((req, res) => {
     let raw = "";
     req.on("data", (chunk) => (raw += chunk));
     req.on("end", () => {
       const body = JSON.parse(raw || "{}") as RequestBody;
       const turns = (body.contents ?? []).map((c) => ({ role: c.role, text: c.parts.map((p) => p.text).join("") }));
-      const kind = body.generationConfig?.responseSchema?.properties?.recommendations ? "strategy" : "chat";
+      const props = body.generationConfig?.responseSchema?.properties ?? {};
+      const kind = props.recommendations ? "strategy" : props.summary_en ? "report" : "chat";
       calls.push({ system: body.systemInstruction?.parts[0]?.text ?? "", turns, kind });
       const question = turns.at(-1)?.text ?? "";
       res.setHeader("content-type", "application/json");
@@ -65,6 +68,14 @@ export async function startGeminiStub(port = STUB_PORT) {
       if (kind === "strategy") {
         state.analyses += 1;
         text = JSON.stringify(stubRecommendations(state.analyses));
+      } else if (kind === "report") {
+        const system = body.systemInstruction?.parts[0]?.text ?? "";
+        const invent = Boolean(state.inventNumbersFor) && system.includes(state.inventNumbersFor);
+        text = JSON.stringify(
+          invent
+            ? { summary_en: "Reach jumped 987654% this week.", summary_ar: "قفز الوصول ٩٨٧٦٥٤٪ هذا الأسبوع." }
+            : { summary_en: "A steady week compared with the one before. Your top post led the way; keep posting at your strongest times.", summary_ar: "أسبوع مستقر مقارنة بالأسبوع السابق. تصدّر أفضل منشور لديكم؛ استمروا في النشر في أفضل أوقاتكم." },
+        );
       } else {
         const arabic = /[؀-ۿ]/.test(question);
         text = arabic ? `إجابة تجريبية (${turns.length}): ${question}` : `**Stub answer** (${turns.length} turns) to: ${question}`;

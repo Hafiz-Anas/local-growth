@@ -3,6 +3,7 @@ import { logIntegration } from "@/lib/server/integration-log";
 import type { CaptionStyle, PostPurpose, PurposePattern, StyleNotes } from "@/types";
 import { getContentCatalog, type CatalogProfile } from "./catalog";
 import { cleanAssistantAnswer } from "./text/assistant";
+import { parseReportSummary } from "./text/report";
 import { parseStrategy, type StrategyRecommendation } from "./text/strategy";
 import { TextGenerationError, sanitizeTextError, type TextFailureReason } from "./text/errors";
 import { TextRequestGate } from "./text/gate";
@@ -13,8 +14,10 @@ import {
   brandContextPrompt,
   captionPrompt,
   replyPrompt,
+  reportSummaryPrompt,
   strategyPrompt,
   type AssistantPromptInput,
+  type ReportSummaryPromptInput,
   type StrategyPromptInput,
   type TextPrompt,
 } from "./text/prompts";
@@ -130,7 +133,16 @@ export interface AIService {
   chat(request: AssistantRequest): Promise<AssistantAnswer>;
   /** Weekly strategy recommendations. Like chat(), never made-up text: a failure says why. */
   strategy(request: StrategyRequest): Promise<StrategyAnswer>;
+  /** The weekly report's plain-language summary (EN + AR). A failure says why; the report then has numbers only. */
+  weeklySummary(request: ReportSummaryRequest): Promise<ReportSummaryAnswer>;
 }
+
+export interface ReportSummaryRequest {
+  businessId: string;
+  prompt: ReportSummaryPromptInput;
+}
+
+export type ReportSummaryAnswer = { ok: true; en: string; ar: string } | { ok: false; reason: TextFailureReason };
 
 export interface StrategyRequest {
   businessId: string;
@@ -346,9 +358,14 @@ export class MockAIService implements AIService {
   async strategy(): Promise<StrategyAnswer> {
     return { ok: false, reason: "not_configured" };
   }
+
+  /** MOCK: no summary; the report is published with numbers only. */
+  async weeklySummary(): Promise<ReportSummaryAnswer> {
+    return { ok: false, reason: "not_configured" };
+  }
 }
 
-type AICall = "ai.captions" | "ai.reply.comment" | "ai.reply.dm" | "ai.brand_context" | "ai.assistant" | "ai.strategy";
+type AICall = "ai.captions" | "ai.reply.comment" | "ai.reply.dm" | "ai.brand_context" | "ai.assistant" | "ai.strategy" | "ai.report";
 
 /**
  * Gemini text model (prompts in ./text/prompts.ts). Never fails: when the
@@ -371,7 +388,12 @@ export class GeminiAIService implements AIService {
   ): Promise<T> {
     const config = readGeminiTextConfig();
     // What the user gets instead of a model answer, for the log.
-    const instead = call === "ai.assistant" || call === "ai.strategy" ? { text: "told the user the AI is unavailable", fallback: "unavailable" } : { text: "used the template text instead", fallback: "template" };
+    const instead =
+      call === "ai.report"
+        ? { text: "published the report with numbers only", fallback: "numbers_only" }
+        : call === "ai.assistant" || call === "ai.strategy"
+          ? { text: "told the user the AI is unavailable", fallback: "unavailable" }
+          : { text: "used the template text instead", fallback: "template" };
     const gate = (this.gate ??= new TextRequestGate(config?.rpm ?? DEFAULT_GEMINI_TEXT_RPM, config?.rpd ?? DEFAULT_GEMINI_TEXT_RPD));
     const model = config?.model ?? DEFAULT_GEMINI_TEXT_MODEL;
     const decision = gate.acquire();
@@ -510,6 +532,16 @@ export class GeminiAIService implements AIService {
       request.businessId,
       () => strategyPrompt(request.prompt),
       (answer) => ({ ok: true, recommendations: parseStrategy(answer) }),
+      (reason) => ({ ok: false, reason }),
+    );
+  }
+
+  async weeklySummary(request: ReportSummaryRequest): Promise<ReportSummaryAnswer> {
+    return this.run<ReportSummaryAnswer>(
+      "ai.report",
+      request.businessId,
+      () => reportSummaryPrompt(request.prompt),
+      (answer) => ({ ok: true, ...parseReportSummary(answer, request.prompt.numbers) }),
       (reason) => ({ ok: false, reason }),
     );
   }

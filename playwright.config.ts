@@ -9,8 +9,9 @@ import { defineConfig } from "@playwright/test";
  *     AI_PROVIDER=gemini GEMINI_API_KEY=e2e-not-a-real-key GEMINI_API_BASE=http://127.0.0.1:4010/v1beta npx next dev -p 3001
  *   DATABASE_URL=…/lge_e2e META_APP_SECRET=e2e-secret CRON_SECRET=e2e-cron E2E_BASE_URL=http://localhost:3001 npm run test:e2e
  *
- * The assistant and recommendations specs start a Gemini stub (tests/e2e/gemini-stub.ts) on port 4010
- * (E2E_GEMINI_STUB_PORT), so Google is never called. The recommendations spec needs a fresh seed.
+ * The assistant, recommendations and reports-notifications specs start a Gemini stub (tests/e2e/gemini-stub.ts)
+ * on port 4010 (E2E_GEMINI_STUB_PORT), so Google is never called. Run the suite on a fresh seed: specs run in
+ * file order, and reports-notifications (the daily cron) must come after recommendations.
  * The tests change data (rules, permissions, chats, recommendations) and refuse any non-local URL.
  * E2E_BROWSER_CHANNEL=chrome uses the installed Chrome instead of Playwright's Chromium.
  */

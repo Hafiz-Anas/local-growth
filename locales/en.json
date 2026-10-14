@@ -46,7 +46,8 @@
     "system": "System",
     "onboarding": "Onboarding",
     "assistant": "AI Assistant",
-    "recommendations": "Recommendations"
+    "recommendations": "Recommendations",
+    "reports": "Reports"
   },
   "plans": {
     "starter": "Starter",
@@ -661,6 +662,80 @@
       "correlation": "Other things changed too, so this shows correlation, not proof."
     }
   },
+  "reports": {
+    "title": "Weekly reports",
+    "subtitle": "Every week: your key numbers compared with the week before, and a short summary.",
+    "emptyTitle": "No reports yet",
+    "emptyHint": "Your first weekly report will appear after this week's automatic run.",
+    "previewHint": "Reports are the business's own, so they aren't shown in preview.",
+    "earlier": "Earlier weeks",
+    "week": "Week of {start} – {end}",
+    "quality": {
+      "demo": "Demo data",
+      "thin": "Few posts"
+    },
+    "numbersOnly": "The AI summary isn't available this week, so this report has the numbers only.",
+    "thinNote": "Fewer than 2 posts in one of the weeks, so the changes aren't meaningful yet.",
+    "columns": {
+      "metric": "Metric",
+      "thisWeek": "This week",
+      "previous": "Week before",
+      "change": "Change"
+    },
+    "metrics": {
+      "posts": "Posts",
+      "reach": "Total reach",
+      "avgInteractions": "Avg likes + comments per post",
+      "engagementRate": "Engagement rate",
+      "followerChange": "Net new followers"
+    },
+    "noChangeData": "—",
+    "top": "Top post",
+    "weakest": "Weakest post",
+    "noPosts": "No posts this week.",
+    "postType": {
+      "image": "Image",
+      "video": "Video"
+    },
+    "postNumbers": "{likes} likes · {comments} comments",
+    "postReach": "reach {reach}",
+    "disclaimer": "Numbers are calculated from your stored Instagram data. The summary is written by AI from these numbers only. A change between weeks doesn't show why it happened."
+  },
+  "notifications": {
+    "title": "Notifications",
+    "bell": "Notifications",
+    "bellUnread": "Notifications, {count} unread",
+    "markAll": "Mark all as read",
+    "empty": "You're all caught up.",
+    "loading": "Loading…",
+    "unread": "Unread",
+    "types": {
+      "recommendations_ready": {
+        "title": "New recommendations are ready",
+        "body": "{count} actions for this week, based on your latest data."
+      },
+      "weekly_report": {
+        "title": "Your weekly report is ready",
+        "body": "See how the week to {date} compares with the week before."
+      },
+      "instagram_reconnect": {
+        "title": "Instagram needs reconnecting",
+        "body": "Reconnect so your data and AI features stay up to date."
+      },
+      "post_published": {
+        "title": "Scheduled post published",
+        "body": "Your scheduled post is live on Instagram."
+      },
+      "post_failed": {
+        "title": "Scheduled post failed",
+        "body": "{reason}"
+      },
+      "replies_waiting": {
+        "title": "Replies waiting for approval",
+        "body": "{count} comment or DM replies are waiting for you."
+      }
+    }
+  },
   "settings": {
     "title": "Settings",
     "instagram": {
@@ -698,13 +773,20 @@
       "newComments": "New comments",
       "newCommentsHint": "When customers comment on your posts.",
       "approvalNeeded": "Replies need approval",
-      "approvalNeededHint": "When AI drafts are waiting for you.",
+      "approvalNeededHint": "When comment or DM replies are waiting for your approval.",
       "weeklyReport": "Weekly report",
-      "weeklyReportHint": "A summary of reach and growth every Sunday.",
+      "weeklyReportHint": "When your weekly report is ready.",
       "competitorAlerts": "Competitor alerts",
       "competitorAlertsHint": "When a tracked account has a breakout post.",
       "experimentResults": "Experiment results",
-      "experimentResultsHint": "When a posting experiment finds an opportunity."
+      "experimentResultsHint": "When a posting experiment finds an opportunity.",
+      "inAppHint": "Shown in the bell at the top of the app. Email notifications will come later.",
+      "recommendationsReady": "New recommendations",
+      "recommendationsReadyHint": "When the weekly AI recommendations are ready.",
+      "scheduledPosts": "Scheduled posts",
+      "scheduledPostsHint": "When a scheduled post is published, or fails.",
+      "instagramReconnect": "Instagram connection",
+      "instagramReconnectHint": "When Instagram needs reconnecting."
     },
     "preferences": {
       "title": "Language & appearance",
@@ -938,6 +1020,8 @@
       "engagement": "Engagement",
       "assistant": "AI Assistant",
       "recommendations": "Recommendations",
+      "reports": "Weekly reports",
+      "notifications": "Notifications",
       "settings": "Settings"
     },
     "moduleHints": {
@@ -948,6 +1032,8 @@
       "engagement": "Keyword replies and AI replies.",
       "assistant": "Chat that answers questions about the client’s own Instagram.",
       "recommendations": "Weekly AI strategy actions with outcomes.",
+      "reports": "Weekly numbers vs the week before, with an AI summary.",
+      "notifications": "In-app notification center (bell).",
       "settings": "Business settings the client can edit."
     },
     "items": {

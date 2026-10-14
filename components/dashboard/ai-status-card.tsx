@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { AlertTriangle, Bot, Lightbulb, Sparkles } from "lucide-react";
+import { AlertTriangle, Bot, FileText, Lightbulb, Sparkles } from "lucide-react";
 import { MetaConnectButton } from "@/components/instagram/meta-connect";
 import { useActiveClient, useFeature } from "@/components/providers/active-client-provider";
 import { Skeleton } from "@/components/shared/states";
@@ -25,6 +25,7 @@ export function AiStatusCard({ className }: { className?: string }) {
   const { isPreview } = useActiveClient();
   const assistant = useFeature("assistant");
   const recommendations = useFeature("recommendations");
+  const reports = useFeature("reports");
   const enabled = assistant || recommendations;
   const status = useAiStatus(enabled);
   if (!enabled || isPreview) return null;
@@ -80,6 +81,14 @@ export function AiStatusCard({ className }: { className?: string }) {
             <Link href="/recommendations">
               <Lightbulb className="size-4" aria-hidden="true" />
               {t("nav.recommendations")}
+            </Link>
+          </Button>
+        )}
+        {reports && (
+          <Button asChild variant="secondary" size="sm" className="gap-1.5">
+            <Link href="/reports">
+              <FileText className="size-4" aria-hidden="true" />
+              {t("nav.reports")}
             </Link>
           </Button>
         )}

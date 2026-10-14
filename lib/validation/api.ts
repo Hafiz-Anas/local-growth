@@ -52,6 +52,9 @@ const notificationFields = {
   weeklyReport: z.boolean(),
   competitorAlerts: z.boolean(),
   experimentResults: z.boolean(),
+  recommendationsReady: z.boolean(),
+  instagramReconnect: z.boolean(),
+  scheduledPosts: z.boolean(),
 };
 
 /** Stored User.notificationPrefs, with defaults for missing keys. */
@@ -61,6 +64,9 @@ export const notificationPrefsSchema = z.object({
   weeklyReport: notificationFields.weeklyReport.default(true),
   competitorAlerts: notificationFields.competitorAlerts.default(false),
   experimentResults: notificationFields.experimentResults.default(true),
+  recommendationsReady: notificationFields.recommendationsReady.default(true),
+  instagramReconnect: notificationFields.instagramReconnect.default(true),
+  scheduledPosts: notificationFields.scheduledPosts.default(true),
 });
 
 export const notificationPrefsPatchSchema = z

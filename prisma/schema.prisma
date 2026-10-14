@@ -231,6 +231,7 @@ model User {
   postDrafts          PostDraft[]          @relation("DraftAuthor")
   reviewedReplies     ReplyDraft[]         @relation("ReplyReviewer")
   assistantChats      AssistantConversation[]
+  notifications       Notification[]
 
   @@index([businessId])
   @@index([role, status])
@@ -298,6 +299,8 @@ model Business {
   assistantChats      AssistantConversation[]
   recommendationRuns  RecommendationRun[]
   recommendations     Recommendation[]
+  notifications       Notification[]
+  weeklyReports       WeeklyReport[]
 }
 
 /// One row per (business, feature key). A sub-feature ("engagement.dmRules") is
@@ -920,4 +923,50 @@ model Recommendation {
 
   @@index([businessId, status])
   @@index([runId])
+}
+
+// ─── Notifications and weekly reports ────────────────────────────────────────
+
+/// One notification for one user (read state is per person). `type` is a key of
+/// lib/notifications.ts; the text is rendered from `params` in the user's language.
+/// `dedupeKey` keeps one live row per recurring subject (e.g. "replies_waiting"): a new event
+/// updates that row instead of adding another. In-app only for now; `emailedAt` is for the
+/// email channel when it is added.
+model Notification {
+  id         String    @id @default(cuid())
+  userId     String
+  businessId String
+  type       String
+  params     Json      @default("{}")
+  href       String
+  dedupeKey  String?
+  readAt     DateTime?
+  emailedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dedupeKey])
+  @@index([userId, createdAt])
+}
+
+/// A week's numbers vs the week before (computed in code, lib/services/text/report.ts) and a
+/// short AI summary in English and Arabic (null when the AI was unavailable: the report is
+/// published with numbers only).
+model WeeklyReport {
+  id          String   @id @default(cuid())
+  businessId  String
+  periodStart DateTime
+  periodEnd   DateTime
+  numbers     Json
+  summaryEn   String?
+  summaryAr   String?
+  /// ok | unavailable (no AI summary this time)
+  aiStatus    String
+  createdAt   DateTime @default(now())
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, createdAt])
 }

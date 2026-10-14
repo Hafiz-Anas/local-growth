@@ -10,6 +10,7 @@ import { getInstagramAccount, SYNC_STALE_MS, type SyncErrorCode } from "./instag
 import { logIntegration } from "./integration-log";
 import { keywordReplierFor } from "./keyword-replies";
 import { coolingDown, graphFor, MetaUnavailableError } from "./meta-client";
+import { notifyRepliesWaiting } from "./notifications";
 
 /**
  * Copies a Meta-connected account into the database so pages never call Meta
@@ -241,6 +242,7 @@ async function draftReplies(businessId: string, comments: Array<{ igCommentId: s
       if ((error as { code?: string }).code !== "P2002") console.error("[sync] reply draft failed", (error as Error).message);
     }
   }
+  if (created) await notifyRepliesWaiting(businessId);
   return created;
 }
 

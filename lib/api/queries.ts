@@ -19,12 +19,14 @@ import type {
   InstagramConnectionDto,
   MeDto,
   NotificationPrefs,
+  NotificationsDto,
   PostDraftDto,
   PreviewDto,
   RecommendationsDto,
   ReplyDraftDto,
   ScheduledPostDto,
   TrendsDto,
+  WeeklyReportDto,
 } from "@/types";
 import { apiFetch, type ApiClientError } from "./client";
 
@@ -51,6 +53,8 @@ export const qk = {
   assistantThread: (id: string) => ["assistant", "thread", id] as const,
   recommendations: ["recommendations"] as const,
   aiStatus: ["dashboard", "ai-status"] as const,
+  notificationCenter: ["notification-center"] as const,
+  reports: ["reports"] as const,
   preview: (businessId: string) => ["preview", businessId] as const,
   admin: {
     overview: ["admin", "overview"] as const,
@@ -209,4 +213,21 @@ export function useRecommendations(): UseQueryResult<RecommendationsDto, ApiClie
 export function useAiStatus(enabled = true): UseQueryResult<AiStatusDto, ApiClientError> {
   const { isPreview } = useActiveClient();
   return useQuery<AiStatusDto, ApiClientError>({ queryKey: qk.aiStatus, queryFn: () => apiFetch<AiStatusDto>("/api/dashboard/ai-status"), enabled: enabled && !isPreview });
+}
+
+/** The notification center (bell): latest notifications and the unread count, refreshed every minute. */
+export function useNotificationCenter(enabled = true): UseQueryResult<NotificationsDto, ApiClientError> {
+  const { isPreview } = useActiveClient();
+  return useQuery<NotificationsDto, ApiClientError>({
+    queryKey: qk.notificationCenter,
+    queryFn: () => apiFetch<NotificationsDto>("/api/notifications"),
+    enabled: enabled && !isPreview,
+    refetchInterval: 60_000,
+  });
+}
+
+/** Weekly reports, newest first (not in admin preview). */
+export function useReports(): UseQueryResult<WeeklyReportDto[], ApiClientError> {
+  const { isPreview } = useActiveClient();
+  return useQuery<WeeklyReportDto[], ApiClientError>({ queryKey: qk.reports, queryFn: () => apiFetch<WeeklyReportDto[]>("/api/reports"), enabled: !isPreview });
 }

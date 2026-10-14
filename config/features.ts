@@ -46,12 +46,16 @@ export const FEATURE_KEYS = [
 
   "recommendations",
 
+  "reports",
+
+  "notifications",
+
   "settings.brandVoice",
 ] as const;
 
 export interface FeatureModuleDef {
   /** Translation namespace: features.<id>.* */
-  id: "dashboard" | "competitors" | "postGenerator" | "experiment" | "engagement" | "assistant" | "recommendations" | "settings";
+  id: "dashboard" | "competitors" | "postGenerator" | "experiment" | "engagement" | "assistant" | "recommendations" | "reports" | "notifications" | "settings";
   /** Module-level toggle; `null` when the module itself is always available (dashboard, settings). */
   moduleKey: FeatureKey | null;
   subFeatures: FeatureKey[];
@@ -102,6 +106,16 @@ export const FEATURE_MODULES: FeatureModuleDef[] = [
   {
     id: "recommendations",
     moduleKey: "recommendations",
+    subFeatures: [],
+  },
+  {
+    id: "reports",
+    moduleKey: "reports",
+    subFeatures: [],
+  },
+  {
+    id: "notifications",
+    moduleKey: "notifications",
     subFeatures: [],
   },
   {

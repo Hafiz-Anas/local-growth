@@ -18,6 +18,7 @@ import { logActivity } from "./activity";
 import { getInstagramAccount } from "./instagram-account";
 import { businessForAccount } from "./instagram-dm";
 import { logIntegration } from "./integration-log";
+import { notifyRepliesWaiting } from "./notifications";
 
 /**
  * Keyword replies: a customer comments "MENU" and gets a public reply under the
@@ -205,6 +206,7 @@ async function handleComment(businessId: string, account: InstagramAccount, rule
       },
     });
     await finishTrigger(claim, rule.id, { status: "AWAITING_APPROVAL" });
+    await notifyRepliesWaiting(businessId);
     await logIntegration({ businessId, provider: account.provider, level: "info", call: "keyword.queued", message: `Keyword "${keyword}" matched a comment; the reply is waiting for approval.`, details: { ruleId: rule.id, triggerId: claim } });
     return "queued";
   }

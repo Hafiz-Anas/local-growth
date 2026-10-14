@@ -21,6 +21,8 @@ import { Input } from "@/components/ui/input";
 import { ToneSlider } from "@/components/brand/tone-slider";
 import { apiFetch } from "@/lib/api/client";
 import { qk, useAction, useBrandVoice, useConnection, useNotifications } from "@/lib/api/queries";
+import { NOTIFICATION_SETTINGS, notificationRelevant } from "@/lib/notifications";
+import { isFeatureEnabled } from "@/lib/permissions";
 import { useMounted } from "@/lib/hooks";
 import { useI18n } from "@/lib/i18n/provider";
 import { normalizeTheme } from "@/lib/theme-script";
@@ -32,12 +34,11 @@ import { ChangePassword } from "./change-password";
 import { ProfilePhoto } from "./profile-photo";
 import { Segmented } from "./segmented";
 
-const NOTIFICATION_KEYS: Array<keyof NotificationPrefs> = ["newComments", "approvalNeeded", "weeklyReport", "competitorAlerts", "experimentResults"];
-
 export function SettingsView() {
   const { client, isPreview } = useActiveClient();
   const { t, locale } = useI18n();
   const canBrandVoice = useFeature("settings.brandVoice");
+  const canNotifications = useFeature("notifications");
 
   return (
     <div className="max-w-2xl">
@@ -57,7 +58,7 @@ export function SettingsView() {
         <InstagramCard />
         <BrandProfileSection />
         {canBrandVoice && <BrandVoiceCard />}
-        <NotificationsCard />
+        {canNotifications && <NotificationsCard />}
         {!isPreview && <ChangePassword />}
         <PreferencesCard />
       </div>
@@ -313,10 +314,13 @@ function BrandVoiceCard() {
   );
 }
 
+/** One switch per in-app notification type the client can get (types of modules that are off are left out). */
 function NotificationsCard() {
   const { t } = useI18n();
+  const { permissions } = useActiveClient();
   const queryClient = useQueryClient();
   const me = useNotifications();
+  const keys = NOTIFICATION_SETTINGS.filter((s) => notificationRelevant(s.features, (key) => isFeatureEnabled(permissions, key))).map((s) => s.pref);
 
   const save = useAction({
     mutationFn: (patch: Partial<NotificationPrefs>) => apiFetch<{ notifications: NotificationPrefs }>("/api/me/notifications", { method: "PATCH", body: patch }),
@@ -335,10 +339,11 @@ function NotificationsCard() {
     <Card>
       <CardHeader className="pb-0">
         <CardTitle>{t("settings.notifications.title")}</CardTitle>
+        <p className="text-caption text-muted">{t("settings.notifications.inAppHint")}</p>
       </CardHeader>
       {me.isPending ? (
         <div className="space-y-3 p-4">
-          {NOTIFICATION_KEYS.map((k) => (
+          {keys.map((k) => (
             <Skeleton key={k} className="h-10" />
           ))}
         </div>
@@ -346,7 +351,7 @@ function NotificationsCard() {
         <ErrorState error={me.error} onRetry={() => me.refetch()} className="m-4" />
       ) : (
         <div className="divide-y divide-separator px-4 pb-1">
-          {NOTIFICATION_KEYS.map((key) => (
+          {keys.map((key) => (
             <FeatureToggle
               key={key}
               label={t(`settings.notifications.${key}`)}

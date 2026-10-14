@@ -546,3 +546,68 @@ export interface AiStatusDto {
   };
   warnings: Array<"not_connected" | "reconnect" | "permissions" | "stale" | "sync_failed">;
 }
+
+// ─── Notifications ───────────────────────────────────────────────────────────
+
+export interface NotificationDto {
+  id: string;
+  /** A key of NOTIFICATION_TYPES (lib/notifications.ts); text under notifications.types.<type>. */
+  type: "recommendations_ready" | "weekly_report" | "instagram_reconnect" | "post_published" | "post_failed" | "replies_waiting";
+  params: Record<string, string | number>;
+  href: string;
+  read: boolean;
+  createdAt: string;
+}
+
+/** GET /api/notifications */
+export interface NotificationsDto {
+  items: NotificationDto[];
+  unread: number;
+}
+
+// ─── Weekly reports ──────────────────────────────────────────────────────────
+
+/** One number this week vs the week before; null when there's no data for it. */
+export interface ReportCompare {
+  current: number | null;
+  previous: number | null;
+  /** Null when either side is missing or the previous value is 0. */
+  changePct: number | null;
+}
+
+export interface ReportPost {
+  postedAt: string;
+  type: "image" | "video";
+  caption: string;
+  likes: number;
+  comments: number;
+  reach: number;
+}
+
+/** Computed in code (lib/services/text/report.ts); the AI only writes the summary. */
+export interface WeeklyNumbers {
+  periodStart: string;
+  periodEnd: string;
+  posts: ReportCompare;
+  /** Total reach of the week's posts. */
+  reach: ReportCompare;
+  /** Average likes + comments per post. */
+  avgInteractions: ReportCompare;
+  /** Average likes + comments per post as a % of current followers. */
+  engagementRate: ReportCompare;
+  /** Net followers gained in the week. */
+  followerChange: ReportCompare;
+  followers: number | null;
+  top: ReportPost | null;
+  weakest: ReportPost | null;
+  /** demo: the app's sample data; thin: fewer than 2 posts in one of the weeks. */
+  quality: { demo: boolean; thin: boolean };
+}
+
+export interface WeeklyReportDto {
+  id: string;
+  createdAt: string;
+  numbers: WeeklyNumbers;
+  /** Null when the AI was unavailable: the report has numbers only. */
+  summary: { en: string; ar: string } | null;
+}

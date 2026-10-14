@@ -109,6 +109,6 @@ export const boutiquePack: ClientDataPack = {
     tone: 35,
     defaultHashtags: ["#noorboutique", "#عبايات"],
     brandWords: ["handmade", "صنع في الكويت"],
-    notifications: { newComments: true, approvalNeeded: true, weeklyReport: true, competitorAlerts: false, experimentResults: false },
+    notifications: { newComments: true, approvalNeeded: true, weeklyReport: true, competitorAlerts: false, experimentResults: false, recommendationsReady: true, instagramReconnect: true, scheduledPosts: true },
   },
 };

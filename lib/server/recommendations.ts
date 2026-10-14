@@ -16,8 +16,10 @@ import {
   type StrategyDecision,
 } from "@/lib/services/text/strategy";
 import type { RecommendationDto, RecommendationStatusKey, RecommendationsDto } from "@/types";
+import { aiPace } from "./ai-pace";
 import { gatherAssistantFacts } from "./assistant";
 import { ApiError, notFound } from "./http";
+import { notify } from "./notifications";
 
 /**
  * AI strategy recommendations per business: a weekly analysis (cron) or a
@@ -30,6 +32,8 @@ import { ApiError, notFound } from "./http";
 export const RECOMMENDATION_REFRESH_LIMIT = 3;
 const DAY = 24 * 60 * 60 * 1000;
 const WEEK = 7 * DAY;
+/** The daily cron fires at about the same time; an hour of slack keeps the weekly rhythm at 7 days, not 8. */
+const CRON_SLACK = 60 * 60 * 1000;
 /** Businesses analysed per cron run (the run also stops after ~4 minutes). */
 const CRON_BATCH = Math.max(1, Number.parseInt(process.env.RECOMMENDATIONS_CRON_BATCH ?? "", 10) || 10);
 
@@ -155,6 +159,8 @@ export async function generateRecommendations(businessId: string, trigger: "SCHE
       },
     },
   });
+  // The weekly analysis tells the owner; a manual refresh shows its result on screen.
+  if (trigger === "SCHEDULED") await notify({ businessId, type: "recommendations_ready", params: { count: answer.recommendations.length } });
   return { result: "generated" };
 }
 
@@ -255,7 +261,7 @@ export async function runRecommendationSweep(deadlineMs = 240_000): Promise<Swee
   const due = businesses
     .filter((b) => isFeatureEnabled(permissionsFromRows(b.permissions), "recommendations"))
     .map((b) => ({ ...b, last: b.recommendationRuns[0]?.createdAt.getTime() ?? 0 }))
-    .filter((b) => Date.now() - b.last >= WEEK)
+    .filter((b) => Date.now() - b.last >= WEEK - CRON_SLACK)
     .sort((a, b) => a.last - b.last);
   summary.due = due.length;
 
@@ -267,6 +273,7 @@ export async function runRecommendationSweep(deadlineMs = 240_000): Promise<Swee
       break;
     }
     const permissions = permissionsFromRows(business.permissions);
+    await aiPace();
     const outcome = await generateRecommendations(business.id, "SCHEDULED", { withCompetitors: isFeatureEnabled(permissions, "competitors") });
     if (outcome.result === "generated" || outcome.result === "unavailable") calls += 1;
     if (outcome.result === "generated") summary.generated += 1;

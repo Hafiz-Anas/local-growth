@@ -16,6 +16,7 @@ import { instagramApiError } from "./instagram-errors";
 import { logIntegration } from "./integration-log";
 import { graphFor } from "./meta-client";
 import { openCredentials } from "./meta-credentials";
+import { notifyRepliesWaiting } from "./notifications";
 
 /**
  * Instagram DM auto-replies.
@@ -173,6 +174,7 @@ async function draftForConversation(businessId: string, message: IncomingMessage
       },
     });
   }
+  await notifyRepliesWaiting(businessId);
 }
 
 // ── Approve → send ──────────────────────────────────────────────────────────

@@ -19,6 +19,7 @@ import { getInstagramAccount } from "./instagram-account";
 import { syncInstagram } from "./instagram-sync";
 import { logIntegration } from "./integration-log";
 import { coolingDown } from "./meta-client";
+import { notify } from "./notifications";
 
 /**
  * Publishing a post to Instagram — single image + caption. Every trigger goes
@@ -282,6 +283,7 @@ async function succeed(post: ClaimedPost, mediaId: string, provider: "meta" | "m
     message: `Post published to Instagram (${ctx.trigger === "manual" ? "Publish now" : "scheduled"}).`,
     details: { scheduledPostId: post.id, draftId: post.draftId, mediaId, trigger: ctx.trigger },
   });
+  if (ctx.trigger === "scheduled") await notify({ businessId: post.businessId, type: "post_published" });
   // Pull the new post (and the profile's post count) into the app soon.
   if (provider === "meta" && !coolingDown(post.businessId)) {
     after(() => syncInstagram(post.businessId, { scope: "full", reason: "auto" }).catch((e) => console.error("[publish] sync after publishing failed", (e as Error).message)));
@@ -329,6 +331,8 @@ async function fail(post: ClaimedPost, reason: PublishReason, ctx: RunContext, e
   } catch (error) {
     console.error("[publish] couldn't record the failure", (error as Error).message);
   }
+  // A scheduled post that won't be retried: tell the owner (a manual "Publish now" shows its result on screen).
+  if (ctx.trigger === "scheduled" && !backToQueue) await notify({ businessId: post.businessId, type: "post_failed", params: { reason } });
   await logIntegration({
     businessId: post.businessId,
     provider: extra.provider ?? "meta",
