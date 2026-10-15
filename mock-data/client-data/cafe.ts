@@ -144,6 +144,6 @@ export const cafePack: ClientDataPack = {
     tone: 55,
     defaultHashtags: ["#dallabean", "#q8coffee"],
     brandWords: ["slow bar", "Baghdad St.", "حياكم"],
-    notifications: { newComments: true, approvalNeeded: true, weeklyReport: false, competitorAlerts: true, experimentResults: true, recommendationsReady: true, instagramReconnect: true, scheduledPosts: true },
+    notifications: { newComments: true, approvalNeeded: true, weeklyReport: false, competitorAlerts: true, experimentResults: true, recommendationsReady: true, instagramReconnect: true, scheduledPosts: true, postMonitoring: true },
   },
 };

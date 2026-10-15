@@ -29,6 +29,8 @@ import type {
   MethodsDto,
   PostPerformanceDto,
   PostDetailDto,
+  MonitoringDto,
+  MonitorDetailDto,
   ScheduledPostDto,
   TrendsDto,
   WeeklyReportDto,
@@ -54,6 +56,8 @@ export const qk = {
   methods: ["methods"] as const,
   postPerformance: ["post-performance"] as const,
   postDetail: (id: string) => ["post-performance", id] as const,
+  monitoring: ["monitoring"] as const,
+  monitor: (id: string) => ["monitoring", id] as const,
   brandVoice: ["brand-voice"] as const,
   connection: ["instagram-connection"] as const,
   onboarding: ["onboarding"] as const,
@@ -179,6 +183,9 @@ export const useMethods = (enabled = true) => useClientData<MethodsDto>(qk.metho
 export const usePostPerformance = (enabled = true) => useClientData<PostPerformanceDto>(qk.postPerformance, "/api/post-performance", (d) => d.postPerformance, enabled);
 export const usePostDetail = (id: string) =>
   useClientData<PostDetailDto>(qk.postDetail(id), `/api/post-performance/${encodeURIComponent(id)}`, (d) => d.postDetails?.[id]);
+/** Post monitoring: monitored posts, the plan's limit, recent posts to pick from and the history. */
+export const useMonitoring = (enabled = true) => useClientData<MonitoringDto>(qk.monitoring, "/api/monitoring", (d) => d.monitoring, enabled);
+export const useMonitor = (id: string) => useClientData<MonitorDetailDto>(qk.monitor(id), `/api/monitoring/${encodeURIComponent(id)}`, (d) => d.monitorDetails?.[id]);
 export const useBrandVoice = (enabled = true) =>
   useClientData<BrandVoiceDto | null>(qk.brandVoice, "/api/brand-voice", (d) => d.brandVoice ?? null, enabled);
 export const useConnection = (enabled = true) =>

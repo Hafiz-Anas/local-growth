@@ -30,6 +30,7 @@ export const PLAN_PRESETS: Record<PlanId, Permissions> = {
     "reports",
     "postInsights",
     "methods",
+    "monitoring",
     "competitors.analysis",
     "notifications",
     "settings.brandVoice",
@@ -56,6 +57,7 @@ export const PLAN_PRESETS: Record<PlanId, Permissions> = {
     "reports",
     "postInsights",
     "methods",
+    "monitoring",
     "notifications",
     "settings.brandVoice",
   ]),
@@ -66,13 +68,16 @@ export const PLAN_PRESETS: Record<PlanId, Permissions> = {
 export type PlanLimits = {
   /** Competitor accounts a business can track. */
   competitors: number;
+  /** Posts a business can monitor at the same time ("Monitor this post"). */
+  monitoredPosts: number;
 };
 
 export const DEFAULT_PLAN_LIMITS: Record<PlanId, PlanLimits> = {
-  starter: { competitors: 5 },
-  growth: { competitors: 5 },
-  pro: { competitors: 5 },
+  starter: { competitors: 5, monitoredPosts: 5 },
+  growth: { competitors: 5, monitoredPosts: 5 },
+  pro: { competitors: 5, monitoredPosts: 5 },
 };
 
-/** Bounds for the admin's setting. */
+/** Bounds for the admin's settings. */
 export const MAX_COMPETITORS_LIMIT = 20;
+export const MAX_MONITORED_POSTS_LIMIT = 25;

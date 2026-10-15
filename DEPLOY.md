@@ -56,7 +56,7 @@ Set these under **Project → Settings → Environment Variables**, scoped to **
 | `CRON_SECRET` | New random secret (same command as `AUTH_SECRET`). Turns on scheduled publishing; see *Publishing to Instagram* below. Mark it **Sensitive**. |
 | `META_WEBHOOK_VERIFY_TOKEN` | New random string (same command as `AUTH_SECRET`). Entered again in Meta's webhook settings (section 5). Mark it **Sensitive**. |
 
-Optional: `COMPETITOR_CRON_BATCH` (AI competitor comparisons per daily run, default 10), `GEMINI_IMAGE_MODEL`, `META_OAUTH_RESPONSE_TYPE` (defaults to `code`), and `EMAIL_VERIFICATION_BANNER` (`true` shows the "Verify your email" banner after login; leave it unset, which means off, until verification emails are really delivered).
+Optional: `COMPETITOR_CRON_BATCH` (AI competitor comparisons per daily run, default 10), `MONITOR_CRON_BATCH` (post-monitoring readings per run, default 100), `GEMINI_IMAGE_MODEL`, `META_OAUTH_RESPONSE_TYPE` (defaults to `code`), and `EMAIL_VERIFICATION_BANNER` (`true` shows the "Verify your email" banner after login; leave it unset, which means off, until verification emails are really delivered).
 
 **Don't set these on Vercel:** `UPLOAD_DIR` (local storage only), `GEMINI_API_BASE`, `META_GRAPH_BASE_URL` and `RESEND_API_BASE` (test stubs only), and `ADMIN_*` (used only by `create-admin` on your machine).
 
@@ -118,6 +118,22 @@ Publishing uses the Instagram Graph API's single-image flow (create a container 
   - **Vercel Hobby:** crons can run at most once a day there (and a more frequent schedule fails the deploy), so use an external scheduler instead, e.g. [cron-job.org](https://cron-job.org): URL `https://<your-domain>/api/cron/publish`, every 5 minutes, header `Authorization: Bearer <CRON_SECRET>`.
 
   A post more than 6 hours late (scheduler down) isn't published late. It fails as "missed" and goes back to the drafts.
+
+### Post monitoring (hourly job)
+
+"Monitor this post" reads a post's numbers every hour for durations up to 3 days, and once a day for longer ones. The hourly readings need something to call `GET /api/cron/monitor` every hour with the same `CRON_SECRET` header. The daily job (`/api/cron/daily`) runs the same sweep once a day as a fallback, so daily monitoring and the end-of-monitoring summaries keep working without it; only the hourly readings depend on the hourly call.
+
+- **Vercel Hobby (cron-job.org):** create a cron job with
+  - URL: `https://<your-domain>/api/cron/monitor`
+  - Schedule: every hour (e.g. minute 5 of every hour: `5 * * * *`)
+  - Request method: `GET`
+  - Advanced → Headers: `Authorization` = `Bearer <CRON_SECRET>` (the same value as the Vercel variable)
+  - Timeout: the maximum cron-job.org allows (the job answers within a few seconds normally; it stops starting new work after 4 minutes).
+
+  A `200` answer with a JSON summary (`read`, `reused`, `ended`, `summarized`, `failed`) means it worked; `401` means the header doesn't match `CRON_SECRET`; `503` means `CRON_SECRET` isn't set on Vercel.
+- **Vercel Pro:** add `{ "path": "/api/cron/monitor", "schedule": "5 * * * *" }` to the `crons` list in `vercel.json` instead.
+
+Each reading is at most two Instagram calls per monitored post (counts + insights), businesses that Meta asked to slow down are skipped until the next run, and a plan can monitor at most 5 posts at once by default (admin System page → *Limits per plan*). Optional: `MONITOR_CRON_BATCH` (readings per run, default 100).
 
 ### Instagram DM replies (messaging webhooks)
 

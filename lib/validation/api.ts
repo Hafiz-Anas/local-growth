@@ -13,7 +13,8 @@ import {
   POST_PURPOSES,
 } from "@/config/onboarding";
 import { DM_REPLY_MAX, REGENERATE_TONES } from "@/lib/replies";
-import { MAX_COMPETITORS_LIMIT } from "@/config/plans";
+import { MAX_COMPETITORS_LIMIT, MAX_MONITORED_POSTS_LIMIT } from "@/config/plans";
+import { MONITOR_DURATIONS } from "@/lib/analysis/monitoring";
 import { METHODS } from "@/lib/analysis/methods";
 import { MAX_RULE_KEYWORDS, MAX_RULE_POSTS, PRIVATE_REPLY_MAX, PUBLIC_REPLY_MAX, normalizeText } from "@/lib/keyword-replies";
 import { ASSISTANT_MAX_QUESTION, ASSISTANT_MODES } from "@/lib/services/text/assistant";
@@ -61,6 +62,7 @@ const notificationFields = {
   recommendationsReady: z.boolean(),
   instagramReconnect: z.boolean(),
   scheduledPosts: z.boolean(),
+  postMonitoring: z.boolean(),
 };
 
 /** Stored User.notificationPrefs, with defaults for missing keys. */
@@ -73,6 +75,7 @@ export const notificationPrefsSchema = z.object({
   recommendationsReady: notificationFields.recommendationsReady.default(true),
   instagramReconnect: notificationFields.instagramReconnect.default(true),
   scheduledPosts: notificationFields.scheduledPosts.default(true),
+  postMonitoring: notificationFields.postMonitoring.default(true),
 });
 
 export const notificationPrefsPatchSchema = z
@@ -303,9 +306,10 @@ export const adminResetPasswordSchema = z.union([
 ]);
 
 /** Per-plan limits an admin can set (System page). */
-export const planLimitsSchema = z
-  .object({ starter: z.object({ competitors: z.number().int().min(1).max(MAX_COMPETITORS_LIMIT) }), growth: z.object({ competitors: z.number().int().min(1).max(MAX_COMPETITORS_LIMIT) }), pro: z.object({ competitors: z.number().int().min(1).max(MAX_COMPETITORS_LIMIT) }) })
+const planLimitSchema = z
+  .object({ competitors: z.number().int().min(1).max(MAX_COMPETITORS_LIMIT), monitoredPosts: z.number().int().min(1).max(MAX_MONITORED_POSTS_LIMIT) })
   .partial();
+export const planLimitsSchema = z.object({ starter: planLimitSchema, growth: planLimitSchema, pro: planLimitSchema }).partial();
 
 export const adminSettingsPatchSchema = z.object({ selfSignupPlan: planSchema, requireInstagramConnection: z.boolean(), planLimits: planLimitsSchema }).partial().strict().refine((v) => Object.keys(v).length > 0, "Nothing to update.");
 
@@ -463,3 +467,8 @@ export const goalsSchema = z.object({
 
 /** POST /api/onboarding/prefill — the language the niche is suggested in. */
 export const prefillSchema = z.object({ locale: z.enum(["en", "ar"]).default("en") });
+
+// Post monitoring ----------------------------------------------------------------
+
+export const monitorStartSchema = z.object({ igMediaId: z.string().trim().min(1).max(100), duration: z.enum(MONITOR_DURATIONS) }).strict();
+export const monitorExtendSchema = z.object({ duration: z.enum(MONITOR_DURATIONS) }).strict();

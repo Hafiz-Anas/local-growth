@@ -457,6 +457,9 @@ export interface PreviewDto {
     postPerformance?: import("./analysis").PostPerformanceDto;
     /** Post detail for the recent posts (preview opens them read-only). */
     postDetails?: Record<string, import("./analysis").PostDetailDto>;
+    monitoring?: import("./monitoring").MonitoringDto;
+    /** Every monitor in the overview, opened read-only. */
+    monitorDetails?: Record<string, import("./monitoring").MonitorDetailDto>;
     brandVoice?: BrandVoiceDto | null;
     brand: BrandProfileDto;
     instagram: InstagramConnectionDto;
@@ -587,7 +590,7 @@ export interface AiStatusDto {
 export interface NotificationDto {
   id: string;
   /** A key of NOTIFICATION_TYPES (lib/notifications.ts); text under notifications.types.<type>. */
-  type: "recommendations_ready" | "weekly_report" | "instagram_reconnect" | "post_published" | "post_failed" | "replies_waiting";
+  type: "recommendations_ready" | "weekly_report" | "instagram_reconnect" | "post_published" | "post_failed" | "replies_waiting" | "monitor_above" | "monitor_reach_above" | "monitor_below" | "monitor_ended";
   params: Record<string, string | number>;
   href: string;
   read: boolean;

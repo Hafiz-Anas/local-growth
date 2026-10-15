@@ -215,6 +215,20 @@ enum RecommendationStatus {
   DONE
 }
 
+/// A post monitor's state: running, ran to its end, stopped by the client, or the post disappeared.
+enum MonitorStatus {
+  ACTIVE
+  ENDED
+  STOPPED
+  UNAVAILABLE
+}
+
+/// How often a monitored post's numbers are read: hourly (up to 3 days) or daily (PostSnapshot).
+enum MonitorInterval {
+  HOURLY
+  DAILY
+}
+
 // ─── Accounts ────────────────────────────────────────────────────────────────
 
 model User {
@@ -338,6 +352,7 @@ model Business {
   postSnapshots       PostSnapshot[]
   postMethods         PostMethod[]
   postInsights        PostInsight[]
+  postMonitors        PostMonitor[]
 }
 
 /// One row per (business, feature key). A sub-feature ("engagement.dmRules") is
@@ -619,6 +634,67 @@ model PostInsight {
   business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
   @@unique([businessId, igMediaId])
+}
+
+/// "Monitor this post": the post's numbers are read hourly (short durations) or daily (long ones)
+/// until `endsAt`. Hourly readings are MonitorSnapshot rows; daily ones reuse PostSnapshot (one per
+/// post per day, shared with Post performance). At the end the numbers are summarised in code and,
+/// when the AI is available, in a short EN + AR summary. See lib/server/monitoring.ts.
+model PostMonitor {
+  id             String          @id @default(cuid())
+  businessId     String
+  igMediaId      String
+  /// The post when monitoring started { caption, format, postedAt, mediaUrl, permalink }, for the history once it leaves the recent posts.
+  post           Json            @default("{}")
+  /// lib/analysis/monitoring.ts → MONITOR_DURATIONS (the last one chosen, when extended).
+  duration       String
+  interval       MonitorInterval
+  status         MonitorStatus   @default(ACTIVE)
+  startedAt      DateTime        @default(now())
+  endsAt         DateTime
+  endedAt        DateTime?
+  /// When the next reading is due (the cron reads monitors whose time has come).
+  nextReadingAt  DateTime
+  lastReadingAt  DateTime?
+  /// Why the last reading failed (e.g. "rate_limited", "not_connected"); cleared by the next success.
+  lastError      String?
+  /// Notable-change alerts already sent: { "interactions": 2, "reach": 1.5, "below": true }.
+  alerts         Json            @default("{}")
+  /// The account's averages when monitoring started (the yardstick for alerts and the summary).
+  baseline       Json            @default("{}")
+  /// Final numbers computed in code when monitoring ends (lib/analysis/monitoring.ts → monitorOutcome).
+  outcome        Json?
+  /// The AI's short summary { en, ar } of `outcome`; null when the AI was unavailable (numbers only).
+  summary        Json?
+  /// ok | unavailable | pending
+  summaryStatus  String?
+  startedBy      String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  business  Business          @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  snapshots MonitorSnapshot[]
+
+  @@index([businessId, status])
+  @@index([status, nextReadingAt])
+  @@index([businessId, igMediaId])
+}
+
+/// One hourly reading of a monitored post. A metric Instagram didn't report is null.
+model MonitorSnapshot {
+  id        String   @id @default(cuid())
+  monitorId String
+  takenAt   DateTime @default(now())
+  likes     Int
+  comments  Int
+  reach     Int?
+  saves     Int?
+  shares    Int?
+  views     Int?
+
+  monitor PostMonitor @relation(fields: [monitorId], references: [id], onDelete: Cascade)
+
+  @@index([monitorId, takenAt])
 }
 
 // ─── Brand profile ───────────────────────────────────────────────────────────

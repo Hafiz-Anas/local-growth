@@ -14,6 +14,10 @@ export const NOTIFICATION_TYPES = {
   post_published: { pref: "scheduledPosts", features: ["postGenerator.addToQueue", "experiment.scheduleQueue"], href: "/post-generator" },
   post_failed: { pref: "scheduledPosts", features: ["postGenerator.addToQueue", "experiment.scheduleQueue"], href: "/post-generator" },
   replies_waiting: { pref: "approvalNeeded", features: ["engagement.aiReplies", "engagement.dmRules"], href: "/engagement" },
+  monitor_above: { pref: "postMonitoring", features: ["monitoring"], href: "/post-monitoring" },
+  monitor_reach_above: { pref: "postMonitoring", features: ["monitoring"], href: "/post-monitoring" },
+  monitor_below: { pref: "postMonitoring", features: ["monitoring"], href: "/post-monitoring" },
+  monitor_ended: { pref: "postMonitoring", features: ["monitoring"], href: "/post-monitoring" },
 } as const satisfies Record<string, { pref: keyof NotificationPrefs; features: readonly FeatureKey[]; href: string }>;
 
 export type NotificationType = keyof typeof NOTIFICATION_TYPES;
@@ -26,6 +30,7 @@ export const NOTIFICATION_SETTINGS: Array<{ pref: keyof NotificationPrefs; featu
   { pref: "weeklyReport", features: NOTIFICATION_TYPES.weekly_report.features },
   { pref: "approvalNeeded", features: NOTIFICATION_TYPES.replies_waiting.features },
   { pref: "scheduledPosts", features: NOTIFICATION_TYPES.post_published.features },
+  { pref: "postMonitoring", features: NOTIFICATION_TYPES.monitor_ended.features },
   { pref: "instagramReconnect", features: [] },
 ];
 

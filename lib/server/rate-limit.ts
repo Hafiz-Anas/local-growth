@@ -42,6 +42,10 @@ export const COMPETITOR_INSIGHT_LIMIT: RateLimitRule = { name: "competitor-insig
 export const POST_INSIGHT_LIMIT: RateLimitRule = { name: "post-insight", limit: 20, windowMs: 60 * 60 * 1000 };
 /** AI post-method suggestions (one batched call each) per business. */
 export const METHODS_AI_LIMIT: RateLimitRule = { name: "methods-ai", limit: 4, windowMs: 60 * 60 * 1000 };
+/** Starting, extending and stopping post monitoring per business (each start reads the post from Instagram). */
+export const MONITOR_ACTION_LIMIT: RateLimitRule = { name: "monitor-action", limit: 30, windowMs: 60 * 60 * 1000 };
+/** AI summaries of ended monitoring asked for again from the page, per business. */
+export const MONITOR_SUMMARY_LIMIT: RateLimitRule = { name: "monitor-summary", limit: 10, windowMs: 60 * 60 * 1000 };
 /** AI post images per business (each one costs a paid model call). */
 export const IMAGE_GENERATION_LIMIT: RateLimitRule = { name: "image-generation", limit: 20, windowMs: 60 * 60 * 1000 };
 

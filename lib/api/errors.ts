@@ -31,6 +31,7 @@ const KNOWN = new Set([
   "regenerate_unavailable",
   "regenerate_limit",
   "analysis_limit",
+  "monitor_exists",
   "network_error",
   "internal_error",
 ]);
@@ -59,6 +60,10 @@ export function errorMessage(error: unknown, t: Translate): string {
       const key = `errors.dm.${reason}`;
       const text = reason ? t(key) : key;
       return text === key ? t("errors.instagram_error") : text;
+    }
+    if (error.code === "monitor_limit") {
+      const max = Array.isArray(error.details) ? (error.details as Array<{ path?: string; message?: string }>).find((d) => d.path === "max")?.message : undefined;
+      return t("errors.monitor_limit", { max: max ?? "" });
     }
     if (KNOWN.has(error.code)) return t(`errors.${error.code}`);
     return error.status >= 500 ? t("errors.internal_error") : t("errors.generic");

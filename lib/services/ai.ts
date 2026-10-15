@@ -13,6 +13,7 @@ import { DEFAULT_GEMINI_TEXT_MODEL, DEFAULT_GEMINI_TEXT_RPD, DEFAULT_GEMINI_TEXT
 import type { EditExample, RegenerateTone } from "@/lib/replies";
 import type { Method } from "@/lib/analysis/methods";
 import { parseClassification, parseCompetitorInsight, parsePostInsight, type CompetitorInsight, type PostInsight } from "./text/analysis";
+import { parseMonitorSummary } from "./text/monitoring";
 import { composeCaption, cleanReply, greetName, isArabic, parseBrandContext, parseCaptions, replyLanguage, stripAvoided } from "./text/output";
 import {
   assistantPrompt,
@@ -20,6 +21,7 @@ import {
   classifyPostsPrompt,
   competitorInsightPrompt,
   postInsightPrompt,
+  monitorSummaryPrompt,
   brandPrefillPrompt,
   captionPrompt,
   replyPrompt,
@@ -176,7 +178,11 @@ export interface AIService {
   classifyPosts(request: { businessId: string; data: string; ids: string[] }): Promise<{ ok: true; methods: Map<string, Method> } | { ok: false; reason: TextFailureReason }>;
   /** One post's performance in plain language (EN + AR). A failure says why; the page then shows the numbers only. */
   postInsight(request: AnalysisTextRequest): Promise<{ ok: true; insight: PostInsight } | { ok: false; reason: TextFailureReason }>;
+  /** Short EN + AR summary when monitoring a post ends. A failure says why; the history then shows the numbers only. */
+  monitorSummary(request: AnalysisTextRequest): Promise<SummaryAnswer>;
 }
+
+export type SummaryAnswer = { ok: true; en: string; ar: string } | { ok: false; reason: TextFailureReason };
 
 /** An analysis explanation: the business, and the data block every number must come from. */
 export interface AnalysisTextRequest {
@@ -471,9 +477,14 @@ export class MockAIService implements AIService {
   async postInsight(): Promise<{ ok: false; reason: TextFailureReason }> {
     return { ok: false, reason: "not_configured" };
   }
+
+  /** MOCK: no summary; the monitoring history shows the numbers only. */
+  async monitorSummary(): Promise<SummaryAnswer> {
+    return { ok: false, reason: "not_configured" };
+  }
 }
 
-type AICall = "ai.captions" | "ai.reply.comment" | "ai.reply.dm" | "ai.reply.rewrite" | "ai.competitor" | "ai.classify" | "ai.post" | "ai.brand_context" | "ai.assistant" | "ai.strategy" | "ai.report" | "ai.prefill";
+type AICall = "ai.captions" | "ai.reply.comment" | "ai.reply.dm" | "ai.reply.rewrite" | "ai.competitor" | "ai.classify" | "ai.post" | "ai.monitor" | "ai.brand_context" | "ai.assistant" | "ai.strategy" | "ai.report" | "ai.prefill";
 
 /**
  * Gemini text model (prompts in ./text/prompts.ts). Never fails: when the
@@ -497,7 +508,7 @@ export class GeminiAIService implements AIService {
     const config = readGeminiTextConfig();
     // What the user gets instead of a model answer, for the log.
     const instead =
-      call === "ai.report" || call === "ai.competitor" || call === "ai.post"
+      call === "ai.report" || call === "ai.competitor" || call === "ai.post" || call === "ai.monitor"
         ? { text: call === "ai.report" ? "published the report with numbers only" : "showed the numbers only", fallback: "numbers_only" }
         : call === "ai.classify"
           ? { text: "kept the rule-based post types", fallback: "rules" }
@@ -663,6 +674,16 @@ export class GeminiAIService implements AIService {
       request.businessId,
       () => postInsightPrompt({ businessName: request.businessName, businessNameAr: request.businessNameAr, data: request.data }),
       (answer) => ({ ok: true, insight: parsePostInsight(answer, request.data) }),
+      (reason) => ({ ok: false, reason }),
+    );
+  }
+
+  async monitorSummary(request: AnalysisTextRequest) {
+    return this.run<SummaryAnswer>(
+      "ai.monitor",
+      request.businessId,
+      () => monitorSummaryPrompt({ businessName: request.businessName, businessNameAr: request.businessNameAr, data: request.data }),
+      (answer) => ({ ok: true, ...parseMonitorSummary(answer, request.data) }),
       (reason) => ({ ok: false, reason }),
     );
   }

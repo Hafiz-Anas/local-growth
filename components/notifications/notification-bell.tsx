@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Bell, CalendarCheck, CalendarX, FileText, Lightbulb, MessageCircle, type LucideIcon } from "lucide-react";
+import { Activity, AlertTriangle, Bell, CalendarCheck, CalendarX, FileText, Lightbulb, MessageCircle, TrendingDown, TrendingUp, type LucideIcon } from "lucide-react";
 import { useActiveClient, useFeature } from "@/components/providers/active-client-provider";
 import { TimeAgo } from "@/components/shared/time-ago";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,10 @@ const ICONS: Record<NotificationDto["type"], LucideIcon> = {
   post_published: CalendarCheck,
   post_failed: CalendarX,
   replies_waiting: MessageCircle,
+  monitor_above: TrendingUp,
+  monitor_reach_above: TrendingUp,
+  monitor_below: TrendingDown,
+  monitor_ended: Activity,
 };
 
 /** The text of a notification in the current language, from its type and params. */
@@ -32,6 +36,10 @@ export function useNotificationText() {
       count: typeof p.count === "number" ? formatNumber(p.count, locale) : String(p.count ?? ""),
       date: typeof p.end === "string" ? formatDateTime(p.end, locale, { day: "numeric", month: "short" }) : "",
       reason: n.type === "post_failed" ? publishReasonText(typeof p.reason === "string" ? p.reason : null, t) : "",
+      value: typeof p.value === "number" ? formatNumber(p.value, locale) : "",
+      average: typeof p.average === "number" ? formatNumber(p.average, locale) : "",
+      pct: typeof p.pct === "number" ? formatNumber(p.pct, locale) : "",
+      duration: typeof p.duration === "string" ? t(`monitoring.duration.${p.duration}`) : "",
     };
     return { title: t(`notifications.types.${n.type}.title`, vars), body: t(`notifications.types.${n.type}.body`, vars) };
   };

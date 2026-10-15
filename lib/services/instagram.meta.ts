@@ -19,9 +19,10 @@ import {
   type InstagramInsights,
   type InstagramService,
   type InstagramTrends,
+  type PostMetrics,
   type RateLimitUsage,
 } from "./instagram";
-import { businessDiscovery, postCommentReply } from "./meta/api";
+import { businessDiscovery, fetchMediaCounts, fetchPostInsights, postCommentReply } from "./meta/api";
 import { MetaApiError, isMetaError } from "./meta/errors";
 import { MetaMessagingError, fetchMessagingProfile, sendPrivateReply, sendTextMessage } from "./meta/messaging";
 import { MetaPublishError, isPublicHttpsUrl, publishImage } from "./meta/publish";
@@ -188,6 +189,25 @@ export class MetaInstagramService implements InstagramService {
     const top = (recent.length ? recent : rows).reduce<(typeof rows)[number] | null>((b, r) => (!b || r.likeCount + r.commentsCount > b.likeCount + b.commentsCount ? r : b), null);
     const ordered = top ? [top, ...rows.filter((r) => r !== top)] : rows;
     return ordered.slice(0, limit).map(toDto);
+  }
+
+  /** Live: the counts (1 call) and the post's insights (1 call); the stored copy is refreshed too. */
+  async getPostMetrics(account: InstagramAccount, mediaId: string): Promise<PostMetrics | null> {
+    const { token } = requireConnection(account);
+    const client = graphFor(account.businessId);
+    try {
+      const counts = await fetchMediaCounts(client, mediaId, token);
+      const { values } = await fetchPostInsights(client, mediaId, token);
+      await db.instagramMedia.updateMany({
+        where: { businessId: account.businessId, igMediaId: mediaId },
+        data: { likeCount: counts.likes, commentsCount: counts.comments, ...(values && { insights: values }) },
+      });
+      const v = values ?? {};
+      return { ...counts, reach: v.reach ?? null, saves: v.saved ?? null, shares: v.shares ?? null, views: v.views ?? null };
+    } catch (error) {
+      if (isMetaError(error, "not_found")) return null;
+      translate(error);
+    }
   }
 
   async getComments(account: InstagramAccount): Promise<InstagramComment[]> {

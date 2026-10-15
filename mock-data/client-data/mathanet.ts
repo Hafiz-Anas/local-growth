@@ -200,6 +200,6 @@ export const mathanetPack: ClientDataPack = {
     tone: 72,
     defaultHashtags: ["#mathanet_baity", "#q8food", "#مكسرات_الكويت"],
     brandWords: ["محمص يومياً", "fresh roast", "من الشويخ", "ديوانية"],
-    notifications: { newComments: true, approvalNeeded: true, weeklyReport: true, competitorAlerts: false, experimentResults: true, recommendationsReady: true, instagramReconnect: true, scheduledPosts: true },
+    notifications: { newComments: true, approvalNeeded: true, weeklyReport: true, competitorAlerts: false, experimentResults: true, recommendationsReady: true, instagramReconnect: true, scheduledPosts: true, postMonitoring: true },
   },
 };

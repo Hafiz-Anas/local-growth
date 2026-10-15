@@ -9,6 +9,7 @@ import { getPermissionsDto } from "@/lib/server/permissions";
 import { replyKinds, replySummary } from "@/lib/server/replies";
 import { competitorAnalysis } from "@/lib/server/competitor-analysis";
 import { methodsOverview } from "@/lib/server/methods";
+import { monitorDetail, monitoringOverview } from "@/lib/server/monitoring";
 import { postDetail, postPerformance } from "@/lib/server/post-performance";
 import { notificationPrefsSchema } from "@/lib/validation/api";
 import type { PreviewDto } from "@/types";
@@ -60,6 +61,11 @@ export const GET = handler(async (_request, context: RouteContext<"/api/admin/pr
     d.postPerformance = await postPerformance(businessId);
     const ids = d.postPerformance.summary.posts.map((p) => p.id);
     d.postDetails = Object.fromEntries(await Promise.all(ids.map(async (id) => [id, await postDetail(businessId, id)] as const)));
+  }
+  if (on("monitoring")) {
+    d.monitoring = await monitoringOverview(businessId);
+    const ids = [...d.monitoring.active, ...d.monitoring.history].map((m) => m.id);
+    d.monitorDetails = Object.fromEntries(await Promise.all(ids.map(async (id) => [id, await monitorDetail(businessId, id)] as const)));
   }
   if (on("settings.brandVoice")) d.brandVoice = await data.getBrandVoice(businessId);
   return ok(preview);

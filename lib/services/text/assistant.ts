@@ -1,4 +1,5 @@
 import type { MethodRank, PromotedComparison, Method } from "../../analysis/methods";
+import type { MonitorOutcome, MonitorPoint } from "../../analysis/monitoring";
 import type { AccountStats, MetricComparison } from "../../analysis/posts";
 import { statsLines } from "./analysis";
 import { focusLines, type BusinessFocus } from "./focus";
@@ -104,6 +105,8 @@ export interface AssistantAnalysis {
   followers?: number | null;
   /** Analytics: marketing methods ranked by likes + comments, and promoted vs normal posts. */
   methods?: { ranking: MethodRank[]; promoted: PromotedComparison } | null;
+  /** Analytics: posts being monitored (latest reading vs the account's average) and recently ended monitoring. */
+  monitoring?: AssistantMonitoring | null;
   /** Competitors: measured numbers per competitor, weekly growth, comparison and estimated content types. */
   competitors?: Array<{
     handle: string;
@@ -114,6 +117,38 @@ export interface AssistantAnalysis {
     methods: Array<{ method: Method; posts: number; avgInteractions: number }>;
     issue: string | null;
   }>;
+}
+
+export interface AssistantMonitoring {
+  active: Array<{ caption: string; postedAt: string; duration: string; startedAt: string; endsAt: string; readings: number; first: MonitorPoint | null; latest: MonitorPoint | null; average: number | null; vsAveragePct: number | null }>;
+  ended: Array<{ caption: string; postedAt: string; duration: string; endedAt: string; outcome: MonitorOutcome | null }>;
+}
+
+const caption = (text: string) => `"${text.replace(/\s+/g, " ").slice(0, 80)}"`;
+
+/** Post monitoring as labelled lines (numbers only, from the readings). */
+export function monitoringLines(m: AssistantMonitoring): string[] {
+  if (!m.active.length && !m.ended.length) return [];
+  const reading = (p: MonitorPoint) => `${p.likes} likes, ${p.comments} comments${p.reach !== null ? `, reach ${p.reach}` : ""}${p.saves !== null ? `, saves ${p.saves}` : ""}${p.shares !== null ? `, shares ${p.shares}` : ""}`;
+  const lines = ["", "## Post monitoring (readings taken by the app while a post is monitored)"];
+  for (const a of m.active) {
+    lines.push(
+      `Monitoring now: post from ${a.postedAt.slice(0, 10)} ${caption(a.caption)}, for ${a.duration} until ${a.endsAt.slice(0, 16).replace("T", " ")} UTC; ${a.readings} readings` +
+        (a.first && a.latest && a.readings >= 2 ? `; first ${reading(a.first)}; latest ${reading(a.latest)}` : a.latest ? `; latest ${reading(a.latest)}` : "") +
+        (a.vsAveragePct !== null && a.average !== null ? `; likes+comments ${a.vsAveragePct > 0 ? "+" : ""}${a.vsAveragePct}% vs the account average of ${a.average}` : ""),
+    );
+  }
+  for (const e of m.ended) {
+    const o = e.outcome;
+    const gained = o ? Object.entries(o.gained).map(([k, v]) => `${k} ${v > 0 ? "+" : ""}${v}`).join(", ") : "";
+    const vs = o?.vsAverage.interactions;
+    lines.push(
+      `Monitoring ended ${e.endedAt.slice(0, 10)}: post from ${e.postedAt.slice(0, 10)} ${caption(e.caption)} (${e.duration}); ${o?.readings ?? 0} readings` +
+        (gained ? `; change while monitored: ${gained}` : "") +
+        (vs ? `; final likes+comments ${vs.value} vs average ${vs.average} (${vs.pct > 0 ? "+" : ""}${vs.pct}%)` : ""),
+    );
+  }
+  return lines;
 }
 
 /** The answer follows the question: any Arabic letter → Arabic. */
@@ -308,6 +343,7 @@ export function formatFacts(facts: AssistantFacts, mode: FactsScope, now = new D
       );
     }
   }
+  if (analysis?.monitoring && (mode === "analytics" || mode === "strategy")) lines.push(...monitoringLines(analysis.monitoring));
   if (analysis?.competitors && mode === "competitors") {
     lines.push("", "## Competitor analysis (measured from their public posts; content types are estimates from captions)");
     if (analysis.you) lines.push(...statsLines("The business", analysis.you, analysis.followers ?? null));

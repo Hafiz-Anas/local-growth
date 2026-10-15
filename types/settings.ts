@@ -10,6 +10,7 @@ export interface NotificationPrefs {
   instagramReconnect: boolean;
   /** A scheduled post published or failed. */
   scheduledPosts: boolean;
+  postMonitoring: boolean;
 }
 
 export interface ClientSettings {

@@ -591,3 +591,35 @@ export function postInsightPrompt(input: PostInsightPromptInput): TextPrompt {
     timeoutMs: 45_000,
   };
 }
+
+// ─── Post monitoring: the summary when monitoring ends ───────────────────────
+
+export interface MonitorSummaryPromptInput {
+  businessName: string;
+  businessNameAr: string | null;
+  /** monitorDataBlock() output: the only numbers the summary may use. */
+  data: string;
+}
+
+export function monitorSummaryPrompt(input: MonitorSummaryPromptInput): TextPrompt {
+  return {
+    system: [
+      `You write a short summary for the owner of ${input.businessName}, a small local business in Kuwait, after the app finished monitoring one of their Instagram posts.`,
+      "",
+      "Rules:",
+      ...ANALYSIS_RULES,
+      "- 2–3 short sentences: how the post's numbers moved while it was monitored, how it compares with the account's average, and one practical takeaway (a suggestion, not a promise).",
+      "- If there were fewer than 2 readings, or the average is based on fewer than 3 posts, say the picture is early instead of calling it a trend.",
+      "- If the data is demo data, say so.",
+      "- No greeting, no sign-off.",
+      `- ${nameRule(input.businessName, input.businessNameAr)}`,
+      "",
+      fenced("monitoring_data", input.data),
+    ].join("\n"),
+    user: "Write the summary as JSON.",
+    schema: REPORT_SUMMARY_SCHEMA,
+    temperature: 0.3,
+    maxOutputTokens: 2048,
+    timeoutMs: 45_000,
+  };
+}

@@ -5,7 +5,7 @@ import { AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
 import { Segmented } from "@/components/settings/segmented";
 import { Avatar } from "@/components/shared/avatar";
 import { FEATURE_KEYS } from "@/config/features";
-import { MAX_COMPETITORS_LIMIT, PLAN_IDS, PLAN_PRESETS } from "@/config/plans";
+import { MAX_COMPETITORS_LIMIT, MAX_MONITORED_POSTS_LIMIT, PLAN_IDS, PLAN_PRESETS, type PlanLimits } from "@/config/plans";
 import { apiFetch, type ApiClientError } from "@/lib/api/client";
 import { qk } from "@/lib/api/queries";
 import { countEnabled } from "@/lib/permissions";
@@ -172,18 +172,22 @@ function SelfSignupCard() {
   );
 }
 
-/** "Competitors per plan": how many competitor accounts each plan can track (default 5). Saved when a field loses focus. */
+/** Limits per plan: competitor accounts each plan can track and posts it can monitor at once (default 5 each). Saved when a field loses focus. */
 function PlanLimitsCard() {
   const { t } = useI18n();
   const queryClient = useQueryClient();
   const settings = useAdminSettings();
-  const save = useMutation<AdminSettingsDto, ApiClientError, { plan: PlanId; competitors: number }>({
-    mutationFn: ({ plan, competitors }) => apiFetch("/api/admin/settings", { method: "PATCH", body: { planLimits: { [plan]: { competitors } } } }),
+  const save = useMutation<AdminSettingsDto, ApiClientError, { plan: PlanId; field: keyof PlanLimits; value: number }>({
+    mutationFn: ({ plan, field, value }) => apiFetch("/api/admin/settings", { method: "PATCH", body: { planLimits: { [plan]: { [field]: value } } } }),
     onSuccess: (data) => {
       queryClient.setQueryData(qk.admin.settings, data);
       notify.success(t("admin.system.planLimitsSaved"));
     },
   });
+  const fields: Array<{ field: keyof PlanLimits; label: string; max: number; testId: (plan: PlanId) => string }> = [
+    { field: "competitors", label: t("admin.system.planLimitCompetitors"), max: MAX_COMPETITORS_LIMIT, testId: (plan) => `plan-limit-${plan}` },
+    { field: "monitoredPosts", label: t("admin.system.planLimitMonitored"), max: MAX_MONITORED_POSTS_LIMIT, testId: (plan) => `plan-limit-monitored-${plan}` },
+  ];
 
   return (
     <Card className="mb-6">
@@ -199,24 +203,35 @@ function PlanLimitsCard() {
         ) : settings.isError ? (
           <ErrorState error={settings.error} onRetry={() => settings.refetch()} />
         ) : (
-          <div className="flex flex-wrap gap-4">
-            {PLAN_IDS.map((plan) => (
-              <label key={plan} className="flex items-center gap-2 text-body">
-                <span className="font-semibold">{t(`plans.${plan}`)}</span>
-                <input
-                  key={settings.data.planLimits[plan].competitors}
-                  type="number"
-                  min={1}
-                  max={MAX_COMPETITORS_LIMIT}
-                  defaultValue={settings.data.planLimits[plan].competitors}
-                  onBlur={(e) => {
-                    const value = Math.round(Number(e.target.value));
-                    if (value >= 1 && value <= MAX_COMPETITORS_LIMIT && value !== settings.data.planLimits[plan].competitors) save.mutate({ plan, competitors: value });
-                  }}
-                  className="h-9 w-20 rounded-button border border-border bg-background px-2 text-body tabular-nums"
-                  data-testid={`plan-limit-${plan}`}
-                />
-              </label>
+          <div className="space-y-3">
+            {fields.map(({ field, label, max, testId }) => (
+              <div key={field}>
+                <p className="mb-1.5 text-caption font-semibold text-muted">{label}</p>
+                <div className="flex flex-wrap gap-4">
+                  {PLAN_IDS.map((plan) => {
+                    const current = settings.data.planLimits[plan][field];
+                    return (
+                      <label key={plan} className="flex items-center gap-2 text-body">
+                        <span className="font-semibold">{t(`plans.${plan}`)}</span>
+                        <input
+                          key={current}
+                          type="number"
+                          min={1}
+                          max={max}
+                          defaultValue={current}
+                          onBlur={(e) => {
+                            const value = Math.round(Number(e.target.value));
+                            if (value >= 1 && value <= max && value !== current) save.mutate({ plan, field, value });
+                          }}
+                          className="h-9 w-20 rounded-button border border-border bg-background px-2 text-body tabular-nums"
+                          aria-label={`${label}: ${t(`plans.${plan}`)}`}
+                          data-testid={testId(plan)}
+                        />
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
             ))}
           </div>
         )}

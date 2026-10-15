@@ -44,6 +44,16 @@ export interface InstagramInsights {
   dmsSentToday: number;
 }
 
+/** A post's numbers right now (post monitoring). A metric Instagram doesn't report is null. */
+export interface PostMetrics {
+  likes: number;
+  comments: number;
+  reach: number | null;
+  saves: number | null;
+  shares: number | null;
+  views: number | null;
+}
+
 export interface InstagramComment {
   id: string;
   username: string;
@@ -117,6 +127,12 @@ export interface InstagramService {
   getInsights(account: InstagramAccount): Promise<InstagramInsights>;
   /** Recent media, best-performing first (images, carousels and reels; reels have mediaType "video"). */
   getMedia(account: InstagramAccount, options?: { limit?: number }): Promise<MediaDto[]>;
+  /**
+   * One post's numbers, read now (post monitoring; the real implementation calls Meta and also
+   * refreshes the stored copy). Null when the post no longer exists. Throws
+   * InstagramNotConnectedError, InstagramPermissionError or InstagramRateLimitedError.
+   */
+  getPostMetrics(account: InstagramAccount, mediaId: string): Promise<PostMetrics | null>;
   getComments(account: InstagramAccount): Promise<InstagramComment[]>;
   /** Throws InstagramMessagingError("comment_unavailable") when the comment no longer exists. */
   replyToComment(account: InstagramAccount, commentId: string, text: string): Promise<{ id: string }>;
@@ -229,6 +245,9 @@ class RoutingInstagramService implements InstagramService {
   }
   getMedia(account: InstagramAccount, options?: { limit?: number }) {
     return this.for(account).getMedia(account, options);
+  }
+  getPostMetrics(account: InstagramAccount, mediaId: string) {
+    return this.for(account).getPostMetrics(account, mediaId);
   }
   getComments(account: InstagramAccount) {
     return this.for(account).getComments(account);

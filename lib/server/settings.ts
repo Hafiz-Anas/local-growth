@@ -43,8 +43,9 @@ export async function getPlanLimits(): Promise<Record<PlanId, PlanLimits>> {
   };
 }
 
-export async function setPlanLimits(patch: Partial<Record<PlanId, PlanLimits>>) {
-  const value = { ...(await getPlanLimits()), ...patch };
+export async function setPlanLimits(patch: Partial<Record<PlanId, Partial<PlanLimits>>>) {
+  const current = await getPlanLimits();
+  const value = { starter: { ...current.starter, ...patch.starter }, growth: { ...current.growth, ...patch.growth }, pro: { ...current.pro, ...patch.pro } };
   await db.systemSetting.upsert({ where: { key: PLAN_LIMITS }, update: { value }, create: { key: PLAN_LIMITS, value } });
 }
 

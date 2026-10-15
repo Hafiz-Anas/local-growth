@@ -51,6 +51,10 @@ export type ApiErrorCode =
   | "regenerate_limit"
   /** Too many AI explanations (competitors / posts) in the last hour; the numbers are still shown. */
   | "analysis_limit"
+  /** The plan's number of posts monitored at once is reached; details: [{ path: "max", message: "5" }]. */
+  | "monitor_limit"
+  /** The post is already being monitored. */
+  | "monitor_exists"
   | "internal_error";
 
 /** Throw from route code (or guards); `handler()` turns it into the JSON error response. */

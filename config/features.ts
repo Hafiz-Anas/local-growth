@@ -53,6 +53,8 @@ export const FEATURE_KEYS = [
 
   "methods",
 
+  "monitoring",
+
   "notifications",
 
   "settings.brandVoice",
@@ -60,7 +62,7 @@ export const FEATURE_KEYS = [
 
 export interface FeatureModuleDef {
   /** Translation namespace: features.<id>.* */
-  id: "dashboard" | "competitors" | "postGenerator" | "experiment" | "engagement" | "assistant" | "recommendations" | "reports" | "postInsights" | "methods" | "notifications" | "settings";
+  id: "dashboard" | "competitors" | "postGenerator" | "experiment" | "engagement" | "assistant" | "recommendations" | "reports" | "postInsights" | "methods" | "monitoring" | "notifications" | "settings";
   /** Module-level toggle; `null` when the module itself is always available (dashboard, settings). */
   moduleKey: FeatureKey | null;
   subFeatures: FeatureKey[];
@@ -126,6 +128,11 @@ export const FEATURE_MODULES: FeatureModuleDef[] = [
   {
     id: "methods",
     moduleKey: "methods",
+    subFeatures: [],
+  },
+  {
+    id: "monitoring",
+    moduleKey: "monitoring",
     subFeatures: [],
   },
   {

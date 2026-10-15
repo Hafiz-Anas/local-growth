@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { businessDiscovery, fetchAccountInsights, fetchPostInsights } from "../../lib/services/meta/api";
+import { businessDiscovery, fetchAccountInsights, fetchMediaCounts, fetchPostInsights } from "../../lib/services/meta/api";
 import { MetaApiError } from "../../lib/services/meta/errors";
 import { accountMetric, engagementMetric, followerGrowthMetric, followerSeries, heatmapOf, opportunityOf, windowResults } from "../../lib/services/meta/insights";
 import { businessDiscoveryFields, displayUrl, engagementRateOf, mapDiscoveryOutcome, postsPerWeekOf, type AccountInsights } from "../../lib/services/meta/mappers";
@@ -182,5 +182,22 @@ describe("dashboard numbers from synced data", () => {
   it("video posts show their thumbnail", () => {
     assert.equal(displayUrl({ mediaType: "VIDEO", mediaUrl: "v.mp4", thumbnailUrl: "t.jpg" }), "t.jpg");
     assert.equal(displayUrl({ mediaType: "IMAGE", mediaUrl: "i.jpg", thumbnailUrl: null }), "i.jpg");
+  });
+});
+
+describe("post monitoring reads", () => {
+  it("reads a post's like and comment counts in one call", async () => {
+    const { client: c, calls } = client(() => ok({ id: "17900000000000001", like_count: 152, comments_count: 11 }));
+    assert.deepEqual(await fetchMediaCounts(c, "17900000000000001", "EAApage"), { likes: 152, comments: 11 });
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].path, "17900000000000001");
+    assert.equal(calls[0].params.get("fields"), "id,like_count,comments_count");
+  });
+
+  it("a deleted post is not_found, and counts Meta leaves out are 0", async () => {
+    const gone = client(() => ({ status: 400, body: { error: { message: "Unsupported get request. Object with ID '1' does not exist", type: "GraphMethodException", code: 100, error_subcode: 33 } } }));
+    await assert.rejects(fetchMediaCounts(gone.client, "1", "EAApage"), (e: unknown) => e instanceof MetaApiError && e.kind === "not_found");
+    const bare = client(() => ok({ id: "2" }));
+    assert.deepEqual(await fetchMediaCounts(bare.client, "2", "EAApage"), { likes: 0, comments: 0 });
   });
 });

@@ -17,6 +17,7 @@ import {
   type InstagramInsights,
   type InstagramService,
   type InstagramTrends,
+  type PostMetrics,
   type RateLimitUsage,
 } from "./instagram";
 
@@ -125,6 +126,14 @@ export class MockInstagramService implements InstagramService {
     const seed = account.username || account.businessId;
     const first: MediaDto[] = top ? [{ ...top, mediaUrl: mockMediaUrl(top.tone), mediaType: "image", format: "photo", shares: Math.round(top.saves * 0.4), views: null, postedAt: shift(top.postedAt) }] : [];
     return [...first, ...generatedMedia(seed, 12)].slice(0, limit);
+  }
+
+  /** The mock post's numbers (they don't change over time); null for an unknown id. */
+  async getPostMetrics(account: InstagramAccount, mediaId: string): Promise<PostMetrics | null> {
+    requireConnection(account);
+    const m = (await this.getMedia(account, { limit: 50 })).find((x) => x.id === mediaId);
+    if (!m) return null;
+    return { likes: m.likes, comments: m.comments, reach: m.reach > 0 ? m.reach : null, saves: m.reach > 0 ? m.saves : null, shares: m.shares ?? null, views: m.views ?? null };
   }
 
   async getComments(account: InstagramAccount): Promise<InstagramComment[]> {

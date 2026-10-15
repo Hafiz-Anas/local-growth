@@ -21,6 +21,7 @@ import { listCompetitors } from "./data";
 import { ApiError, notFound } from "./http";
 import { getInstagramAccount, needsReconnect } from "./instagram-account";
 import { methodsOverview } from "./methods";
+import { monitoringFacts } from "./monitoring";
 import { ownPosts } from "./post-data";
 
 /**
@@ -214,7 +215,8 @@ async function gatherAnalysis(businessId: string, mode: FactsScope, permissions:
     if (mode === "analytics") {
       const own = await ownPosts(businessId);
       const methods = isFeatureEnabled(permissions, "methods") ? await methodsOverview(businessId, permissions) : null;
-      return { you: accountStats(own.posts, own.followers, own.timeZone), followers: own.followers, methods: methods && { ranking: methods.ranking, promoted: methods.promoted } };
+      const monitoring = isFeatureEnabled(permissions, "monitoring") ? await monitoringFacts(businessId) : null;
+      return { you: accountStats(own.posts, own.followers, own.timeZone), followers: own.followers, methods: methods && { ranking: methods.ranking, promoted: methods.promoted }, monitoring };
     }
     if (mode === "competitors" && isFeatureEnabled(permissions, "competitors.analysis")) {
       const a = await competitorAnalysis(businessId);

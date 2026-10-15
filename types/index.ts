@@ -11,3 +11,4 @@ export * from "./admin";
 export * from "./api";
 export * from "./onboarding";
 export * from "./analysis";
+export * from "./monitoring";

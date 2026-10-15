@@ -782,6 +782,22 @@
       "replies_waiting": {
         "title": "Replies waiting for approval",
         "body": "{count} comment or DM replies are waiting for you."
+      },
+      "monitor_above": {
+        "title": "A monitored post is taking off",
+        "body": "{value} likes and comments so far, {pct}% above your average of {average}."
+      },
+      "monitor_reach_above": {
+        "title": "A monitored post is reaching more people",
+        "body": "Reach {value}, {pct}% above your average of {average}."
+      },
+      "monitor_below": {
+        "title": "A monitored post is below your average",
+        "body": "{value} likes and comments a day after posting, {pct}% below your average of {average}."
+      },
+      "monitor_ended": {
+        "title": "Post monitoring finished",
+        "body": "The final numbers are ready to see."
       }
     }
   },
@@ -835,7 +851,9 @@
       "scheduledPosts": "Scheduled posts",
       "scheduledPostsHint": "When a scheduled post is published, or fails.",
       "instagramReconnect": "Instagram connection",
-      "instagramReconnectHint": "When Instagram needs reconnecting."
+      "instagramReconnectHint": "When Instagram needs reconnecting.",
+      "postMonitoring": "Post monitoring",
+      "postMonitoringHint": "Big changes on a monitored post, and when monitoring ends."
     },
     "preferences": {
       "title": "Language & appearance",
@@ -945,9 +963,11 @@
         "graphVersion": "Graph API {version}",
         "missing": "missing in .env: {list}"
       },
-      "planLimits": "Competitors per plan",
-      "planLimitsHint": "How many competitor accounts a business on each plan can track (default 5).",
-      "planLimitsSaved": "Competitor limits saved."
+      "planLimits": "Limits per plan",
+      "planLimitsHint": "How many competitor accounts a business on each plan can track, and how many of its posts it can monitor at the same time (default 5 each).",
+      "planLimitsSaved": "Plan limits saved.",
+      "planLimitCompetitors": "Competitors",
+      "planLimitMonitored": "Posts monitored at once"
     },
     "console": "Client management console",
     "activity": {
@@ -1076,7 +1096,8 @@
       "notifications": "Notifications",
       "settings": "Settings",
       "postInsights": "Post performance",
-      "methods": "Marketing methods"
+      "methods": "Marketing methods",
+      "monitoring": "Post monitoring"
     },
     "moduleHints": {
       "dashboard": "Widgets on the client's home screen.",
@@ -1090,7 +1111,8 @@
       "notifications": "In-app notification center (bell).",
       "settings": "Business settings the client can edit.",
       "postInsights": "Each post vs the account's average, daily history and AI notes.",
-      "methods": "Collaborations, giveaways, offers… ranked by engagement; promoted posts."
+      "methods": "Collaborations, giveaways, offers… ranked by engagement; promoted posts.",
+      "monitoring": "Monitor posts hourly or daily, with alerts and a summary at the end."
     },
     "items": {
       "dashboard_profileHeader": "Profile header",
@@ -1163,7 +1185,9 @@
     "comment_unavailable": "The comment was deleted on Instagram, so this reply can't be posted.",
     "regenerate_unavailable": "The AI can't write a new draft right now. You can still edit the reply and send it.",
     "regenerate_limit": "You've asked for a lot of new drafts in the last hour. Edit this one, or try again later.",
-    "analysis_limit": "You've asked for a lot of AI explanations in the last hour. All the numbers are here; try again later."
+    "analysis_limit": "You've asked for a lot of AI explanations in the last hour. All the numbers are here; try again later.",
+    "monitor_limit": "Your plan monitors up to {max} posts at a time. Stop one first.",
+    "monitor_exists": "This post is already being monitored."
   },
   "states": {
     "loadFailed": "Couldn't load this",
@@ -2050,5 +2074,44 @@
     "promoted": "Promoted",
     "competitorsTitle": "What competitors post",
     "competitorsHint": "Estimated from their captions (we can't see their ads or reach)."
+  },
+  "monitoring": {
+    "toggle": "Monitor this post",
+    "toggleHint": "We read its numbers every hour (or day) and tell you when it does far better or worse than usual.",
+    "limitReached": "You're monitoring {max} posts, your plan's limit. Stop one to monitor this post.",
+    "howLong": "For how long?",
+    "extendBy": "Extend by",
+    "intervalHint": "Up to 3 days: a reading every hour. Longer: once a day.",
+    "start": "Start monitoring",
+    "extend": "Extend",
+    "stop": "Stop monitoring",
+    "open": "See monitoring",
+    "started": "Monitoring started. The first reading is in.",
+    "extended": "Monitoring extended.",
+    "stoppedToast": "Monitoring stopped. The final numbers are in the history.",
+    "stopTitle": "Stop monitoring this post?",
+    "stopBody": "We'll keep the numbers so far and add them to the history.",
+    "endsIn": "Ends {time}",
+    "endedOn": "Ended {date}",
+    "every": {
+      "hourly": "reading every hour",
+      "daily": "reading once a day"
+    },
+    "status": {
+      "active": "Monitoring",
+      "ended": "Ended",
+      "stopped": "Stopped",
+      "unavailable": "Post unavailable"
+    },
+    "duration": {
+      "2h": "2 hours",
+      "6h": "6 hours",
+      "24h": "24 hours",
+      "3d": "3 days",
+      "7d": "7 days",
+      "30d": "30 days",
+      "90d": "90 days",
+      "1y": "1 year"
+    }
   }
 }

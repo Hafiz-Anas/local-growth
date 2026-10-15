@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { ChevronLeft, ExternalLink, FileQuestion, Megaphone } from "lucide-react";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { MonitorPostCard } from "@/components/monitoring/monitor-toggle";
+import { useFeature } from "@/components/providers/active-client-provider";
 import { EmptyState, ErrorState, Skeleton } from "@/components/shared/states";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -51,6 +53,7 @@ export function PostDetailView({ id }: { id: string }) {
 
 function Detail({ detail }: { detail: PostDetailDto }) {
   const { t, locale } = useI18n();
+  const monitoring = useFeature("monitoring");
   const { post } = detail;
   const date = new Intl.DateTimeFormat(intlLocale(locale), { day: "numeric", month: "long", hour: "numeric", minute: "2-digit" }).format(new Date(post.postedAt));
 
@@ -88,6 +91,8 @@ function Detail({ detail }: { detail: PostDetailDto }) {
           )}
         </div>
       </Card>
+
+      {monitoring && <MonitorPostCard igMediaId={post.id} />}
 
       <Card className="p-4">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">

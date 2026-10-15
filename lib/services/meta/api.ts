@@ -94,6 +94,12 @@ export async function fetchMedia(client: GraphClient, igUserId: string, token: s
   return items.map(mapMedia);
 }
 
+/** A post's current like and comment counts (one call; post monitoring). Throws MetaApiError "not_found" for a deleted post. */
+export async function fetchMediaCounts(client: GraphClient, mediaId: string, token: string): Promise<{ likes: number; comments: number }> {
+  const res = await client.get<GraphMedia>(mediaId, { fields: "id,like_count,comments_count" }, { call: "GET /{ig-media}", token, scopes: ["instagram_basic"] });
+  return { likes: res.like_count ?? 0, comments: res.comments_count ?? 0 };
+}
+
 /** Errors that stop a whole sync (anything else just makes a metric unavailable). */
 const fatal = (error: unknown) => isMetaError(error, "token_invalid") || isMetaError(error, "rate_limited");
 const reasonOf = (error: unknown) => (error instanceof MetaApiError ? `${error.kind}:${error.codeLabel}` : "unknown");
