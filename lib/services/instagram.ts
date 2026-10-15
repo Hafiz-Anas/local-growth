@@ -118,6 +118,7 @@ export interface InstagramService {
   /** Recent media, best-performing first (images, carousels and reels; reels have mediaType "video"). */
   getMedia(account: InstagramAccount, options?: { limit?: number }): Promise<MediaDto[]>;
   getComments(account: InstagramAccount): Promise<InstagramComment[]>;
+  /** Throws InstagramMessagingError("comment_unavailable") when the comment no longer exists. */
   replyToComment(account: InstagramAccount, commentId: string, text: string): Promise<{ id: string }>;
   /**
    * Private reply: a DM to the author of a comment, addressed by the comment id (keyword

@@ -69,6 +69,16 @@ export class TextRequestGate {
     return { allowed: true };
   }
 
+  /** Whether a request would be allowed right now, without taking a slot (for showing "unavailable" up front). */
+  peek(): GateDecision {
+    const t = this.now();
+    if (t < this.pausedUntil) return { allowed: false, reason: this.pauseReason, until: this.pausedUntil, budget: false };
+    if (t < this.dayEnd && this.sentToday >= this.rpd) return { allowed: false, reason: "daily_limit", until: this.dayEnd, budget: true };
+    const recent = this.sent.filter((s) => t - s < MINUTE);
+    if (recent.length >= this.rpm) return { allowed: false, reason: "rate_limited", until: recent[0] + MINUTE, budget: true };
+    return { allowed: true };
+  }
+
   /** Records a failed call; pauses the gate when the failure would repeat. */
   failed(reason: TextFailureReason, retryAfterMs: number | null = null) {
     const base = COOLDOWN_MS[reason];

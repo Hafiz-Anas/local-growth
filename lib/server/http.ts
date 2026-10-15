@@ -41,6 +41,14 @@ export type ApiErrorCode =
   | "recommendations_unavailable"
   /** The business refreshed its recommendations the allowed number of times today. */
   | "recommendations_limit"
+  /** A reply Instagram would refuse; details: [{ path: "reason", message: ReplyProblem }] (lib/replies.ts). */
+  | "reply_invalid"
+  /** The comment was deleted, so the reply can't be posted (the draft is UNAVAILABLE). */
+  | "comment_unavailable"
+  /** "Regenerate" couldn't get a new AI draft; details: [{ path: "reason", message: TextFailureReason }]. */
+  | "regenerate_unavailable"
+  /** Too many "Regenerate" requests in the last hour (REPLY_REGENERATE_LIMIT). */
+  | "regenerate_limit"
   | "internal_error";
 
 /** Throw from route code (or guards); `handler()` turns it into the JSON error response. */

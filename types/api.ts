@@ -299,7 +299,8 @@ export interface EngagementRuleDto {
   createdAt: string;
 }
 
-export type ReplyDraftStatus = "pending" | "approved" | "dismissed" | "posted" | "expired";
+export type ReplyDraftStatus = "pending" | "approved" | "dismissed" | "posted" | "expired" | "unavailable";
+export type ReplyOutcomeDto = "as_is" | "edited" | "manual";
 
 export interface ReplyDraftDto {
   id: string;
@@ -324,6 +325,25 @@ export interface ReplyDraftDto {
   /** Keyword reply waiting for approval: the rule's keywords, and the private DM sent with it. */
   keywordRule: { id: string; keywords: string[] } | null;
   privateReply: string | null;
+  /** What the AI (or the keyword rule) proposed; differs from draftReply once edited. */
+  aiReply: string;
+  /** Why it can't be sent any more (shown in the queue until removed), or null. */
+  blocked: "dm_window_closed" | "comment_deleted" | null;
+  /** Sent replies: as drafted, edited, or written by the business (null for replies sent before this was tracked). */
+  outcome: ReplyOutcomeDto | null;
+  sentAt: string | null;
+}
+
+/** Engagement → Sent: how often replies go out as the AI drafted them, and whether Regenerate can work now. */
+export interface ReplySummaryDto {
+  days: number;
+  /** AI-drafted replies sent in the period, by outcome (keyword replies are counted separately). */
+  ai: { as_is: number; edited: number; manual: number };
+  keyword: number;
+  /** Percentage of AI drafts sent as-is, or null when none were sent. */
+  asIsRate: number | null;
+  /** False while the AI can't write (not configured, paused, over the daily budget): Regenerate is disabled. */
+  regenerate: { available: boolean; reason: string | null };
 }
 
 export interface EngagementDto {
@@ -422,6 +442,8 @@ export interface PreviewDto {
     engagement?: EngagementDto;
     rules?: EngagementRuleDto[];
     replyDrafts?: ReplyDraftDto[];
+    sentReplies?: ReplyDraftDto[];
+    replySummary?: ReplySummaryDto;
     brandVoice?: BrandVoiceDto | null;
     brand: BrandProfileDto;
     instagram: InstagramConnectionDto;

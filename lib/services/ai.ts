@@ -10,6 +10,7 @@ import { parseStrategy, type StrategyRecommendation } from "./text/strategy";
 import { TextGenerationError, sanitizeTextError, type TextFailureReason } from "./text/errors";
 import { TextRequestGate } from "./text/gate";
 import { DEFAULT_GEMINI_TEXT_MODEL, DEFAULT_GEMINI_TEXT_RPD, DEFAULT_GEMINI_TEXT_RPM, generateGeminiText, readGeminiTextConfig } from "./text/gemini";
+import type { EditExample, RegenerateTone } from "@/lib/replies";
 import { composeCaption, cleanReply, greetName, isArabic, parseBrandContext, parseCaptions, replyLanguage, stripAvoided } from "./text/output";
 import {
   assistantPrompt,
@@ -92,7 +93,18 @@ export interface ReplyRequest {
   niche?: string | null;
   /** A public reply under a comment (default) or a private direct-message reply. */
   channel?: "comment" | "dm";
+  /** Recent drafts the business edited before sending, anonymised (lib/server/replies.ts → replyStyleExamples). */
+  examples?: EditExample[];
 }
+
+/** "Regenerate" in the approval queue: a different draft, optionally shorter / more formal / friendlier. */
+export interface ReplyRewriteRequest extends ReplyRequest {
+  businessId: string;
+  previous: string;
+  tone?: RegenerateTone | null;
+}
+
+export type ReplyRewriteAnswer = { ok: true; text: string; language: "en" | "ar" } | { ok: false; reason: TextFailureReason };
 
 /** Everything the business entered in onboarding, for building its brand profile. */
 export interface BrandContextInput {
@@ -136,6 +148,10 @@ export interface BrandContextDraft {
 export interface AIService {
   generateCaptions(request: CaptionRequest): Promise<GeneratedCaption[]>;
   draftReply(request: ReplyRequest): Promise<{ text: string; language: "en" | "ar" }>;
+  /** "Regenerate": a new draft. Unlike draftReply, never template text from the real model — a failure says why. */
+  rewriteReply(request: ReplyRewriteRequest): Promise<ReplyRewriteAnswer>;
+  /** Whether text generation would be attempted right now (no call made): the queue disables Regenerate up front. */
+  textAvailability(): { available: true } | { available: false; reason: TextFailureReason };
   /** Reads the onboarding inputs (business, posts, basics) and describes the brand. */
   buildBrandContext(input: BrandContextInput): Promise<BrandContextDraft>;
   /**
@@ -359,6 +375,37 @@ export class MockAIService implements AIService {
       : { text: `Thank you ${name}! 🤍 Send us a DM if there's anything we can help with.`, language: "en" as const };
   }
 
+  /** MOCK: rotates through template replies in the requested tone. */
+  async rewriteReply(request: ReplyRewriteRequest): Promise<ReplyRewriteAnswer> {
+    const arabic = isArabic(request.commentText);
+    const name = greetName(request.commenterUsername);
+    const to = name ? ` ${name}` : "";
+    const dm = request.channel === "dm";
+    const options: Record<RegenerateTone | "new", { en: string; ar: string }[]> = {
+      new: [
+        { en: `Thanks so much${to}! 🤍 ${dm ? "We'll get back to you with the details shortly." : "DM us anytime if you have a question."}`, ar: `مشكورين${to} 🤍 ${dm ? "بنرد عليكم بالتفاصيل قريب." : "حياكم بالخاص لأي استفسار."}` },
+        { en: `We appreciate you${to}! ${dm ? "Our team will reply with the details soon." : "Our DMs are open for anything you need."} 🤍`, ar: `نقدّر تواصلكم${to}! ${dm ? "فريقنا بيرد عليكم بالتفاصيل قريباً." : "رسائلنا الخاصة مفتوحة لكم."} 🤍` },
+      ],
+      shorter: [{ en: `Thank you${to}! 🤍`, ar: `شكراً${to} 🤍` }],
+      formal: [
+        {
+          en: `Thank you for your ${dm ? "message" : "comment"}${to}. ${dm ? "Our team will contact you with the details shortly." : "Please send us a direct message for any enquiries."}`,
+          ar: `نشكركم على ${dm ? "رسالتكم" : "تعليقكم"}${to}. ${dm ? "سيتواصل معكم فريقنا بالتفاصيل قريباً." : "يسعدنا تواصلكم عبر الرسائل الخاصة لأي استفسار."}`,
+        },
+      ],
+      friendly: [{ en: `Aww, thank you${to}! 🤍✨ ${dm ? "We'll message you back really soon!" : "You made our day — DM us anytime!"}`, ar: `يا هلا والله${to}! 🤍✨ ${dm ? "بنرجع لكم بأسرع وقت!" : "فرحتونا — حياكم بالخاص أي وقت!"}` }],
+    };
+    const pool = options[request.tone ?? "new"];
+    const language = arabic ? ("ar" as const) : ("en" as const);
+    const texts = pool.map((o) => o[language]);
+    const text = texts.find((t) => t !== request.previous) ?? texts[0];
+    return { ok: true, text, language };
+  }
+
+  textAvailability() {
+    return { available: true as const };
+  }
+
   /**
    * MOCK: describes the brand from the onboarding inputs with templates.
    * Takes a moment like a real model call. For testing the failure path, a
@@ -391,7 +438,7 @@ export class MockAIService implements AIService {
   }
 }
 
-type AICall = "ai.captions" | "ai.reply.comment" | "ai.reply.dm" | "ai.brand_context" | "ai.assistant" | "ai.strategy" | "ai.report" | "ai.prefill";
+type AICall = "ai.captions" | "ai.reply.comment" | "ai.reply.dm" | "ai.reply.rewrite" | "ai.brand_context" | "ai.assistant" | "ai.strategy" | "ai.report" | "ai.prefill";
 
 /**
  * Gemini text model (prompts in ./text/prompts.ts). Never fails: when the
@@ -417,7 +464,7 @@ export class GeminiAIService implements AIService {
     const instead =
       call === "ai.report"
         ? { text: "published the report with numbers only", fallback: "numbers_only" }
-        : call === "ai.assistant" || call === "ai.strategy" || call === "ai.prefill"
+        : call === "ai.assistant" || call === "ai.strategy" || call === "ai.prefill" || call === "ai.reply.rewrite"
           ? { text: "told the user the AI is unavailable", fallback: "unavailable" }
           : { text: "used the template text instead", fallback: "template" };
     const gate = (this.gate ??= new TextRequestGate(config?.rpm ?? DEFAULT_GEMINI_TEXT_RPM, config?.rpd ?? DEFAULT_GEMINI_TEXT_RPD));
@@ -520,10 +567,44 @@ export class GeminiAIService implements AIService {
           toneLevel: request.brandVoice.toneLevel,
           brandWords: request.brandVoice.brandWords,
           niche: request.niche ?? null,
+          examples: request.examples,
         }),
       (answer) => ({ text: cleanReply(answer), language }),
       () => this.mock.draftReply(request),
     );
+  }
+
+  async rewriteReply(request: ReplyRewriteRequest): Promise<ReplyRewriteAnswer> {
+    const channel = request.channel ?? "comment";
+    const language = replyLanguage(request.commentText);
+    return this.run<ReplyRewriteAnswer>(
+      "ai.reply.rewrite",
+      request.businessId,
+      () =>
+        replyPrompt({
+          businessName: request.businessName,
+          businessNameAr: request.businessNameAr ?? null,
+          text: request.commentText,
+          greetName: greetName(request.commenterUsername),
+          language,
+          channel,
+          toneLevel: request.brandVoice.toneLevel,
+          brandWords: request.brandVoice.brandWords,
+          niche: request.niche ?? null,
+          examples: request.examples,
+          previous: request.previous,
+          tone: request.tone ?? null,
+        }),
+      (answer) => ({ ok: true, text: cleanReply(answer), language }),
+      (reason) => ({ ok: false, reason }),
+    );
+  }
+
+  textAvailability(): { available: true } | { available: false; reason: TextFailureReason } {
+    const config = readGeminiTextConfig();
+    if (!config) return { available: false, reason: "not_configured" };
+    const decision = (this.gate ??= new TextRequestGate(config.rpm, config.rpd)).peek();
+    return decision.allowed ? { available: true } : { available: false, reason: decision.reason };
   }
 
   async buildBrandContext(input: BrandContextInput): Promise<BrandContextDraft> {

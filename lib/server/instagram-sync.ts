@@ -9,6 +9,8 @@ import type { AccountInsights } from "@/lib/services/meta/mappers";
 import { getInstagramAccount, SYNC_STALE_MS, type SyncErrorCode } from "./instagram-account";
 import { logIntegration } from "./integration-log";
 import { keywordReplierFor } from "./keyword-replies";
+import { replyRequestBase } from "./replies";
+import { COMMENT_REPLY_MAX } from "@/lib/replies";
 import { coolingDown, graphFor, MetaUnavailableError } from "./meta-client";
 import { notifyRepliesWaiting } from "./notifications";
 
@@ -221,22 +223,15 @@ async function draftReplies(businessId: string, comments: Array<{ igCommentId: s
   const existing = new Set([...drafted.map((r) => r.commentId), ...triggered.map((t) => t.igCommentId)]);
   const todo = comments.filter((c) => !existing.has(c.igCommentId)).slice(0, REPLY_DRAFTS_PER_SYNC);
   if (!todo.length) return 0;
-  const business = await db.business.findUnique({ where: { id: businessId }, select: { name: true, nameAr: true, niche: true, brandVoice: { select: { toneLevel: true, brandWords: true, defaultHashtags: true } } } });
-  if (!business) return 0;
-  const voice = business.brandVoice;
+  // Business details plus a few drafts the business edited before (so new drafts match how it writes).
+  const base = await replyRequestBase(businessId, "comment");
+  if (!base) return 0;
   let created = 0;
   for (const c of todo) {
     try {
-      const draft = await getAIService().draftReply({
-        businessId,
-        businessName: business.name,
-        businessNameAr: business.nameAr,
-        niche: business.niche,
-        commentText: c.text,
-        commenterUsername: c.username,
-        brandVoice: { toneLevel: voice?.toneLevel ?? 50, brandWords: voice?.brandWords ?? [], defaultHashtags: voice?.defaultHashtags ?? [] },
-      });
-      await db.replyDraft.create({ data: { businessId, commentId: c.igCommentId, commentText: c.text, commenterUsername: c.username, draftReply: draft.text } });
+      const draft = await getAIService().draftReply({ ...base, commentText: c.text, commenterUsername: c.username });
+      const text = draft.text.slice(0, COMMENT_REPLY_MAX);
+      await db.replyDraft.create({ data: { businessId, commentId: c.igCommentId, commentText: c.text, commenterUsername: c.username, draftReply: text, aiReply: text } });
       created += 1;
     } catch (error) {
       // A duplicate (another sync got there first) or an AI failure: skip this comment.

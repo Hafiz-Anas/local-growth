@@ -16,6 +16,7 @@ import type {
   PostDraftDto,
   ReplyDraftDto,
   ReplyDraftStatus,
+  ReplyOutcomeDto,
   ScheduledPostDto,
   ScheduledPostStatus,
   UserStatus,
@@ -209,6 +210,9 @@ export const REPLY_SELECT = {
   channel: true,
   lastMessageAt: true,
   privateReply: true,
+  aiReply: true,
+  outcome: true,
+  sentAt: true,
   reviewer: { select: { id: true, name: true } },
   rule: { select: { id: true, keywords: true } },
 } satisfies Prisma.ReplyDraftSelect;
@@ -233,6 +237,10 @@ export function toReply(row: Prisma.ReplyDraftGetPayload<{ select: typeof REPLY_
     replyBy: row.channel === "DM" && row.lastMessageAt ? new Date(row.lastMessageAt.getTime() + DM_WINDOW_MS).toISOString() : null,
     keywordRule: row.rule,
     privateReply: row.privateReply,
+    aiReply: row.aiReply ?? row.draftReply,
+    blocked: row.status === "EXPIRED" ? "dm_window_closed" : row.status === "UNAVAILABLE" ? "comment_deleted" : null,
+    outcome: row.outcome ? (lower(row.outcome) as ReplyOutcomeDto) : null,
+    sentAt: row.sentAt?.toISOString() ?? null,
   };
 }
 

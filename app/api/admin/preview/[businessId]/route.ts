@@ -6,7 +6,7 @@ import { requireRole } from "@/lib/server/guards";
 import { handler, notFound, ok, readParams } from "@/lib/server/http";
 import { getConnectionDto } from "@/lib/server/instagram-account";
 import { getPermissionsDto } from "@/lib/server/permissions";
-import { replyKinds } from "@/lib/server/replies";
+import { replyKinds, replySummary } from "@/lib/server/replies";
 import { notificationPrefsSchema } from "@/lib/validation/api";
 import type { PreviewDto } from "@/types";
 
@@ -45,7 +45,12 @@ export const GET = handler(async (_request, context: RouteContext<"/api/admin/pr
   if (on("experiment")) d.experiment = await data.getExperiment(businessId, permissions);
   if (on("engagement")) d.engagement = await data.getEngagement(businessId, permissions);
   if (on("engagement.dmRules")) d.rules = await data.listRules(businessId);
-  if (on("engagement.aiReplies") || on("engagement.dmRules")) d.replyDrafts = await data.listReplies(businessId, "PENDING", replyKinds(permissions));
+  if (on("engagement.aiReplies") || on("engagement.dmRules")) {
+    const kinds = replyKinds(permissions);
+    d.replyDrafts = await data.listReplies(businessId, "PENDING", kinds);
+    d.sentReplies = await data.listReplies(businessId, "POSTED", kinds);
+    d.replySummary = await replySummary(businessId, kinds);
+  }
   if (on("settings.brandVoice")) d.brandVoice = await data.getBrandVoice(businessId);
   return ok(preview);
 });

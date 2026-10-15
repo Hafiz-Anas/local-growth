@@ -40,6 +40,7 @@ import { notFound } from "./http";
 import { competitorProfileFor } from "./competitor-profiles";
 import { getInstagramAccount } from "./instagram-account";
 import { expireClosedDmDrafts } from "./instagram-dm";
+import { queueWhere } from "./replies";
 
 /**
  * Business-scoped reads. Every function takes the businessId from the caller's
@@ -216,8 +217,12 @@ export async function listReplies(businessId: string, status: ReplyDraftStatus =
   if (!kinds.ai && !kinds.keyword) return [];
   // DM drafts past Instagram's 24-hour reply window can't be sent any more.
   await expireClosedDmDrafts(businessId);
-  const kind = kinds.ai && kinds.keyword ? {} : { ruleId: kinds.keyword ? { not: null } : null };
-  const rows = await db.replyDraft.findMany({ where: { businessId, status, ...kind }, select: REPLY_SELECT, orderBy: { createdAt: "desc" }, take: 100 });
+  const rows = await db.replyDraft.findMany({
+    where: queueWhere(businessId, status, kinds),
+    select: REPLY_SELECT,
+    orderBy: status === "POSTED" ? [{ sentAt: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }] : { createdAt: "desc" },
+    take: status === "POSTED" ? 50 : 100,
+  });
   const comments = await getInstagramService()
     .getComments(await getInstagramAccount(businessId))
     .catch(() => []);

@@ -12,6 +12,7 @@ import {
   ONBOARDING_STEPS,
   POST_PURPOSES,
 } from "@/config/onboarding";
+import { DM_REPLY_MAX, REGENERATE_TONES } from "@/lib/replies";
 import { MAX_RULE_KEYWORDS, MAX_RULE_POSTS, PRIVATE_REPLY_MAX, PUBLIC_REPLY_MAX, normalizeText } from "@/lib/keyword-replies";
 import { ASSISTANT_MAX_QUESTION, ASSISTANT_MODES } from "@/lib/services/text/assistant";
 import { normalizeTheme } from "@/lib/theme-script";
@@ -178,12 +179,15 @@ export const updateRuleSchema = z
   .strict()
   .refine((v) => Object.keys(v).length > 0, "Nothing to update.");
 
-export const replyStatusQuery = z.object({ status: z.enum(["pending", "approved", "dismissed", "posted", "expired"]).optional() });
+export const replyStatusQuery = z.object({ status: z.enum(["pending", "approved", "dismissed", "posted", "expired", "unavailable"]).optional() });
 
-export const editReplySchema = z.object({ draftReply: text(2200) });
+export const editReplySchema = z.object({ draftReply: text(DM_REPLY_MAX) });
+
+/** POST /api/reply-drafts/:id/regenerate */
+export const regenerateReplySchema = z.object({ tone: z.enum(REGENERATE_TONES).nullish() });
 
 /** Approve may carry the final text (e.g. edited, or the WhatsApp price reply). */
-export const approveReplySchema = z.object({ draftReply: text(2200).optional() });
+export const approveReplySchema = z.object({ draftReply: z.string().max(DM_REPLY_MAX).optional() });
 
 export const engagementSettingsSchema = z
   .object({ autoReply: z.boolean(), priceQuestionsToWhatsApp: z.boolean() })

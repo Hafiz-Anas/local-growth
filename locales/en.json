@@ -493,25 +493,48 @@
     },
     "queue": {
       "title": "AI reply queue",
-      "subtitle": "Drafted replies to new comments and DMs, and keyword replies that need approval. Nothing is posted or sent until you approve it.",
       "keywordReply": "Keyword reply",
       "withDm": "Also sends this private DM:",
-      "dmOnly": "No public reply: approving sends only the private DM. Edit to add a public reply.",
       "dismiss": "Dismiss",
       "approve": "Approve & post",
       "aiDraft": "AI draft",
       "on": "on",
       "empty": "You're all caught up.",
       "emptyHint": "New comments will appear here with a drafted reply.",
-      "kuwaiti": "Kuwaiti Arabic",
-      "english": "English",
       "whatsapp": "WhatsApp link",
       "posted": "Reply posted",
       "dm": "Direct message",
       "dmCustomer": "Instagram user",
       "replyWithin": "reply within {hours} h",
-      "sendDm": "Send reply",
-      "dmSent": "Reply sent as a DM"
+      "dmSent": "Reply sent as a DM",
+      "waiting": "Waiting",
+      "sent": "Sent",
+      "send": "Send",
+      "remove": "Remove",
+      "edited": "Edited",
+      "tapToEdit": "Tap to edit",
+      "editLabel": "Edit the reply",
+      "noPublicReply": "No public reply — only the private DM below is sent.",
+      "closingSoon": "only {hours} h left to reply",
+      "blockedWindow": "This can't be sent any more: Instagram only allows a reply within 24 hours of the customer's last message.",
+      "blockedDeleted": "This can't be sent any more: the comment was deleted on Instagram.",
+      "regenerate": "Regenerate",
+      "regenerating": "Writing a new draft…",
+      "regenerateUnavailable": "The AI can't write a new draft right now. You can still edit the reply and send it.",
+      "tone": {
+        "new": "New version",
+        "shorter": "Shorter",
+        "formal": "More formal",
+        "friendly": "Friendlier"
+      },
+      "limitComment": "Comment replies: up to 300 characters, 4 hashtags and 1 link.",
+      "limitDm": "Direct messages: up to 1,000 characters.",
+      "problem": {
+        "empty": "Write a reply before sending.",
+        "too_long": "Too long for Instagram: shorten it to {max} characters or fewer.",
+        "too_many_hashtags": "Instagram allows at most 4 hashtags in a comment reply.",
+        "too_many_links": "Instagram allows at most 1 link in a comment reply."
+      }
     },
     "controls": {
       "title": "Reply settings",
@@ -529,6 +552,22 @@
     "whatsappReply": {
       "en": "Hi! 🤍 We've sent you our prices — order easily on WhatsApp: {link}",
       "ar": "هلا والله 🤍 أرسلنا لك الأسعار — تقدر تطلب على الواتساب: {link}"
+    },
+    "sent": {
+      "period": "Last {days} days",
+      "rate": "{rate}% of AI drafts were sent as-is",
+      "outcome": {
+        "as_is": "Sent as-is",
+        "edited": "Edited",
+        "manual": "Written by you"
+      },
+      "noneYet": "No AI drafts sent yet. Once you send some, you'll see how often they're right first time.",
+      "keyword": "Plus {count} keyword replies.",
+      "empty": "Nothing sent yet",
+      "emptyHint": "Replies you send from the queue appear here.",
+      "showDraft": "See AI draft",
+      "hideDraft": "Hide AI draft",
+      "aiDraft": "AI draft:"
     }
   },
   "assistant": {
@@ -1104,7 +1143,10 @@
     "assistant_unavailable": "The assistant isn't available right now. Please try again in a little while.",
     "assistant_limit": "You've reached today's limit of questions for the assistant. Please try again tomorrow.",
     "recommendations_unavailable": "We couldn't analyse your account right now. Please try again in a little while.",
-    "recommendations_limit": "You've refreshed your recommendations the maximum number of times today. Please try again tomorrow."
+    "recommendations_limit": "You've refreshed your recommendations the maximum number of times today. Please try again tomorrow.",
+    "comment_unavailable": "The comment was deleted on Instagram, so this reply can't be posted.",
+    "regenerate_unavailable": "The AI can't write a new draft right now. You can still edit the reply and send it.",
+    "regenerate_limit": "You've asked for a lot of new drafts in the last hour. Edit this one, or try again later."
   },
   "states": {
     "loadFailed": "Couldn't load this",

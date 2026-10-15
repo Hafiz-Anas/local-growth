@@ -3,6 +3,7 @@ import { lookupKey } from "@/lib/crypto";
 import { db } from "@/lib/db";
 import { isFeatureEnabled, permissionsFromRows } from "@/lib/permissions";
 import { getAIService } from "@/lib/services/ai";
+import { replyRequestBase, sentFields } from "./replies";
 import {
   InstagramMessagingError,
   InstagramNotConnectedError,
@@ -128,29 +129,15 @@ async function storeMessage(businessId: string, message: IncomingMessage, text: 
 }
 
 async function draftForConversation(businessId: string, message: IncomingMessage, username: string | null, avatarUrl: string | null) {
-  const business = await db.business.findUnique({
-    where: { id: businessId },
-    select: { name: true, nameAr: true, niche: true, brandVoice: { select: { toneLevel: true, brandWords: true, defaultHashtags: true } } },
-  });
-  if (!business) return;
+  const base = await replyRequestBase(businessId, "dm");
+  if (!base) return;
   const pending = await db.replyDraft.findFirst({ where: { businessId, channel: "DM", recipientId: message.customerId, status: "PENDING" }, select: { id: true, commentText: true } });
   // Everything the customer wrote since the last reply, newest last.
   const conversation = (pending ? `${pending.commentText}\n${message.text}` : message.text).slice(-DRAFT_CONTEXT_CHARS);
-  const voice = business.brandVoice;
-
   let draftText: string;
   try {
     // Same call as the comment replies (lib/server/instagram-sync.ts); the AI answers the latest message.
-    const draft = await getAIService().draftReply({
-      businessId,
-      businessName: business.name,
-      businessNameAr: business.nameAr,
-      niche: business.niche,
-      commentText: message.text,
-      commenterUsername: username ?? "",
-      brandVoice: { toneLevel: voice?.toneLevel ?? 50, brandWords: voice?.brandWords ?? [], defaultHashtags: voice?.defaultHashtags ?? [] },
-      channel: "dm",
-    });
+    const draft = await getAIService().draftReply({ ...base, commentText: message.text, commenterUsername: username ?? "" });
     draftText = draft.text.slice(0, DM_MAX_LENGTH);
   } catch (error) {
     await logIntegration({ businessId, level: "error", call: "dm.draft", message: `Couldn't draft a DM reply: ${(error as Error).message}` });
@@ -159,7 +146,7 @@ async function draftForConversation(businessId: string, message: IncomingMessage
 
   const display = username ?? "";
   if (pending) {
-    await db.replyDraft.update({ where: { id: pending.id }, data: { commentText: conversation, draftReply: draftText, lastMessageAt: message.sentAt, ...(display && { commenterUsername: display }) } });
+    await db.replyDraft.update({ where: { id: pending.id }, data: { commentText: conversation, draftReply: draftText, aiReply: draftText, lastMessageAt: message.sentAt, ...(display && { commenterUsername: display }) } });
   } else {
     await db.replyDraft.create({
       data: {
@@ -170,6 +157,7 @@ async function draftForConversation(businessId: string, message: IncomingMessage
         commenterUsername: display,
         commenterAvatarUrl: avatarUrl,
         draftReply: draftText,
+        aiReply: draftText,
         recipientId: message.customerId,
         lastMessageAt: message.sentAt,
       },
@@ -204,7 +192,7 @@ function dmApiError(reason: MessagingFailureReason | "too_long"): ApiError {
  * on success it becomes POSTED, on a closed window EXPIRED, otherwise back to PENDING.
  * Always throws an ApiError on failure.
  */
-export async function sendDmReply(input: { businessId: string; draftId: string; recipientId: string; lastMessageAt: Date | null; text: string; userId: string }) {
+export async function sendDmReply(input: { businessId: string; draftId: string; recipientId: string; lastMessageAt: Date | null; text: string; proposed: string | null; userId: string }) {
   const { businessId, draftId } = input;
   const revert = () => db.replyDraft.update({ where: { id: draftId }, data: { status: "PENDING", reviewedBy: null } });
 
@@ -251,7 +239,7 @@ export async function sendDmReply(input: { businessId: string; draftId: string; 
   }
 
   await db.$transaction(async (tx) => {
-    await tx.replyDraft.update({ where: { id: draftId }, data: { status: "POSTED", draftReply: input.text } });
+    await tx.replyDraft.update({ where: { id: draftId }, data: { status: "POSTED", draftReply: input.text, ...sentFields(input.proposed, input.text) } });
     if (sentId) {
       await tx.instagramDirectMessage.createMany({
         data: [{ businessId, igMessageId: sentId, customerId: input.recipientId, fromBusiness: true, text: input.text, sentAt: new Date() }],

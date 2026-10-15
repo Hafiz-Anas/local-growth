@@ -193,13 +193,14 @@ async function handleComment(businessId: string, account: InstagramAccount, rule
   if (!rule.autoSend) {
     await db.replyDraft.upsert({
       where: { businessId_commentId: { businessId, commentId: comment.igCommentId } },
-      update: { status: "PENDING", draftReply: rule.commentReply, ruleId: rule.id, privateReply: rule.dmMessage || null, commentedAt: comment.postedAt, reviewedBy: null },
+      update: { status: "PENDING", draftReply: rule.commentReply, aiReply: rule.commentReply, ruleId: rule.id, privateReply: rule.dmMessage || null, commentedAt: comment.postedAt, reviewedBy: null },
       create: {
         businessId,
         commentId: comment.igCommentId,
         commentText: comment.text,
         commenterUsername: comment.username ?? "",
         draftReply: rule.commentReply,
+        aiReply: rule.commentReply,
         ruleId: rule.id,
         privateReply: rule.dmMessage || null,
         commentedAt: comment.postedAt,
@@ -340,7 +341,7 @@ export async function sendKeywordReply(input: {
 
   let dmMessageId: string | null = null;
   let dmFailure: PartFailure | null = null;
-  const stop = replyFailure === "comment_deleted" || replyFailure === "needs_reconnect" || replyFailure === "rate_limited";
+  const stop = replyFailure === "comment_deleted" || replyFailure === "comment_unavailable" || replyFailure === "needs_reconnect" || replyFailure === "rate_limited";
   const wantsDm = Boolean(input.dmText.trim()) && !stop;
   if (wantsDm) {
     if (input.dmText.length > DM_MAX_LENGTH) dmFailure = "too_long";

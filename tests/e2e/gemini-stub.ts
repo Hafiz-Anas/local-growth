@@ -8,6 +8,8 @@ import { createServer } from "node:http";
  *   for the business named in `state.inventNumbersFor` — one with an invented number (must be rejected);
  * - onboarding pre-fill (responseSchema with "business_type") gets a bakery niche, tone 70 and the first
  *   two hashtag candidates;
+ * - reply drafts (system prompt "You reply on behalf of") get a short reply; "Regenerate" requests (with a
+ *   <previous_draft>) get "New draft (<tone>) v<n>", where tone is shorter / formal / friendly / new;
  * - chat requests get an answer echoing the question (Arabic for an Arabic question);
  * - a question containing "[down]", or `state.fail`, gets a 503.
  */
@@ -15,7 +17,7 @@ import { createServer } from "node:http";
 export interface StubCall {
   system: string;
   turns: Array<{ role: string; text: string }>;
-  kind: "strategy" | "report" | "prefill" | "chat";
+  kind: "strategy" | "report" | "prefill" | "reply" | "chat";
 }
 
 export const STUB_PORT = Number(process.env.E2E_GEMINI_STUB_PORT ?? 4010);
@@ -49,7 +51,7 @@ export function stubRecommendations(n: number) {
 
 export async function startGeminiStub(port = STUB_PORT) {
   const calls: StubCall[] = [];
-  const state = { fail: false, analyses: 0, inventNumbersFor: "" };
+  const state = { fail: false, analyses: 0, inventNumbersFor: "", rewrites: 0 };
   const server = createServer((req, res) => {
     let raw = "";
     req.on("data", (chunk) => (raw += chunk));
@@ -57,8 +59,9 @@ export async function startGeminiStub(port = STUB_PORT) {
       const body = JSON.parse(raw || "{}") as RequestBody;
       const turns = (body.contents ?? []).map((c) => ({ role: c.role, text: c.parts.map((p) => p.text).join("") }));
       const props = body.generationConfig?.responseSchema?.properties ?? {};
-      const kind = props.recommendations ? "strategy" : props.summary_en ? "report" : props.business_type ? "prefill" : "chat";
-      calls.push({ system: body.systemInstruction?.parts[0]?.text ?? "", turns, kind });
+      const system = body.systemInstruction?.parts[0]?.text ?? "";
+      const kind = props.recommendations ? "strategy" : props.summary_en ? "report" : props.business_type ? "prefill" : system.includes("You reply on behalf of") ? "reply" : "chat";
+      calls.push({ system, turns, kind });
       const question = turns.at(-1)?.text ?? "";
       res.setHeader("content-type", "application/json");
       if (state.fail || question.includes("[down]")) {
@@ -82,6 +85,12 @@ export async function startGeminiStub(port = STUB_PORT) {
             ? { summary_en: "Reach jumped 987654% this week.", summary_ar: "قفز الوصول ٩٨٧٦٥٤٪ هذا الأسبوع." }
             : { summary_en: "A steady week compared with the one before. Your top post led the way; keep posting at your strongest times.", summary_ar: "أسبوع مستقر مقارنة بالأسبوع السابق. تصدّر أفضل منشور لديكم؛ استمروا في النشر في أفضل أوقاتكم." },
         );
+      } else if (kind === "reply") {
+        if (question.includes("<previous_draft>")) {
+          state.rewrites += 1;
+          const tone = /noticeably shorter/.test(question) ? "shorter" : /more formal/.test(question) ? "formal" : /warmer and friendlier/.test(question) ? "friendly" : "new";
+          text = `New draft (${tone}) v${state.rewrites}`;
+        } else text = "Thanks for your message! 🤍 We'll get back to you shortly.";
       } else {
         const arabic = /[؀-ۿ]/.test(question);
         text = arabic ? `إجابة تجريبية (${turns.length}): ${question}` : `**Stub answer** (${turns.length} turns) to: ${question}`;

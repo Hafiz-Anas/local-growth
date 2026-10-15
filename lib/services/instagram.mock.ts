@@ -5,6 +5,7 @@ import { CLIENT_DATA, type ClientDataPack } from "@/mock-data/client-data";
 import { MOCK_CLIENTS } from "@/mock-data/clients";
 import type { CompetitorPost, InstagramProfileDto, MediaDto } from "@/types";
 import {
+  InstagramMessagingError,
   InstagramNotConnectedError,
   type ApiHealth,
   type BusinessAccountLookup,
@@ -187,6 +188,8 @@ export class MockInstagramService implements InstagramService {
 
   async replyToComment(account: InstagramAccount, commentId: string, text: string) {
     requireConnection(account);
+    // For trying the "comment was deleted" path locally: comment ids containing "deleted".
+    if (commentId.includes("deleted")) throw new InstagramMessagingError("comment_unavailable", "Mock: the comment was deleted.");
     console.info(`[instagram:mock] @${account.username} replied to comment ${commentId}: ${text.slice(0, 80)}`);
     return { id: `ig_reply_${randomUUID()}` };
   }

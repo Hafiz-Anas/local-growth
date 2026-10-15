@@ -24,6 +24,7 @@ import type {
   PreviewDto,
   RecommendationsDto,
   ReplyDraftDto,
+  ReplySummaryDto,
   ScheduledPostDto,
   TrendsDto,
   WeeklyReportDto,
@@ -43,6 +44,8 @@ export const qk = {
   engagement: ["engagement"] as const,
   rules: ["engagement-rules"] as const,
   replies: ["reply-drafts"] as const,
+  sentReplies: ["reply-drafts", "sent"] as const,
+  replySummary: ["reply-drafts", "summary"] as const,
   brandVoice: ["brand-voice"] as const,
   connection: ["instagram-connection"] as const,
   onboarding: ["onboarding"] as const,
@@ -156,6 +159,11 @@ export const useRules = (enabled = true) =>
   useClientData<EngagementRuleDto[]>(qk.rules, "/api/engagement/rules", (d) => d.rules ?? [], enabled);
 export const useReplies = (enabled = true) =>
   useClientData<ReplyDraftDto[]>(qk.replies, "/api/reply-drafts", (d) => d.replyDrafts ?? [], enabled);
+/** Engagement → Sent: recent sent replies with how they went out (as drafted, edited, written by hand). */
+export const useSentReplies = (enabled = true) =>
+  useClientData<ReplyDraftDto[]>(qk.sentReplies, "/api/reply-drafts?status=posted", (d) => d.sentReplies ?? [], enabled);
+export const useReplySummary = (enabled = true) =>
+  useClientData<ReplySummaryDto | null>(qk.replySummary, "/api/reply-drafts/summary", (d) => d.replySummary ?? null, enabled);
 export const useBrandVoice = (enabled = true) =>
   useClientData<BrandVoiceDto | null>(qk.brandVoice, "/api/brand-voice", (d) => d.brandVoice ?? null, enabled);
 export const useConnection = (enabled = true) =>

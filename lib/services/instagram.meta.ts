@@ -199,6 +199,8 @@ export class MetaInstagramService implements InstagramService {
     try {
       return await postCommentReply(graphFor(account.businessId), commentId, token, text);
     } catch (error) {
+      // The comment no longer exists (deleted by its author or the business, or hidden).
+      if (isMetaError(error, "not_found")) throw new InstagramMessagingError("comment_unavailable", error.message);
       translate(error);
     }
   }

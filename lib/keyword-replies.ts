@@ -10,13 +10,15 @@
  *   exact — the whole comment is the keyword (after the clean-up above).
  */
 
+import { COMMENT_REPLY_MAX } from "./replies";
+
 export type KeywordMatchType = "word" | "exact";
 
 /**
  * Instagram's limits, for forms and validation (the send paths check them again:
  * COMMENT_MAX_LENGTH in lib/services/meta/api.ts, DM_MAX_LENGTH in lib/services/meta/messaging.ts).
  */
-export const PUBLIC_REPLY_MAX = 2200;
+export const PUBLIC_REPLY_MAX = COMMENT_REPLY_MAX;
 export const PRIVATE_REPLY_MAX = 1000;
 export const MAX_RULE_KEYWORDS = 20;
 export const MAX_RULE_POSTS = 50;

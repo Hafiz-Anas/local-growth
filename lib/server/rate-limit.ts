@@ -35,6 +35,8 @@ export const VERIFY_RESEND_LIMIT: RateLimitRule = { name: "verify-resend", limit
 export const FEEDBACK_LIMIT: RateLimitRule = { name: "feedback", limit: 10, windowMs: 15 * 60 * 1000 };
 /** "Sync now" (Meta) per business. */
 export const INSTAGRAM_SYNC_LIMIT: RateLimitRule = { name: "instagram-sync", limit: 1, windowMs: 60 * 1000 };
+/** "Regenerate" on reply drafts per business (each one is an AI call; the AI's own daily budget applies too). */
+export const REPLY_REGENERATE_LIMIT: RateLimitRule = { name: "reply-regenerate", limit: 30, windowMs: 60 * 60 * 1000 };
 /** AI post images per business (each one costs a paid model call). */
 export const IMAGE_GENERATION_LIMIT: RateLimitRule = { name: "image-generation", limit: 20, windowMs: 60 * 60 * 1000 };
 

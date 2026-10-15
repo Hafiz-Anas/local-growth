@@ -132,7 +132,7 @@ test("edits a rule to need approval; its reply then waits in the queue and posts
   const draft = page.locator("li").filter({ hasText: `مِنيو${RUN}` }).filter({ hasText: "Keyword reply" });
   await expect(draft).toBeVisible();
   await expect(draft).toContainText("Also sends this private DM:");
-  await draft.getByRole("button", { name: "Approve & post" }).click();
+  await draft.getByRole("button", { name: "Send", exact: true }).click();
   await expect(page.getByText("Reply posted")).toBeVisible();
   await expect(draft).toBeHidden();
 });

@@ -27,6 +27,9 @@ const KNOWN = new Set([
   "image_unavailable",
   "email_unavailable",
   "dm_window_closed",
+  "comment_unavailable",
+  "regenerate_unavailable",
+  "regenerate_limit",
   "network_error",
   "internal_error",
 ]);
@@ -44,6 +47,12 @@ export function errorMessage(error: unknown, t: Translate): string {
       return fields.length ? t("errors.validation_fields", { fields: fields.join(", ") }) : t("errors.validation_error");
     }
     if (error.code === "publish_failed") return publishReasonText(publishReasonOf(error), t);
+    if (error.code === "reply_invalid") {
+      const reason = Array.isArray(error.details) ? (error.details as Array<{ path?: string; message?: string }>).find((d) => d.path === "reason")?.message : undefined;
+      const key = `engagement.queue.problem.${reason}`;
+      const text = reason ? t(key) : key;
+      return text === key ? t("errors.validation_error") : text;
+    }
     if (error.code === "dm_failed") {
       const reason = Array.isArray(error.details) ? (error.details as Array<{ path?: string; message?: string }>).find((d) => d.path === "reason")?.message : undefined;
       const key = `errors.dm.${reason}`;

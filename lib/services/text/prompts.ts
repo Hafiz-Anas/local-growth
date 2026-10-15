@@ -5,6 +5,7 @@ import { STRATEGY_MAX, STRATEGY_MIN, STRATEGY_SCHEMA, type StrategyDecision } fr
 import { REPORT_SUMMARY_SCHEMA } from "./report";
 import { PREFILL_SCHEMA } from "./prefill";
 import { aimText, focusLines, type BusinessFocus } from "./focus";
+import { COMMENT_REPLY_MAX, DM_REPLY_MAX, type EditExample, type RegenerateTone } from "../../replies";
 
 /**
  * EVERY prompt the text model sees lives in this file — edit the wording here.
@@ -167,7 +168,19 @@ export interface ReplyPromptInput {
   brandWords: string[];
   /** What the business does, so replies sound like it (optional). */
   niche?: string | null;
+  /** Recent AI drafts the business changed before sending, with customer details removed (lib/replies.ts). */
+  examples?: EditExample[];
+  /** "Regenerate" with a quick tone choice. */
+  tone?: RegenerateTone | null;
+  /** "Regenerate": the draft being replaced, so the new one is different. */
+  previous?: string | null;
 }
+
+const TONE_CHANGE: Record<RegenerateTone, string> = {
+  shorter: "Make it noticeably shorter than the previous draft: one short sentence.",
+  formal: "Make it more formal and polite than the previous draft: no slang, at most one emoji.",
+  friendly: "Make it warmer and friendlier than the previous draft, still short.",
+};
 
 export function replyPrompt(input: ReplyPromptInput): TextPrompt {
   const where =
@@ -195,8 +208,15 @@ export function replyPrompt(input: ReplyPromptInput): TextPrompt {
       greeting,
       `Tone: ${toneDescription(input.toneLevel)}.`,
       input.brandWords.length ? `If it fits naturally, use one of the brand's words: ${input.brandWords.slice(0, 6).join(", ")}.` : null,
+      `Stay under ${input.channel === "dm" ? DM_REPLY_MAX : COMMENT_REPLY_MAX} characters.`,
+      input.examples?.length
+        ? "The business edited some of your earlier drafts before sending them (in <edited_drafts>). Match how they write — length, wording, greeting, emojis — but never copy details that belong to another conversation. {name} stands for a customer's name."
+        : null,
+      input.previous ? `Write a new version that is clearly different from the previous draft (in <previous_draft>).${input.tone ? ` ${TONE_CHANGE[input.tone]}` : ""}` : null,
       "Answer with the reply text only.",
       "",
+      input.examples?.length ? fenced("edited_drafts", input.examples.map((e, i) => `${i + 1}. AI draft: ${e.draft}\n   Sent instead: ${e.sent}`).join("\n")) : null,
+      input.previous ? fenced("previous_draft", input.previous.slice(0, 1000)) : null,
       fenced(input.channel === "dm" ? "customer_message" : "customer_comment", input.text.slice(0, 1000)),
     ]
       .filter((line) => line !== null)

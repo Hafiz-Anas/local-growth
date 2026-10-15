@@ -77,6 +77,15 @@ enum ReplyDraftStatus {
   POSTED
   /// DM drafts only: Instagram's 24-hour reply window closed before it was sent.
   EXPIRED
+  /// The comment was deleted (Instagram refused the reply), so it can't be answered any more.
+  UNAVAILABLE
+}
+
+/// How a sent reply relates to the AI's (or keyword rule's) draft (lib/replies.ts → replyOutcome).
+enum ReplyOutcome {
+  AS_IS
+  EDITED
+  MANUAL
 }
 
 /// Where an AI reply draft goes: a public reply to a comment, or a direct message.
@@ -775,6 +784,13 @@ model ReplyDraft {
   privateReply       String?
   /// Keyword replies: when the comment was posted (private replies are accepted for 7 days).
   commentedAt        DateTime?
+  /// What the AI (or the keyword rule) proposed, kept when the business edits the reply; the latest regenerated draft.
+  aiReply            String?
+  /// Set when the reply is sent: as drafted, edited, or written by the business.
+  outcome            ReplyOutcome?
+  sentAt             DateTime?
+  /// "Regenerate" requests for this draft.
+  regenerations      Int              @default(0)
 
   business Business        @relation(fields: [businessId], references: [id], onDelete: Cascade)
   reviewer User?           @relation("ReplyReviewer", fields: [reviewedBy], references: [id], onDelete: SetNull)
@@ -783,6 +799,7 @@ model ReplyDraft {
   @@unique([businessId, commentId])
   @@index([businessId, status, createdAt])
   @@index([businessId, channel, recipientId, status])
+  @@index([businessId, status, sentAt])
 }
 
 /// Instagram direct messages received through the messaging webhook (and the business's own, as echoes).
