@@ -5,7 +5,7 @@ import { AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
 import { Segmented } from "@/components/settings/segmented";
 import { Avatar } from "@/components/shared/avatar";
 import { FEATURE_KEYS } from "@/config/features";
-import { PLAN_IDS, PLAN_PRESETS } from "@/config/plans";
+import { MAX_COMPETITORS_LIMIT, PLAN_IDS, PLAN_PRESETS } from "@/config/plans";
 import { apiFetch, type ApiClientError } from "@/lib/api/client";
 import { qk } from "@/lib/api/queries";
 import { countEnabled } from "@/lib/permissions";
@@ -68,6 +68,7 @@ export function SystemView() {
       )}
 
       <SelfSignupCard />
+      <PlanLimitsCard />
       <InstagramSettingsCard />
 
       <Card>
@@ -164,6 +165,59 @@ function SelfSignupCard() {
             <span className="text-caption text-muted">
               {t("admin.clients.enabledCount", { count: countEnabled(PLAN_PRESETS[settings.data.selfSignupPlan]), total: FEATURE_KEYS.length })}
             </span>
+          </div>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+/** "Competitors per plan": how many competitor accounts each plan can track (default 5). Saved when a field loses focus. */
+function PlanLimitsCard() {
+  const { t } = useI18n();
+  const queryClient = useQueryClient();
+  const settings = useAdminSettings();
+  const save = useMutation<AdminSettingsDto, ApiClientError, { plan: PlanId; competitors: number }>({
+    mutationFn: ({ plan, competitors }) => apiFetch("/api/admin/settings", { method: "PATCH", body: { planLimits: { [plan]: { competitors } } } }),
+    onSuccess: (data) => {
+      queryClient.setQueryData(qk.admin.settings, data);
+      notify.success(t("admin.system.planLimitsSaved"));
+    },
+  });
+
+  return (
+    <Card className="mb-6">
+      <CardHeader>
+        <div>
+          <CardTitle>{t("admin.system.planLimits")}</CardTitle>
+          <CardDescription>{t("admin.system.planLimitsHint")}</CardDescription>
+        </div>
+      </CardHeader>
+      <div className="px-4 pb-4">
+        {settings.isPending ? (
+          <Skeleton className="h-9 w-64" />
+        ) : settings.isError ? (
+          <ErrorState error={settings.error} onRetry={() => settings.refetch()} />
+        ) : (
+          <div className="flex flex-wrap gap-4">
+            {PLAN_IDS.map((plan) => (
+              <label key={plan} className="flex items-center gap-2 text-body">
+                <span className="font-semibold">{t(`plans.${plan}`)}</span>
+                <input
+                  key={settings.data.planLimits[plan].competitors}
+                  type="number"
+                  min={1}
+                  max={MAX_COMPETITORS_LIMIT}
+                  defaultValue={settings.data.planLimits[plan].competitors}
+                  onBlur={(e) => {
+                    const value = Math.round(Number(e.target.value));
+                    if (value >= 1 && value <= MAX_COMPETITORS_LIMIT && value !== settings.data.planLimits[plan].competitors) save.mutate({ plan, competitors: value });
+                  }}
+                  className="h-9 w-20 rounded-button border border-border bg-background px-2 text-body tabular-nums"
+                  data-testid={`plan-limit-${plan}`}
+                />
+              </label>
+            ))}
           </div>
         )}
       </div>

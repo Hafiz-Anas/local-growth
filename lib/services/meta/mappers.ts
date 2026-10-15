@@ -336,6 +336,9 @@ export interface DiscoveredPost {
   comments: number;
   postedAt: string;
   caption: string;
+  /** IMAGE | VIDEO | CAROUSEL_ALBUM, and FEED | REELS (null when Meta didn't send it). */
+  mediaType: string | null;
+  productType: string | null;
 }
 
 export interface DiscoveredProfile {
@@ -375,6 +378,8 @@ export function mapDiscoveredProfile(handle: string, result: DiscoveryResult, no
     comments: m.comments_count ?? 0,
     postedAt: m.timestamp ?? new Date(now).toISOString(),
     caption: m.caption ?? "",
+    mediaType: m.media_type ?? null,
+    productType: m.media_product_type ?? null,
   }));
   const followers = bd.followers_count ?? 0;
   return {
@@ -423,5 +428,5 @@ export function mapDiscoveryOutcome(
 /** Fields for GET /{ig-user}?fields=business_discovery.username(handle){…}. */
 export function businessDiscoveryFields(handle: string, mediaLimit = 12): string {
   const safe = handle.replace(/[^A-Za-z0-9._]/g, "");
-  return `business_discovery.username(${safe}){id,username,name,profile_picture_url,followers_count,media_count,media.limit(${mediaLimit}){id,caption,media_type,media_url,thumbnail_url,permalink,like_count,comments_count,timestamp}}`;
+  return `business_discovery.username(${safe}){id,username,name,profile_picture_url,followers_count,media_count,media.limit(${mediaLimit}){id,caption,media_type,media_product_type,media_url,thumbnail_url,permalink,like_count,comments_count,timestamp}}`;
 }

@@ -73,6 +73,8 @@ export const USER_NAV: NavItem[] = [
     pages: [
       { href: "/recommendations", labelKey: "nav.recommendations", feature: "recommendations" },
       { href: "/reports", labelKey: "nav.reports", feature: "reports" },
+      { href: "/post-performance", labelKey: "nav.postPerformance", feature: "postInsights" },
+      { href: "/methods", labelKey: "nav.methods", feature: "methods" },
       { href: "/experiment", labelKey: "nav.experiment", feature: "experiment" },
     ],
   },
@@ -80,7 +82,10 @@ export const USER_NAV: NavItem[] = [
     href: "/competitors",
     labelKey: "nav.competitors",
     icon: "competitors",
-    pages: [{ href: "/competitors", labelKey: "nav.competitors", feature: "competitors" }],
+    pages: [
+      { href: "/competitors", labelKey: "nav.competitorAccounts", feature: "competitors" },
+      { href: "/competitors/analysis", labelKey: "nav.competitorAnalysis", feature: "competitors.analysis" },
+    ],
   },
   { href: "/settings", labelKey: "nav.settings", icon: "settings", pages: [{ href: "/settings", labelKey: "nav.settings" }], mobile: false, placement: "bottom" },
 ];

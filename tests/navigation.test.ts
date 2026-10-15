@@ -5,7 +5,7 @@ import { describe, it } from "node:test";
 import { FEATURE_KEYS } from "../config/features";
 import { MAX_PHONE_TABS, ROUTE_FEATURES, USER_NAV, type NavItem } from "../config/navigation";
 import { PLAN_IDS, PLAN_PRESETS } from "../config/plans";
-import { activeSection, isActiveItem, splitForPhone } from "../lib/navigation";
+import { activePage, activeSection, isActiveItem, splitForPhone } from "../lib/navigation";
 import { allOff, filterNav } from "../lib/permissions";
 import type { FeatureKey, Permissions } from "../types";
 
@@ -35,10 +35,12 @@ describe("navigation config: one obvious home per page", () => {
     for (const key of keys) for (const locale of ["en", "ar"]) assert.equal(typeof get(locale, key), "string", `${locale}: ${key}`);
   });
 
-  it("groups recommendations, reports and the posting experiment under Insights", () => {
+  it("groups recommendations, reports, post performance, methods and the posting experiment under Insights", () => {
     const insights = section(filterNav(USER_NAV, allOn()), "nav.insights")!;
     assert.equal(insights.href, "/recommendations");
-    assert.deepEqual(insights.pages!.map((p) => p.href), ["/recommendations", "/reports", "/experiment"]);
+    assert.deepEqual(insights.pages!.map((p) => p.href), ["/recommendations", "/reports", "/post-performance", "/methods", "/experiment"]);
+    assert.deepEqual(section(filterNav(USER_NAV, allOn()), "nav.competitors")!.pages!.map((p) => p.href), ["/competitors", "/competitors/analysis"]);
+    assert.equal(ROUTE_FEATURES["/competitors/analysis"], "competitors.analysis");
     assert.equal(ROUTE_FEATURES["/reports"], "reports");
     assert.equal(ROUTE_FEATURES["/experiment"], "experiment");
   });
@@ -48,11 +50,13 @@ describe("feature switches: hidden modules appear nowhere", () => {
   it("removes a hidden page from its section, and the section links to the first visible page", () => {
     const insights = section(filterNav(USER_NAV, without("recommendations")), "nav.insights")!;
     assert.equal(insights.href, "/reports");
-    assert.deepEqual(insights.pages!.map((p) => p.href), ["/reports", "/experiment"]);
+    assert.deepEqual(insights.pages!.map((p) => p.href), ["/reports", "/post-performance", "/methods", "/experiment"]);
+    // competitors.analysis off: Competitors keeps one page (no tabs).
+    assert.deepEqual(section(filterNav(USER_NAV, without("competitors.analysis")), "nav.competitors")!.pages!.map((p) => p.href), ["/competitors"]);
   });
 
   it("removes a section whose pages are all hidden", () => {
-    const nav = filterNav(USER_NAV, without("recommendations", "reports", "experiment", "competitors"));
+    const nav = filterNav(USER_NAV, without("recommendations", "reports", "postInsights", "methods", "experiment", "competitors"));
     assert.deepEqual(labels(nav), ["nav.home", "nav.posts", "nav.engagement", "nav.settings"]);
     const { tabs, more } = splitForPhone(nav);
     assert.deepEqual(labels(tabs), ["nav.home", "nav.posts", "nav.engagement"]);
@@ -96,6 +100,12 @@ describe("active section", () => {
     assert.equal(activeSection(nav, "/competitors/abc", "/dashboard")?.labelKey, "nav.competitors");
     assert.equal(activeSection(nav, "/dashboard", "/dashboard")?.labelKey, "nav.home");
     assert.equal(activeSection(nav, "/assistant", "/dashboard"), null);
+  });
+
+  it("picks the most specific page of a section", () => {
+    const competitors = section(nav, "nav.competitors")!;
+    assert.equal(activePage(competitors, "/competitors/analysis")?.href, "/competitors/analysis");
+    assert.equal(activePage(competitors, "/competitors/abc")?.href, "/competitors");
   });
 
   it("matches Home exactly", () => {

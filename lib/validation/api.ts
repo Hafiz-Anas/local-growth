@@ -13,6 +13,8 @@ import {
   POST_PURPOSES,
 } from "@/config/onboarding";
 import { DM_REPLY_MAX, REGENERATE_TONES } from "@/lib/replies";
+import { MAX_COMPETITORS_LIMIT } from "@/config/plans";
+import { METHODS } from "@/lib/analysis/methods";
 import { MAX_RULE_KEYWORDS, MAX_RULE_POSTS, PRIVATE_REPLY_MAX, PUBLIC_REPLY_MAX, normalizeText } from "@/lib/keyword-replies";
 import { ASSISTANT_MAX_QUESTION, ASSISTANT_MODES } from "@/lib/services/text/assistant";
 import { normalizeTheme } from "@/lib/theme-script";
@@ -183,6 +185,13 @@ export const replyStatusQuery = z.object({ status: z.enum(["pending", "approved"
 
 export const editReplySchema = z.object({ draftReply: text(DM_REPLY_MAX) });
 
+/** PATCH /api/methods/:mediaId */
+export const postMethodPatchSchema = z
+  .object({ method: z.enum(METHODS), promoted: z.boolean() })
+  .partial()
+  .strict()
+  .refine((v) => Object.keys(v).length > 0, "Nothing to update.");
+
 /** POST /api/reply-drafts/:id/regenerate */
 export const regenerateReplySchema = z.object({ tone: z.enum(REGENERATE_TONES).nullish() });
 
@@ -293,7 +302,12 @@ export const adminResetPasswordSchema = z.union([
   z.object({ sendEmail: z.literal(true) }),
 ]);
 
-export const adminSettingsPatchSchema = z.object({ selfSignupPlan: planSchema, requireInstagramConnection: z.boolean() }).partial().strict().refine((v) => Object.keys(v).length > 0, "Nothing to update.");
+/** Per-plan limits an admin can set (System page). */
+export const planLimitsSchema = z
+  .object({ starter: z.object({ competitors: z.number().int().min(1).max(MAX_COMPETITORS_LIMIT) }), growth: z.object({ competitors: z.number().int().min(1).max(MAX_COMPETITORS_LIMIT) }), pro: z.object({ competitors: z.number().int().min(1).max(MAX_COMPETITORS_LIMIT) }) })
+  .partial();
+
+export const adminSettingsPatchSchema = z.object({ selfSignupPlan: planSchema, requireInstagramConnection: z.boolean(), planLimits: planLimitsSchema }).partial().strict().refine((v) => Object.keys(v).length > 0, "Nothing to update.");
 
 // Onboarding & brand profile -----------------------------------------------------
 

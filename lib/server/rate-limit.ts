@@ -37,6 +37,11 @@ export const FEEDBACK_LIMIT: RateLimitRule = { name: "feedback", limit: 10, wind
 export const INSTAGRAM_SYNC_LIMIT: RateLimitRule = { name: "instagram-sync", limit: 1, windowMs: 60 * 1000 };
 /** "Regenerate" on reply drafts per business (each one is an AI call; the AI's own daily budget applies too). */
 export const REPLY_REGENERATE_LIMIT: RateLimitRule = { name: "reply-regenerate", limit: 30, windowMs: 60 * 60 * 1000 };
+/** AI explanations of competitors and posts per business (each is an AI call; the AI's daily budget applies too). */
+export const COMPETITOR_INSIGHT_LIMIT: RateLimitRule = { name: "competitor-insight", limit: 10, windowMs: 60 * 60 * 1000 };
+export const POST_INSIGHT_LIMIT: RateLimitRule = { name: "post-insight", limit: 20, windowMs: 60 * 60 * 1000 };
+/** AI post-method suggestions (one batched call each) per business. */
+export const METHODS_AI_LIMIT: RateLimitRule = { name: "methods-ai", limit: 4, windowMs: 60 * 60 * 1000 };
 /** AI post images per business (each one costs a paid model call). */
 export const IMAGE_GENERATION_LIMIT: RateLimitRule = { name: "image-generation", limit: 20, windowMs: 60 * 60 * 1000 };
 

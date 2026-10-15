@@ -186,6 +186,8 @@ export interface AdminSettingsDto {
   selfSignupPlan: PlanId;
   /** Onboarding can't be finished without connecting Instagram (default off). */
   requireInstagramConnection: boolean;
+  /** Limits per plan (defaults in config/plans.ts → DEFAULT_PLAN_LIMITS). */
+  planLimits: Record<PlanId, { competitors: number }>;
   /** Read-only: the Meta integration's state (for the System page). */
   meta: { flow: ConnectFlow; configured: boolean; graphVersion: string | null; missing: string[] };
 }

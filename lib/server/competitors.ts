@@ -4,8 +4,22 @@ import { getInstagramService, type CompetitorProfile } from "@/lib/services/inst
 import { ApiError, notFound } from "./http";
 import { getInstagramAccount } from "./instagram-account";
 import { instagramApiError } from "./instagram-errors";
+import { getPlanLimits } from "./settings";
+import type { PlanId } from "@/types";
 
-export const MAX_COMPETITORS = 10;
+/** How many competitors the business's plan allows (System page → plan limits; default 5). */
+export async function competitorLimit(businessId: string): Promise<number> {
+  const [business, limits] = await Promise.all([db.business.findUniqueOrThrow({ where: { id: businessId }, select: { plan: true } }), getPlanLimits()]);
+  return limits[business.plan.toLowerCase() as PlanId].competitors;
+}
+
+/** 409 with the limit in the details (the form says "up to {max}"). */
+export function competitorLimitError(max: number) {
+  return new ApiError(409, "conflict", `You can track up to ${max} competitors on your plan.`, [
+    { path: "handle", message: "limit_reached" },
+    { path: "max", message: String(max) },
+  ]);
+}
 
 /** A tracked competitor of the caller's business, or 404 (other businesses' rows and unusable handles never match). */
 export async function findOwnCompetitor(businessId: string, id: string) {

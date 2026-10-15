@@ -29,7 +29,7 @@ import type {
 } from "@/types";
 import { logActivity } from "./activity";
 import { buildBrandContext, currentBrandContext, getBrandBasics, listBrandPosts } from "./brand";
-import { MAX_COMPETITORS } from "./competitors";
+import { competitorLimit, competitorLimitError } from "./competitors";
 import { requireBusiness, type BusinessContext } from "./guards";
 import { ApiError, notFound } from "./http";
 import { recordCompetitorFetch } from "./competitor-profiles";
@@ -346,8 +346,9 @@ export async function addOnboardingCompetitor(businessId: string, handle: string
     await recordError(businessId, "competitors", { kind: "competitor_lookup", handle, reason });
     throw instagramApiError(error, "Instagram didn't answer. Try again in a moment.");
   }
-  if (lookup.status === "ready" && readyCount >= MAX_COMPETITORS) {
-    throw new ApiError(409, "conflict", `You can track up to ${MAX_COMPETITORS} competitors.`, [{ path: "handle", message: "limit_reached" }]);
+  if (lookup.status === "ready") {
+    const max = await competitorLimit(businessId);
+    if (readyCount >= max) throw competitorLimitError(max);
   }
   if (lookup.status !== "ready") await recordError(businessId, "competitors", { kind: "competitor_lookup", handle, reason: lookup.status });
 

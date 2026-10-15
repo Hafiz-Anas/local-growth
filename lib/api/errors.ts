@@ -30,6 +30,7 @@ const KNOWN = new Set([
   "comment_unavailable",
   "regenerate_unavailable",
   "regenerate_limit",
+  "analysis_limit",
   "network_error",
   "internal_error",
 ]);

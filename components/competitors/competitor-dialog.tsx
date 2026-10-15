@@ -81,7 +81,10 @@ function CompetitorForm({ competitor, onDone }: { competitor: CompetitorDto | nu
     if (reason === "no_such_account") return { handle: t("competitors.form.noSuchAccount") };
     if (reason === "private_account") return { handle: t("onboarding.competitors.reasons.private") };
     if (reason === "not_business") return { handle: t("onboarding.competitors.reasons.not_business") };
-    if (reason === "limit_reached") return { form: t("competitors.form.limitReached") };
+    if (reason === "limit_reached") {
+      const max = (error.details as Array<{ path?: string; message?: string }>).find((d) => d.path === "max")?.message ?? "5";
+      return { form: t("competitors.form.limitReached", { max }) };
+    }
     if (error.code === "validation_error") return { handle: t("competitors.invalidHandle") };
     return { form: errorMessage(error, t) };
   }

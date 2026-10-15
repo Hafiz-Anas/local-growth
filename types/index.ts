@@ -10,3 +10,4 @@ export * from "./settings";
 export * from "./admin";
 export * from "./api";
 export * from "./onboarding";
+export * from "./analysis";

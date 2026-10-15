@@ -7,6 +7,9 @@ import { handler, notFound, ok, readParams } from "@/lib/server/http";
 import { getConnectionDto } from "@/lib/server/instagram-account";
 import { getPermissionsDto } from "@/lib/server/permissions";
 import { replyKinds, replySummary } from "@/lib/server/replies";
+import { competitorAnalysis } from "@/lib/server/competitor-analysis";
+import { methodsOverview } from "@/lib/server/methods";
+import { postDetail, postPerformance } from "@/lib/server/post-performance";
 import { notificationPrefsSchema } from "@/lib/validation/api";
 import type { PreviewDto } from "@/types";
 
@@ -50,6 +53,13 @@ export const GET = handler(async (_request, context: RouteContext<"/api/admin/pr
     d.replyDrafts = await data.listReplies(businessId, "PENDING", kinds);
     d.sentReplies = await data.listReplies(businessId, "POSTED", kinds);
     d.replySummary = await replySummary(businessId, kinds);
+  }
+  if (on("competitors.analysis")) d.competitorAnalysis = await competitorAnalysis(businessId);
+  if (on("methods")) d.methods = await methodsOverview(businessId, permissions);
+  if (on("postInsights")) {
+    d.postPerformance = await postPerformance(businessId);
+    const ids = d.postPerformance.summary.posts.map((p) => p.id);
+    d.postDetails = Object.fromEntries(await Promise.all(ids.map(async (id) => [id, await postDetail(businessId, id)] as const)));
   }
   if (on("settings.brandVoice")) d.brandVoice = await data.getBrandVoice(businessId);
   return ok(preview);

@@ -11,10 +11,15 @@ import { TextGenerationError, sanitizeTextError, type TextFailureReason } from "
 import { TextRequestGate } from "./text/gate";
 import { DEFAULT_GEMINI_TEXT_MODEL, DEFAULT_GEMINI_TEXT_RPD, DEFAULT_GEMINI_TEXT_RPM, generateGeminiText, readGeminiTextConfig } from "./text/gemini";
 import type { EditExample, RegenerateTone } from "@/lib/replies";
+import type { Method } from "@/lib/analysis/methods";
+import { parseClassification, parseCompetitorInsight, parsePostInsight, type CompetitorInsight, type PostInsight } from "./text/analysis";
 import { composeCaption, cleanReply, greetName, isArabic, parseBrandContext, parseCaptions, replyLanguage, stripAvoided } from "./text/output";
 import {
   assistantPrompt,
   brandContextPrompt,
+  classifyPostsPrompt,
+  competitorInsightPrompt,
+  postInsightPrompt,
   brandPrefillPrompt,
   captionPrompt,
   replyPrompt,
@@ -165,6 +170,22 @@ export interface AIService {
   weeklySummary(request: ReportSummaryRequest): Promise<ReportSummaryAnswer>;
   /** Onboarding: niche, tone, hashtags and products suggested from the Instagram bio and posts. A failure says why; the wizard then leaves those fields empty. */
   brandPrefill(request: BrandPrefillRequest): Promise<BrandPrefillAnswer>;
+  /** Competitor tactics vs the business (EN + AR) from computed numbers. A failure says why; the page then shows the numbers only. */
+  competitorInsight(request: AnalysisTextRequest): Promise<{ ok: true; insight: CompetitorInsight } | { ok: false; reason: TextFailureReason }>;
+  /** Marketing method per post (id → method). A failure says why; the rule-based guess stays. */
+  classifyPosts(request: { businessId: string; data: string; ids: string[] }): Promise<{ ok: true; methods: Map<string, Method> } | { ok: false; reason: TextFailureReason }>;
+  /** One post's performance in plain language (EN + AR). A failure says why; the page then shows the numbers only. */
+  postInsight(request: AnalysisTextRequest): Promise<{ ok: true; insight: PostInsight } | { ok: false; reason: TextFailureReason }>;
+}
+
+/** An analysis explanation: the business, and the data block every number must come from. */
+export interface AnalysisTextRequest {
+  businessId: string;
+  businessName: string;
+  businessNameAr: string | null;
+  /** Competitor handle (competitorInsight only). */
+  handle?: string;
+  data: string;
 }
 
 export interface BrandPrefillRequest {
@@ -436,9 +457,23 @@ export class MockAIService implements AIService {
   async brandPrefill(): Promise<BrandPrefillAnswer> {
     return { ok: false, reason: "not_configured" };
   }
+
+  /** MOCK: no model, so no explanation (the numbers and charts still show). */
+  async competitorInsight(): Promise<{ ok: false; reason: TextFailureReason }> {
+    return { ok: false, reason: "not_configured" };
+  }
+
+  /** MOCK: the rule-based guess (lib/analysis/methods.ts) stays. */
+  async classifyPosts(): Promise<{ ok: false; reason: TextFailureReason }> {
+    return { ok: false, reason: "not_configured" };
+  }
+
+  async postInsight(): Promise<{ ok: false; reason: TextFailureReason }> {
+    return { ok: false, reason: "not_configured" };
+  }
 }
 
-type AICall = "ai.captions" | "ai.reply.comment" | "ai.reply.dm" | "ai.reply.rewrite" | "ai.brand_context" | "ai.assistant" | "ai.strategy" | "ai.report" | "ai.prefill";
+type AICall = "ai.captions" | "ai.reply.comment" | "ai.reply.dm" | "ai.reply.rewrite" | "ai.competitor" | "ai.classify" | "ai.post" | "ai.brand_context" | "ai.assistant" | "ai.strategy" | "ai.report" | "ai.prefill";
 
 /**
  * Gemini text model (prompts in ./text/prompts.ts). Never fails: when the
@@ -462,8 +497,10 @@ export class GeminiAIService implements AIService {
     const config = readGeminiTextConfig();
     // What the user gets instead of a model answer, for the log.
     const instead =
-      call === "ai.report"
-        ? { text: "published the report with numbers only", fallback: "numbers_only" }
+      call === "ai.report" || call === "ai.competitor" || call === "ai.post"
+        ? { text: call === "ai.report" ? "published the report with numbers only" : "showed the numbers only", fallback: "numbers_only" }
+        : call === "ai.classify"
+          ? { text: "kept the rule-based post types", fallback: "rules" }
         : call === "ai.assistant" || call === "ai.strategy" || call === "ai.prefill" || call === "ai.reply.rewrite"
           ? { text: "told the user the AI is unavailable", fallback: "unavailable" }
           : { text: "used the template text instead", fallback: "template" };
@@ -596,6 +633,36 @@ export class GeminiAIService implements AIService {
           tone: request.tone ?? null,
         }),
       (answer) => ({ ok: true, text: cleanReply(answer), language }),
+      (reason) => ({ ok: false, reason }),
+    );
+  }
+
+  async competitorInsight(request: AnalysisTextRequest) {
+    return this.run<{ ok: true; insight: CompetitorInsight } | { ok: false; reason: TextFailureReason }>(
+      "ai.competitor",
+      request.businessId,
+      () => competitorInsightPrompt({ businessName: request.businessName, businessNameAr: request.businessNameAr, handle: request.handle ?? "", data: request.data }),
+      (answer) => ({ ok: true, insight: parseCompetitorInsight(answer, request.data) }),
+      (reason) => ({ ok: false, reason }),
+    );
+  }
+
+  async classifyPosts(request: { businessId: string; data: string; ids: string[] }) {
+    return this.run<{ ok: true; methods: Map<string, Method> } | { ok: false; reason: TextFailureReason }>(
+      "ai.classify",
+      request.businessId,
+      () => classifyPostsPrompt({ data: request.data }),
+      (answer) => ({ ok: true, methods: parseClassification(answer, request.ids) }),
+      (reason) => ({ ok: false, reason }),
+    );
+  }
+
+  async postInsight(request: AnalysisTextRequest) {
+    return this.run<{ ok: true; insight: PostInsight } | { ok: false; reason: TextFailureReason }>(
+      "ai.post",
+      request.businessId,
+      () => postInsightPrompt({ businessName: request.businessName, businessNameAr: request.businessNameAr, data: request.data }),
+      (answer) => ({ ok: true, insight: parsePostInsight(answer, request.data) }),
       (reason) => ({ ok: false, reason }),
     );
   }

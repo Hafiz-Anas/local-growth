@@ -18,6 +18,7 @@ import { MOCK_ACTIVITY } from "../mock-data/admin";
 import { CLIENT_DATA } from "../mock-data/client-data";
 import { MOCK_CLIENTS } from "../mock-data/clients";
 import { MOCK_PERMISSIONS } from "../mock-data/permissions";
+import { generatedMedia, growthShare } from "../mock-data/posts";
 import type { ActivityKind, Client } from "../types";
 import { describeDatabase, isProductionTarget } from "../scripts/db-target";
 
@@ -255,6 +256,51 @@ async function seedBusiness(client: Client, index: number, passwordHash: string,
         details: { changes: Object.fromEntries(overrides.map((key) => [key, MOCK_PERMISSIONS[client.id][key]])) },
         createdAt: new Date(Date.now() - 2 * DAY),
       },
+    });
+  }
+
+  await seedAnalysisHistory(client, pack);
+}
+
+/**
+ * History for the analysis pages, so the demo charts aren't empty on day one: daily snapshots of
+ * the mock posts for the last two weeks (growing like real posts do), and eight weekly snapshots
+ * per competitor. The daily cron adds today's from then on.
+ */
+async function seedAnalysisHistory(client: Client, pack: (typeof CLIENT_DATA)[string]) {
+  const now = Date.now();
+  const top = pack.dashboard.topPost;
+  const posts = [
+    { id: top.id, postedAt: shift(top.postedAt).toISOString(), likes: top.likes, comments: top.comments, reach: top.reach, saves: top.saves, shares: Math.round(top.saves * 0.4), views: null as number | null },
+    ...generatedMedia(client.handle, 12, now).map((m) => ({ ...m, shares: m.shares ?? null, views: m.views ?? null })),
+  ];
+  const scaled = (value: number | null, share: number) => (value === null ? null : Math.round(value * share));
+  const snapshots = posts.flatMap((p) =>
+    Array.from({ length: 14 }, (_, i) => i).flatMap((i) => {
+      const day = new Date(now - (i + 1) * DAY);
+      const age = (day.getTime() - Date.parse(p.postedAt)) / DAY;
+      if (age < 0) return [];
+      const share = growthShare(age);
+      return [{ businessId: client.id, igMediaId: p.id, date: day.toISOString().slice(0, 10), likes: Math.round(p.likes * share), comments: Math.round(p.comments * share), reach: scaled(p.reach, share), saves: scaled(p.saves, share), shares: scaled(p.shares, share), views: scaled(p.views, share), takenAt: day }];
+    }),
+  );
+  await db.postSnapshot.createMany({ data: snapshots, skipDuplicates: true });
+
+  const competitors = await db.competitor.findMany({ where: { businessId: client.id }, select: { id: true, handle: true, followers: true, engagementRate: true } });
+  for (const c of competitors) {
+    const monthlyPct = pack.competitors.competitors.find((x) => x.handle === c.handle)?.followerChangePct ?? 2;
+    const weekly = Math.pow(1 + monthlyPct / 100, 1 / 4.3);
+    await db.competitorSnapshot.createMany({
+      data: Array.from({ length: 8 }, (_, i) => {
+        const weeksAgo = i + 1;
+        return {
+          competitorId: c.id,
+          followers: Math.round(c.followers / Math.pow(weekly, weeksAgo)),
+          mediaCount: 120 - weeksAgo * 3,
+          engagementRate: Math.round((c.engagementRate + Math.sin(weeksAgo + c.handle.length) * 0.4) * 10) / 10,
+          takenAt: new Date(now - weeksAgo * 7 * DAY),
+        };
+      }),
     });
   }
 }

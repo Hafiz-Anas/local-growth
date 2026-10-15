@@ -3,6 +3,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { MOCK_SYSTEM_STATUS } from "@/mock-data/admin";
 import { CLIENT_DATA, type ClientDataPack } from "@/mock-data/client-data";
 import { MOCK_CLIENTS } from "@/mock-data/clients";
+import { POST_ICONS, POST_TONES, generatedMedia, hash, mockCompetitorPostDetails, mockMediaUrl } from "@/mock-data/posts";
 import type { CompetitorPost, InstagramProfileDto, MediaDto } from "@/types";
 import {
   InstagramMessagingError,
@@ -33,18 +34,10 @@ function packFor(account: InstagramAccount): ClientDataPack | undefined {
   return CLIENT_DATA[account.businessId];
 }
 
-function hash(text: string): number {
-  let h = 0;
-  for (const ch of text) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-  return h;
-}
 
 function requireConnection(account: InstagramAccount) {
   if (!account.connected) throw new InstagramNotConnectedError();
 }
-
-const POST_TONES = ["roast", "sand", "latte", "rose", "pistachio", "date", "night", "berry"] as const;
-const POST_ICONS = ["coffee", "gift", "cake", "bag", "sparkles", "cup", "nut", "gem"] as const;
 
 /** Pads a profile's posts to six with stable made-up ones (older, quieter posts). */
 function morePosts(handle: string, posts: CompetitorPost[], baseLikes: number): CompetitorPost[] {
@@ -60,48 +53,9 @@ function morePosts(handle: string, posts: CompetitorPost[], baseLikes: number): 
   return [...posts, ...extra];
 }
 
-/** Stand-in post image per tone (public/mock-media, from scripts/generate-mock-media.mjs). */
-const mockMediaUrl = (tone: string) => `/mock-media/${tone}.svg`;
-
-const MOCK_CAPTIONS = [
-  "New this week ✨ Come try it before it's gone!",
-  "وصلت الدفعة الجديدة 🤍 اطلبوا الحين",
-  "Weekend special — 15% off everything until Saturday 🎉",
-  "خلف الكواليس: هذا اللي نسويه كل صباح ☕",
-  "Find us in the heart of the city 📍 Open daily 9am–11pm",
-  "عرض خاص لنهاية الأسبوع 🔥 لا يفوتكم",
-  "Our bestseller is back in stock 🙌",
-  "Thank you for 10K followers 🤍 الشكر لكم",
-  "Fresh from the kitchen this morning",
-  "تعرفوا على فريقنا 👋",
-  "Gift boxes ready for the season 🎁",
-  "Your favourites, delivered across Kuwait 🚚",
-] as const;
-
-/**
- * Stable made-up recent posts for an account without a mock pack — what a
- * freshly connected business sees in the onboarding post picker. Every fourth is a reel.
- */
-function generatedMedia(seed: string, count: number): MediaDto[] {
-  const h = hash(seed);
-  const day = 24 * 60 * 60 * 1000;
-  return Array.from({ length: count }, (_, i) => {
-    const tone = POST_TONES[(h + i * 3) % POST_TONES.length];
-    const likes = 80 + ((h >>> (i % 16)) % 900);
-    return {
-      id: `ig_media_${seed}_${i + 1}`,
-      caption: MOCK_CAPTIONS[(h + i) % MOCK_CAPTIONS.length],
-      mediaUrl: mockMediaUrl(tone),
-      mediaType: i % 4 === 3 ? ("video" as const) : ("image" as const),
-      tone,
-      icon: POST_ICONS[(h + i * 5) % POST_ICONS.length],
-      likes,
-      comments: 3 + ((h >>> ((i + 3) % 16)) % 60),
-      reach: likes * (6 + (i % 5)),
-      saves: 5 + ((h >>> ((i + 5) % 16)) % 120),
-      postedAt: new Date(Date.now() - (i * 2 + 1) * day - (h % 7) * 3_600_000).toISOString(),
-    };
-  });
+/** Adds caption, posting time and format (the analysis needs them) to a mock competitor's posts. */
+function withDetails(handle: string, posts: CompetitorPost[], postsPerWeek: number): CompetitorPost[] {
+  return posts.map((p, i) => ({ ...mockCompetitorPostDetails(handle, i, postsPerWeek), ...p }));
 }
 
 /**
@@ -169,7 +123,7 @@ export class MockInstagramService implements InstagramService {
     // Accounts without a mock pack only have posts once connected.
     if (!top && !account.connected) return [];
     const seed = account.username || account.businessId;
-    const first: MediaDto[] = top ? [{ ...top, mediaUrl: mockMediaUrl(top.tone), mediaType: "image", postedAt: shift(top.postedAt) }] : [];
+    const first: MediaDto[] = top ? [{ ...top, mediaUrl: mockMediaUrl(top.tone), mediaType: "image", format: "photo", shares: Math.round(top.saves * 0.4), views: null, postedAt: shift(top.postedAt) }] : [];
     return [...first, ...generatedMedia(seed, 12)].slice(0, limit);
   }
 
@@ -233,7 +187,7 @@ export class MockInstagramService implements InstagramService {
           followerChangePct,
           engagementRate,
           postsPerWeek,
-          recentPosts: morePosts(handle, recentPosts, baseLikes),
+          recentPosts: withDetails(handle, morePosts(handle, recentPosts, baseLikes), postsPerWeek),
           notableNote,
           engagementHistory: engagementHistory(handle, engagementRate),
         };
@@ -262,7 +216,7 @@ export class MockInstagramService implements InstagramService {
       followerChangePct: Math.round(((h % 90) / 10 - 2) * 10) / 10,
       engagementRate,
       postsPerWeek: 2 + (h % 7),
-      recentPosts: morePosts(handle, recentPosts, Math.max(...recentPosts.map((p) => p.likes))),
+      recentPosts: withDetails(handle, morePosts(handle, recentPosts, Math.max(...recentPosts.map((p) => p.likes))), 2 + (h % 7)),
       notableNote: "Recently added — insights appear after the first full week of tracking.",
       engagementHistory: engagementHistory(handle, engagementRate),
     };

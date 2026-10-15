@@ -48,6 +48,8 @@
   /* Data viz (single-hue sequential ramp on Instagram blue) */
   --lge-chart-line: #0095f6;
   --lge-chart-grid: #efefef;
+  /* Second series (a competitor, or "the average"): neutral, so the business's own blue stays the focus. */
+  --lge-chart-alt: #a8a8a8;
   --lge-heat-0: #f2f8fd;
   --lge-heat-1: #cfe7fb;
   --lge-heat-2: #94cbf7;
@@ -81,6 +83,7 @@
   --lge-green: #4cc56f;
 
   --lge-chart-grid: #262626;
+  --lge-chart-alt: #737373;
   --lge-heat-0: #0d1a24;
   --lge-heat-1: #0c3352;
   --lge-heat-2: #08548a;

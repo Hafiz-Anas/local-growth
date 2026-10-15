@@ -1,7 +1,7 @@
 import { logActivity } from "@/lib/server/activity";
 import { requireRole } from "@/lib/server/guards";
 import { handler, ok, readJson } from "@/lib/server/http";
-import { getAdminSettings, getRequireInstagramConnection, getSelfSignupPlan, setRequireInstagramConnection, setSelfSignupPlan } from "@/lib/server/settings";
+import { getAdminSettings, getPlanLimits, getRequireInstagramConnection, getSelfSignupPlan, setPlanLimits, setRequireInstagramConnection, setSelfSignupPlan } from "@/lib/server/settings";
 import { adminSettingsPatchSchema } from "@/lib/validation/api";
 
 /** GET /api/admin/settings — platform settings (default plan for self sign-ups). */
@@ -10,10 +10,15 @@ export const GET = handler(async () => {
   return ok(await getAdminSettings());
 });
 
-/** PATCH /api/admin/settings  { selfSignupPlan?, requireInstagramConnection? } — plan applies to new sign-ups only. */
+/** PATCH /api/admin/settings  { selfSignupPlan?, requireInstagramConnection?, planLimits? } — plan applies to new sign-ups only. */
 export const PATCH = handler(async (request) => {
   const session = await requireRole("ADMIN");
-  const { selfSignupPlan, requireInstagramConnection } = await readJson(request, adminSettingsPatchSchema);
+  const { selfSignupPlan, requireInstagramConnection, planLimits } = await readJson(request, adminSettingsPatchSchema);
+  if (planLimits) {
+    const before = await getPlanLimits();
+    await setPlanLimits(planLimits);
+    await logActivity({ userId: session.userId, action: "settings.plan_limits_changed", details: { from: before, to: planLimits } });
+  }
   if (requireInstagramConnection !== undefined) {
     const before = await getRequireInstagramConnection();
     await setRequireInstagramConnection(requireInstagramConnection);

@@ -25,6 +25,7 @@ export const FEATURE_KEYS = [
   "competitors.accounts",
   "competitors.trendingAudio",
   "competitors.trendingHashtags",
+  "competitors.analysis",
 
   "postGenerator",
   "postGenerator.brandVocabulary",
@@ -48,6 +49,10 @@ export const FEATURE_KEYS = [
 
   "reports",
 
+  "postInsights",
+
+  "methods",
+
   "notifications",
 
   "settings.brandVoice",
@@ -55,7 +60,7 @@ export const FEATURE_KEYS = [
 
 export interface FeatureModuleDef {
   /** Translation namespace: features.<id>.* */
-  id: "dashboard" | "competitors" | "postGenerator" | "experiment" | "engagement" | "assistant" | "recommendations" | "reports" | "notifications" | "settings";
+  id: "dashboard" | "competitors" | "postGenerator" | "experiment" | "engagement" | "assistant" | "recommendations" | "reports" | "postInsights" | "methods" | "notifications" | "settings";
   /** Module-level toggle; `null` when the module itself is always available (dashboard, settings). */
   moduleKey: FeatureKey | null;
   subFeatures: FeatureKey[];
@@ -76,7 +81,7 @@ export const FEATURE_MODULES: FeatureModuleDef[] = [
   {
     id: "competitors",
     moduleKey: "competitors",
-    subFeatures: ["competitors.accounts", "competitors.trendingAudio", "competitors.trendingHashtags"],
+    subFeatures: ["competitors.accounts", "competitors.trendingAudio", "competitors.trendingHashtags", "competitors.analysis"],
   },
   {
     id: "postGenerator",
@@ -111,6 +116,16 @@ export const FEATURE_MODULES: FeatureModuleDef[] = [
   {
     id: "reports",
     moduleKey: "reports",
+    subFeatures: [],
+  },
+  {
+    id: "postInsights",
+    moduleKey: "postInsights",
+    subFeatures: [],
+  },
+  {
+    id: "methods",
+    moduleKey: "methods",
     subFeatures: [],
   },
   {

@@ -10,6 +10,10 @@ import { createServer } from "node:http";
  *   two hashtag candidates;
  * - reply drafts (system prompt "You reply on behalf of") get a short reply; "Regenerate" requests (with a
  *   <previous_draft>) get "New draft (<tone>) v<n>", where tone is shorter / formal / friendly / new;
+ * - competitor comparisons (schema with "tactics_en") get a comparison quoting only numbers from the data
+ *   (or, for the handle in `state.inventFor`, one with an invented number that must be rejected);
+ * - post classifications (schema with "posts") mark every post as "giveaway";
+ * - post explanations (schema with "learn_en") get a summary without numbers;
  * - chat requests get an answer echoing the question (Arabic for an Arabic question);
  * - a question containing "[down]", or `state.fail`, gets a 503.
  */
@@ -17,7 +21,7 @@ import { createServer } from "node:http";
 export interface StubCall {
   system: string;
   turns: Array<{ role: string; text: string }>;
-  kind: "strategy" | "report" | "prefill" | "reply" | "chat";
+  kind: "strategy" | "report" | "prefill" | "reply" | "competitor" | "classify" | "postInsight" | "chat";
 }
 
 export const STUB_PORT = Number(process.env.E2E_GEMINI_STUB_PORT ?? 4010);
@@ -51,7 +55,7 @@ export function stubRecommendations(n: number) {
 
 export async function startGeminiStub(port = STUB_PORT) {
   const calls: StubCall[] = [];
-  const state = { fail: false, analyses: 0, inventNumbersFor: "", rewrites: 0 };
+  const state = { fail: false, analyses: 0, inventNumbersFor: "", rewrites: 0, inventFor: "" };
   const server = createServer((req, res) => {
     let raw = "";
     req.on("data", (chunk) => (raw += chunk));
@@ -60,7 +64,21 @@ export async function startGeminiStub(port = STUB_PORT) {
       const turns = (body.contents ?? []).map((c) => ({ role: c.role, text: c.parts.map((p) => p.text).join("") }));
       const props = body.generationConfig?.responseSchema?.properties ?? {};
       const system = body.systemInstruction?.parts[0]?.text ?? "";
-      const kind = props.recommendations ? "strategy" : props.summary_en ? "report" : props.business_type ? "prefill" : system.includes("You reply on behalf of") ? "reply" : "chat";
+      const kind = props.recommendations
+        ? "strategy"
+        : props.summary_en && props.learn_en
+          ? "postInsight"
+          : props.summary_en
+            ? "report"
+            : props.business_type
+              ? "prefill"
+              : props.tactics_en
+                ? "competitor"
+                : props.posts
+                  ? "classify"
+                  : system.includes("You reply on behalf of")
+                    ? "reply"
+                    : "chat";
       calls.push({ system, turns, kind });
       const question = turns.at(-1)?.text ?? "";
       res.setHeader("content-type", "application/json");
@@ -85,6 +103,29 @@ export async function startGeminiStub(port = STUB_PORT) {
             ? { summary_en: "Reach jumped 987654% this week.", summary_ar: "قفز الوصول ٩٨٧٦٥٤٪ هذا الأسبوع." }
             : { summary_en: "A steady week compared with the one before. Your top post led the way; keep posting at your strongest times.", summary_ar: "أسبوع مستقر مقارنة بالأسبوع السابق. تصدّر أفضل منشور لديكم؛ استمروا في النشر في أفضل أوقاتكم." },
         );
+      } else if (kind === "competitor") {
+        const handle = system.match(/competitors \(@([^)]+)\)/)?.[1] ?? "";
+        const invent = Boolean(state.inventFor) && handle === state.inventFor;
+        text = JSON.stringify({
+          tactics_en: invent ? "They gained 987654 followers with Reels." : `@${handle} seems to post mostly Reels in the evening and leans on offers.`,
+          tactics_ar: "يبدو أنهم ينشرون غالباً ريلز في المساء ويعتمدون على العروض.",
+          they_better_en: ["They post more often."],
+          they_better_ar: ["ينشرون بشكل أكثر تكراراً."],
+          you_better_en: ["Your engagement per follower is higher."],
+          you_better_ar: ["تفاعلكم لكل متابع أعلى."],
+          ideas_en: ["Try one offer as a Reel this week.", "Post in the evening twice."],
+          ideas_ar: ["جربوا عرضاً واحداً كريل هذا الأسبوع.", "انشروا مساءً مرتين."],
+        });
+      } else if (kind === "classify") {
+        const ids = [...system.matchAll(/- id (\S+) \|/g)].map((m) => m[1]);
+        text = JSON.stringify({ posts: ids.map((id) => ({ id, method: "giveaway" })) });
+      } else if (kind === "postInsight") {
+        text = JSON.stringify({
+          summary_en: "This post did better than your usual posts.",
+          summary_ar: "أداء هذا المنشور أفضل من منشوراتكم المعتادة.",
+          learn_en: "Posts like this seem to work for you.",
+          learn_ar: "يبدو أن منشورات كهذه تناسبكم.",
+        });
       } else if (kind === "reply") {
         if (question.includes("<previous_draft>")) {
           state.rewrites += 1;

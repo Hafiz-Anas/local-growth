@@ -89,6 +89,13 @@ enum ReplyOutcome {
 }
 
 /// Where an AI reply draft goes: a public reply to a comment, or a direct message.
+/// Who set a post's marketing method: the caption rules, the AI, or the client (never overwritten).
+enum PostMethodSource {
+  RULE
+  AI
+  USER
+}
+
 enum ReplyChannel {
   COMMENT
   DM
@@ -328,6 +335,9 @@ model Business {
   recommendations     Recommendation[]
   notifications       Notification[]
   weeklyReports       WeeklyReport[]
+  postSnapshots       PostSnapshot[]
+  postMethods         PostMethod[]
+  postInsights        PostInsight[]
 }
 
 /// One row per (business, feature key). A sub-feature ("engagement.dmRules") is
@@ -532,11 +542,83 @@ model Competitor {
   lastValidatedAt  DateTime?
   /// Last business-discovery result (Meta-connected businesses), reused for 6 hours.
   profileCache     Json?
+  /// Why the last weekly lookup failed (private, not_business, not_found), or null when it worked.
+  lookupIssue      String?
+  lookupCheckedAt  DateTime?
 
   business  Business             @relation(fields: [businessId], references: [id], onDelete: Cascade)
   snapshots CompetitorSnapshot[]
+  analysis  CompetitorAnalysis?
 
   @@unique([businessId, handle])
+}
+
+/// The AI's comparison of a competitor with the business (EN + AR), cached until the measured numbers change.
+model CompetitorAnalysis {
+  id            String   @id @default(cuid())
+  competitorId  String   @unique
+  /// Fingerprint of the numbers (both accounts) + prompt version the text was written for.
+  inputHash     String
+  /// { en: {tactics, theyBetter[], youBetter[], ideas[]}, ar: {…} }, or null when the AI couldn't write it.
+  insight       Json?
+  failureReason String?
+  generatedAt   DateTime @default(now())
+
+  competitor Competitor @relation(fields: [competitorId], references: [id], onDelete: Cascade)
+}
+
+/// One of the business's posts on one day (daily cron): its metrics over time. Missing metrics are null, never estimated.
+model PostSnapshot {
+  id         String   @id @default(cuid())
+  businessId String
+  igMediaId  String
+  /// YYYY-MM-DD in UTC.
+  date       String
+  likes      Int
+  comments   Int
+  reach      Int?
+  saves      Int?
+  shares     Int?
+  views      Int?
+  takenAt    DateTime @default(now())
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, igMediaId, date])
+  @@index([businessId, date])
+}
+
+/// A post's marketing method (collaboration, giveaway, offer…) and the client's "promoted" flag.
+model PostMethod {
+  id         String           @id @default(cuid())
+  businessId String
+  igMediaId  String
+  /// lib/analysis/methods.ts → METHODS
+  method     String
+  source     PostMethodSource
+  /// Marked by the client as a paid / boosted post (we have no Ads API).
+  promoted   Boolean          @default(false)
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, igMediaId])
+}
+
+/// The AI's short explanation of one post (EN + AR), cached until its numbers change.
+model PostInsight {
+  id          String   @id @default(cuid())
+  businessId  String
+  igMediaId   String
+  inputHash   String
+  /// { en: {summary, learn}, ar: {summary, learn} }
+  insight     Json
+  generatedAt DateTime @default(now())
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, igMediaId])
 }
 
 // ─── Brand profile ───────────────────────────────────────────────────────────

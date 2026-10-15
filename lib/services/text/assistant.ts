@@ -1,3 +1,6 @@
+import type { MethodRank, PromotedComparison, Method } from "../../analysis/methods";
+import type { AccountStats, MetricComparison } from "../../analysis/posts";
+import { statsLines } from "./analysis";
 import { focusLines, type BusinessFocus } from "./focus";
 import { isArabic } from "./output";
 
@@ -91,6 +94,26 @@ export interface AssistantFacts {
   };
   /** Only for the competitors mode, and only when the business has that feature. */
   competitors?: AssistantCompetitor[];
+  /** The analysis pages' numbers (each part only with its feature): content mix, methods, competitor analysis. */
+  analysis?: AssistantAnalysis;
+}
+
+export interface AssistantAnalysis {
+  /** The business's own posts: formats, posting days/times, hashtags (lib/analysis/posts.ts). */
+  you?: AccountStats | null;
+  followers?: number | null;
+  /** Analytics: marketing methods ranked by likes + comments, and promoted vs normal posts. */
+  methods?: { ranking: MethodRank[]; promoted: PromotedComparison } | null;
+  /** Competitors: measured numbers per competitor, weekly growth, comparison and estimated content types. */
+  competitors?: Array<{
+    handle: string;
+    followers: number;
+    stats: AccountStats | null;
+    growth: { changePct: number | null; weeks: number };
+    comparison: MetricComparison[];
+    methods: Array<{ method: Method; posts: number; avgInteractions: number }>;
+    issue: string | null;
+  }>;
 }
 
 /** The answer follows the question: any Arabic letter → Arabic. */
@@ -267,7 +290,38 @@ export function formatFacts(facts: AssistantFacts, mode: FactsScope, now = new D
         `@${c.handle} (${c.name}): ${c.followers} followers${c.followerChangePct !== null ? ` (${pct(c.followerChangePct)} in ~30 days)` : ""}, engagement ${c.engagementRate}%, ${c.postsPerWeek} posts/week, ${recent}${c.lastFetchedAt ? `; data from ${day(c.lastFetchedAt)}` : ""}${c.note ? `; note: ${c.note}` : ""}`,
       );
     }
-    lines.push("We store no captions, prices, ads, audience or reach data for competitors.");
+    lines.push("We have no prices, ads, audience or reach data for competitors.");
+  }
+
+  const analysis = facts.analysis;
+  if (analysis && (mode === "analytics" || mode === "strategy")) {
+    if (analysis.you) lines.push("", "## Content mix and posting habits (measured)", ...statsLines("The business", analysis.you, analysis.followers ?? null).slice(1));
+    if (analysis.methods && analysis.methods.ranking.length) {
+      const m = analysis.methods;
+      lines.push(
+        "",
+        "## Marketing methods (likes + comments per post by type; correlation, not causation)",
+        ...m.ranking.map((r) => `${r.method.replace(/_/g, " ")}: ${r.posts} posts, ${r.avgInteractions} likes+comments on average (${pct(r.vsAveragePct)} vs the account average)${r.avgReach !== null ? `, reach ${r.avgReach}` : ""}${r.enoughData ? "" : " — too few posts to rank"}`),
+        m.promoted.promoted.posts
+          ? `Promoted (marked by the owner) vs normal posts: ${m.promoted.promoted.posts} promoted averaging ${m.promoted.promoted.avgInteractions}, ${m.promoted.organic.posts} normal averaging ${m.promoted.organic.avgInteractions}${m.promoted.diffPct !== null ? ` (${pct(m.promoted.diffPct)})` : ""}${m.promoted.enoughData ? "" : " — too few posts to compare"}`
+          : "No posts are marked as promoted.",
+      );
+    }
+  }
+  if (analysis?.competitors && mode === "competitors") {
+    lines.push("", "## Competitor analysis (measured from their public posts; content types are estimates from captions)");
+    if (analysis.you) lines.push(...statsLines("The business", analysis.you, analysis.followers ?? null));
+    for (const c of analysis.competitors) {
+      if (c.issue) {
+        lines.push(`### Competitor @${c.handle}`, `Couldn't be loaded at the last weekly check (${c.issue.replace(/_/g, " ")}).`);
+        continue;
+      }
+      lines.push(...statsLines(`Competitor @${c.handle}`, c.stats, c.followers));
+      lines.push(c.growth.changePct !== null ? `Follower change over ${c.growth.weeks} weekly snapshots: ${pct(c.growth.changePct)}` : "Follower history: not enough weekly snapshots yet.");
+      if (c.methods.length) lines.push(`Content types (estimated): ${c.methods.map((m) => `${m.method.replace(/_/g, " ")} ${m.posts}`).join(", ")}`);
+      const ahead = c.comparison.filter((x) => x.ahead === "you" || x.ahead === "them");
+      if (ahead.length) lines.push(`Measured differences: ${ahead.map((x) => `${x.metric} business ${x.you} vs competitor ${x.them} (${x.ahead === "you" ? "business ahead" : "competitor ahead"})`).join("; ")}`);
+    }
   }
 
   return lines.join("\n");

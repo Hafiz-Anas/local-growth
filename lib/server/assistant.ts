@@ -1,4 +1,5 @@
 import "server-only";
+import { accountStats } from "@/lib/analysis/posts";
 import { db } from "@/lib/db";
 import type { AssistantMode as DbMode } from "@/lib/generated/prisma/client";
 import { isFeatureEnabled } from "@/lib/permissions";
@@ -15,9 +16,12 @@ import {
 } from "@/lib/services/text/assistant";
 import type { AssistantConversationDto, AssistantMessageDto, AssistantOverviewDto, AssistantReplyDto, AssistantThreadDto, Permissions } from "@/types";
 import { currentBrandContext, postingLanguages } from "./brand";
+import { competitorAnalysis } from "./competitor-analysis";
 import { listCompetitors } from "./data";
 import { ApiError, notFound } from "./http";
 import { getInstagramAccount, needsReconnect } from "./instagram-account";
+import { methodsOverview } from "./methods";
+import { ownPosts } from "./post-data";
 
 /**
  * The client AI assistant: chat history per business, and the data each
@@ -86,7 +90,7 @@ export async function deleteAssistantConversation(businessId: string, id: string
  * Competitors are loaded for the competitors mode, and for "strategy" when `withCompetitors`
  * (the business has the competitors feature). Shared by the assistant and the recommendations.
  */
-export async function gatherAssistantFacts(businessId: string, mode: FactsScope, { withCompetitors = false } = {}): Promise<AssistantFacts> {
+export async function gatherAssistantFacts(businessId: string, mode: FactsScope, { withCompetitors = false, permissions }: { withCompetitors?: boolean; permissions?: Permissions } = {}): Promise<AssistantFacts> {
   const business = await db.business.findUniqueOrThrow({
     where: { id: businessId },
     select: {
@@ -200,7 +204,30 @@ export async function gatherAssistantFacts(businessId: string, mode: FactsScope,
       facts.competitors = [];
     }
   }
+  if (permissions && facts.instagram.status !== "not_connected") facts.analysis = await gatherAnalysis(businessId, mode, permissions);
   return facts;
+}
+
+/** The analysis pages' numbers for the chat (Analytics: content mix + methods; Competitors: competitor analysis). Never calls the AI. */
+async function gatherAnalysis(businessId: string, mode: FactsScope, permissions: Permissions): Promise<AssistantFacts["analysis"]> {
+  try {
+    if (mode === "analytics") {
+      const own = await ownPosts(businessId);
+      const methods = isFeatureEnabled(permissions, "methods") ? await methodsOverview(businessId, permissions) : null;
+      return { you: accountStats(own.posts, own.followers, own.timeZone), followers: own.followers, methods: methods && { ranking: methods.ranking, promoted: methods.promoted } };
+    }
+    if (mode === "competitors" && isFeatureEnabled(permissions, "competitors.analysis")) {
+      const a = await competitorAnalysis(businessId);
+      return {
+        you: a.you.stats,
+        followers: a.you.followers,
+        competitors: a.competitors.map((c) => ({ handle: c.handle, followers: c.followers, stats: c.stats, growth: { changePct: c.growth.changePct, weeks: c.growth.weeks }, comparison: c.comparison, methods: c.methods, issue: c.issue })),
+      };
+    }
+  } catch (error) {
+    console.error("[assistant] analysis data unavailable", (error as Error).message);
+  }
+  return undefined;
 }
 
 // ─── Asking ──────────────────────────────────────────────────────────────────
@@ -230,7 +257,7 @@ export async function askAssistant(
 
   const business = await db.business.findUniqueOrThrow({ where: { id: businessId }, select: { name: true, nameAr: true } });
   const language = questionLanguage(question);
-  const facts = await gatherAssistantFacts(businessId, input.mode);
+  const facts = await gatherAssistantFacts(businessId, input.mode, { permissions: ctx.permissions });
   const answer = await getAIService().chat({
     businessId,
     prompt: {

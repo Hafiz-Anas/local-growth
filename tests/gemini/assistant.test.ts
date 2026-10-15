@@ -103,7 +103,7 @@ describe("Assistant data", () => {
   it("competitors: only stored competitor numbers, an honest note when there are none", () => {
     const none = formatFacts(facts({ competitors: [] }), "competitors", NOW);
     assert.match(none, /Tracked competitors \(0\)\nNone\./);
-    assert.match(none, /We store no captions, prices, ads, audience or reach data for competitors\./);
+    assert.match(none, /We have no prices, ads, audience or reach data for competitors\./);
     const some = formatFacts(
       facts({
         competitors: [

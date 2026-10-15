@@ -54,7 +54,7 @@ test("desktop: one sidebar entry per section; Insights holds its pages as tabs",
 
   await sidebar(page).getByRole("link", { name: "Insights" }).click();
   await expect(page).toHaveURL(/\/recommendations$/);
-  await expect(sectionTabs(page).getByRole("link")).toHaveText(["Recommendations", "Reports", "Posting experiment"]);
+  await expect(sectionTabs(page).getByRole("link")).toHaveText(["Recommendations", "Reports", "Post performance", "Methods", "Posting experiment"]);
   await expect(sectionTabs(page).getByRole("link", { name: "Recommendations" })).toHaveAttribute("aria-current", "page");
 
   await sectionTabs(page).getByRole("link", { name: "Reports" }).click();
@@ -96,7 +96,7 @@ test("phone: five labelled tabs, active section, nothing behind the assistant ba
 test("Arabic, right to left: the sections and tabs are translated", async () => {
   await switchLanguage(page, "ar");
   await expect(tabBar(page).getByRole("link")).toHaveText(["الرئيسية", "المنشورات", "التفاعل", "التحليلات", "المنافسون"]);
-  await expect(sectionTabs(page).getByRole("link")).toHaveText(["التوصيات", "التقارير", "تجربة النشر"]);
+  await expect(sectionTabs(page).getByRole("link")).toHaveText(["التوصيات", "التقارير", "أداء المنشورات", "الأساليب", "تجربة النشر"]);
   await switchLanguage(page, "en");
   await page.setViewportSize({ width: 1366, height: 800 });
 });
@@ -110,7 +110,7 @@ test("feature switches: hidden pages and sections disappear everywhere (not gray
 
   try {
     // Only the posting experiment left in Insights: the section links straight to it, without tabs.
-    expect((await set({ recommendations: false, reports: false })).ok()).toBe(true);
+    expect((await set({ recommendations: false, reports: false, postInsights: false, methods: false })).ok()).toBe(true);
     await page.goto("/dashboard");
   await page.waitForLoadState("networkidle");
     await expect(sidebar(page).getByRole("link", { name: "Insights" })).toHaveAttribute("href", "/experiment");
@@ -127,7 +127,7 @@ test("feature switches: hidden pages and sections disappear everywhere (not gray
     await page.setViewportSize({ width: 390, height: 844 });
     await expect(tabBar(page).getByRole("link")).toHaveText(["Home", "Posts", "Engagement"]);
   } finally {
-    await set({ recommendations: true, reports: true, experiment: true, competitors: true });
+    await set({ recommendations: true, reports: true, postInsights: true, methods: true, experiment: true, competitors: true });
     await adminPage.close();
     await page.setViewportSize({ width: 1366, height: 800 });
   }

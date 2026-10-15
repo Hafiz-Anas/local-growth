@@ -49,6 +49,8 @@ export type ApiErrorCode =
   | "regenerate_unavailable"
   /** Too many "Regenerate" requests in the last hour (REPLY_REGENERATE_LIMIT). */
   | "regenerate_limit"
+  /** Too many AI explanations (competitors / posts) in the last hour; the numbers are still shown. */
+  | "analysis_limit"
   | "internal_error";
 
 /** Throw from route code (or guards); `handler()` turns it into the JSON error response. */

@@ -158,7 +158,15 @@ export interface MediaDto {
   reach: number;
   saves: number;
   postedAt: string;
+  /** Reel / carousel / photo / video (lib/analysis/posts.ts → formatOf); absent = from mediaType. */
+  format?: PostFormatDto;
+  /** Own posts, when Instagram reports them; null = not available. */
+  shares?: number | null;
+  views?: number | null;
+  permalink?: string | null;
 }
+
+export type PostFormatDto = "reel" | "carousel" | "photo" | "video";
 
 /** Sections are present only when the matching dashboard feature is ON. */
 export interface DashboardDto {
@@ -444,6 +452,11 @@ export interface PreviewDto {
     replyDrafts?: ReplyDraftDto[];
     sentReplies?: ReplyDraftDto[];
     replySummary?: ReplySummaryDto;
+    competitorAnalysis?: import("./analysis").CompetitorAnalysisDto;
+    methods?: import("./analysis").MethodsDto;
+    postPerformance?: import("./analysis").PostPerformanceDto;
+    /** Post detail for the recent posts (preview opens them read-only). */
+    postDetails?: Record<string, import("./analysis").PostDetailDto>;
     brandVoice?: BrandVoiceDto | null;
     brand: BrandProfileDto;
     instagram: InstagramConnectionDto;

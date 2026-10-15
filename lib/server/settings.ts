@@ -1,7 +1,8 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { connectFlow, readMetaConfig } from "@/lib/services/meta/config";
-import { planSchema } from "@/lib/validation/api";
+import { DEFAULT_PLAN_LIMITS, type PlanLimits } from "@/config/plans";
+import { planLimitsSchema, planSchema } from "@/lib/validation/api";
 import type { AdminSettingsDto, PlanId } from "@/types";
 
 /** Platform-wide settings stored in SystemSetting (key → JSON value). */
@@ -28,12 +29,32 @@ export async function setRequireInstagramConnection(value: boolean) {
   await db.systemSetting.upsert({ where: { key: REQUIRE_INSTAGRAM }, update: { value }, create: { key: REQUIRE_INSTAGRAM, value } });
 }
 
+const PLAN_LIMITS = "planLimits";
+
+/** Limits per plan: the admin's values over the defaults (config/plans.ts). */
+export async function getPlanLimits(): Promise<Record<PlanId, PlanLimits>> {
+  const row = await db.systemSetting.findUnique({ where: { key: PLAN_LIMITS }, select: { value: true } });
+  const parsed = planLimitsSchema.safeParse(row?.value ?? {});
+  const saved = parsed.success ? parsed.data : {};
+  return {
+    starter: { ...DEFAULT_PLAN_LIMITS.starter, ...saved.starter },
+    growth: { ...DEFAULT_PLAN_LIMITS.growth, ...saved.growth },
+    pro: { ...DEFAULT_PLAN_LIMITS.pro, ...saved.pro },
+  };
+}
+
+export async function setPlanLimits(patch: Partial<Record<PlanId, PlanLimits>>) {
+  const value = { ...(await getPlanLimits()), ...patch };
+  await db.systemSetting.upsert({ where: { key: PLAN_LIMITS }, update: { value }, create: { key: PLAN_LIMITS, value } });
+}
+
 export async function getAdminSettings(): Promise<AdminSettingsDto> {
-  const [selfSignupPlan, requireInstagramConnection] = await Promise.all([getSelfSignupPlan(), getRequireInstagramConnection()]);
+  const [selfSignupPlan, requireInstagramConnection, planLimits] = await Promise.all([getSelfSignupPlan(), getRequireInstagramConnection(), getPlanLimits()]);
   const { config, missing } = readMetaConfig();
   return {
     selfSignupPlan,
     requireInstagramConnection,
+    planLimits,
     meta: { flow: connectFlow(), configured: Boolean(config), graphVersion: config?.graphVersion ?? null, missing },
   };
 }

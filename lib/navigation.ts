@@ -25,6 +25,15 @@ export function activeSection(nav: NavItem[], pathname: string, homeHref: string
   return nav.find((item) => isActiveItem(pathname, item, homeHref)) ?? null;
 }
 
+/** The section page the current path belongs to: the most specific match ("/competitors/analysis" over "/competitors"). */
+export function activePage(item: NavItem, pathname: string): NavPage | null {
+  return (
+    pagesOf(item)
+      .filter((page) => isActivePath(pathname, page.href))
+      .sort((a, b) => b.href.length - a.href.length)[0] ?? null
+  );
+}
+
 /** Phones: the first sections that fit the tab bar, and the rest for the profile menu (Settings has its own menu entry). */
 export function splitForPhone(nav: NavItem[], max = MAX_PHONE_TABS): { tabs: NavItem[]; more: NavItem[] } {
   const eligible = nav.filter((item) => item.mobile !== false);

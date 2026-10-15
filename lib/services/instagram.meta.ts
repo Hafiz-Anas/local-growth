@@ -1,4 +1,5 @@
 import "server-only";
+import { formatOf } from "@/lib/analysis/posts";
 import { db } from "@/lib/db";
 import { coolingDown, graphFor, usageFor } from "@/lib/server/meta-client";
 import { toneFor } from "@/lib/utils";
@@ -88,6 +89,9 @@ function toCompetitorProfile(p: DiscoveredProfile): CompetitorProfile {
       notable: post === best,
       mediaUrl: post.mediaUrl,
       permalink: post.permalink,
+      caption: post.caption,
+      postedAt: post.postedAt,
+      format: formatOf(post.mediaType, post.productType),
     })),
     notableNote: "",
     engagementHistory: [],
@@ -173,6 +177,10 @@ export class MetaInstagramService implements InstagramService {
         reach: insights.reach ?? 0,
         saves: insights.saved ?? 0,
         postedAt: r.postedAt.toISOString(),
+        format: formatOf(r.mediaType, r.mediaProductType),
+        shares: insights.shares ?? null,
+        views: insights.views ?? null,
+        permalink: r.permalink,
       };
     };
     // Best post of the last 30 days first (the dashboard's "top post"), then newest first.

@@ -28,6 +28,9 @@ export const PLAN_PRESETS: Record<PlanId, Permissions> = {
     "assistant",
     "recommendations",
     "reports",
+    "postInsights",
+    "methods",
+    "competitors.analysis",
     "notifications",
     "settings.brandVoice",
   ]),
@@ -36,6 +39,7 @@ export const PLAN_PRESETS: Record<PlanId, Permissions> = {
     "competitors",
     "competitors.accounts",
     "competitors.trendingHashtags",
+    "competitors.analysis",
     "postGenerator",
     "postGenerator.brandVocabulary",
     "postGenerator.regenerate",
@@ -50,9 +54,25 @@ export const PLAN_PRESETS: Record<PlanId, Permissions> = {
     "assistant",
     "recommendations",
     "reports",
+    "postInsights",
+    "methods",
     "notifications",
     "settings.brandVoice",
   ]),
   pro: build([...FEATURE_KEYS]),
 };
 
+/** Default limits per plan. Admins can change them on the System page (SystemSetting "planLimits"). */
+export type PlanLimits = {
+  /** Competitor accounts a business can track. */
+  competitors: number;
+};
+
+export const DEFAULT_PLAN_LIMITS: Record<PlanId, PlanLimits> = {
+  starter: { competitors: 5 },
+  growth: { competitors: 5 },
+  pro: { competitors: 5 },
+};
+
+/** Bounds for the admin's setting. */
+export const MAX_COMPETITORS_LIMIT = 20;

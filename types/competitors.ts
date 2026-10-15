@@ -11,6 +11,10 @@ export interface CompetitorPost {
   /** Real image (Meta business discovery); mock posts use tone/icon artwork instead. */
   mediaUrl?: string | null;
   permalink?: string | null;
+  /** Business discovery data, used by the competitor analysis (absent in old cached profiles). */
+  caption?: string;
+  postedAt?: string;
+  format?: "reel" | "carousel" | "photo" | "video";
 }
 
 export interface Competitor {

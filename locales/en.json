@@ -51,7 +51,11 @@
     "home": "Home",
     "posts": "Posts",
     "insights": "Insights",
-    "replies": "Replies"
+    "replies": "Replies",
+    "competitorAccounts": "Accounts",
+    "competitorAnalysis": "Analysis",
+    "postPerformance": "Post performance",
+    "methods": "Methods"
   },
   "plans": {
     "starter": "Starter",
@@ -272,7 +276,7 @@
       "alreadyTracked": "You're already tracking @{handle}.",
       "ownAccount": "That's your own account — pick a competitor's handle.",
       "noSuchAccount": "We couldn't find a public business or creator account with that handle. Personal and private accounts can't be read.",
-      "limitReached": "You're tracking the maximum of 10 competitors. Remove one to add another.",
+      "limitReached": "You're tracking the maximum of {max} competitors on your plan. Remove one to add another.",
       "connectFirst": "Connect your Instagram account first — we look competitors up through it."
     },
     "removeDialog": {
@@ -940,7 +944,10 @@
         },
         "graphVersion": "Graph API {version}",
         "missing": "missing in .env: {list}"
-      }
+      },
+      "planLimits": "Competitors per plan",
+      "planLimitsHint": "How many competitor accounts a business on each plan can track (default 5).",
+      "planLimitsSaved": "Competitor limits saved."
     },
     "console": "Client management console",
     "activity": {
@@ -1067,7 +1074,9 @@
       "recommendations": "Recommendations",
       "reports": "Weekly reports",
       "notifications": "Notifications",
-      "settings": "Settings"
+      "settings": "Settings",
+      "postInsights": "Post performance",
+      "methods": "Marketing methods"
     },
     "moduleHints": {
       "dashboard": "Widgets on the client's home screen.",
@@ -1079,7 +1088,9 @@
       "recommendations": "Weekly AI strategy actions with outcomes.",
       "reports": "Weekly numbers vs the week before, with an AI summary.",
       "notifications": "In-app notification center (bell).",
-      "settings": "Business settings the client can edit."
+      "settings": "Business settings the client can edit.",
+      "postInsights": "Each post vs the account's average, daily history and AI notes.",
+      "methods": "Collaborations, giveaways, offers… ranked by engagement; promoted posts."
     },
     "items": {
       "dashboard_profileHeader": "Profile header",
@@ -1100,7 +1111,8 @@
       "engagement_aiReplies": "AI reply queue",
       "engagement_autoReply": "Auto-reply",
       "engagement_whatsappPricing": "WhatsApp price replies",
-      "settings_brandVoice": "Brand voice"
+      "settings_brandVoice": "Brand voice",
+      "competitors_analysis": "Competitor analysis"
     }
   },
   "roles": {
@@ -1150,7 +1162,8 @@
     "recommendations_limit": "You've refreshed your recommendations the maximum number of times today. Please try again tomorrow.",
     "comment_unavailable": "The comment was deleted on Instagram, so this reply can't be posted.",
     "regenerate_unavailable": "The AI can't write a new draft right now. You can still edit the reply and send it.",
-    "regenerate_limit": "You've asked for a lot of new drafts in the last hour. Edit this one, or try again later."
+    "regenerate_limit": "You've asked for a lot of new drafts in the last hour. Edit this one, or try again later.",
+    "analysis_limit": "You've asked for a lot of AI explanations in the last hour. All the numbers are here; try again later."
   },
   "states": {
     "loadFailed": "Couldn't load this",
@@ -1864,5 +1877,178 @@
       "body2": "It only takes a few minutes. Once it's done, your captions and replies will follow your brand's style.",
       "button": "Log in to get started"
     }
+  },
+  "analysis": {
+    "measuredNote": "Measured: numbers come straight from Instagram (likes, comments, followers; reach, saves and shares for your own posts).",
+    "estimatedNote": "Estimated: AI explanations and content types guessed from captions are estimates.",
+    "correlationNote": "Patterns show what went together, not what caused it (correlation, not causation).",
+    "demoData": "Demo data",
+    "measured": "Measured",
+    "estimated": "Estimate",
+    "aiEstimate": "AI · estimate",
+    "aiStale": "Written for slightly older numbers; it refreshes when the AI is available.",
+    "aiWriting": "The AI is writing a short explanation…",
+    "aiPreview": "AI explanations aren't loaded in preview.",
+    "aiUnavailable": "The AI explanation isn't available right now. All the numbers and charts on this page are complete.",
+    "format": {
+      "reel": "Reel",
+      "carousel": "Carousel",
+      "photo": "Photo",
+      "video": "Video"
+    },
+    "method": {
+      "collaboration": "Collaboration",
+      "giveaway": "Giveaway",
+      "offer": "Offer",
+      "product": "Product",
+      "behind_the_scenes": "Behind the scenes",
+      "announcement": "Announcement",
+      "other": "Other"
+    },
+    "day": {
+      "mon": "Monday",
+      "tue": "Tuesday",
+      "wed": "Wednesday",
+      "thu": "Thursday",
+      "fri": "Friday",
+      "sat": "Saturday",
+      "sun": "Sunday"
+    },
+    "dayShort": {
+      "mon": "Mon",
+      "tue": "Tue",
+      "wed": "Wed",
+      "thu": "Thu",
+      "fri": "Fri",
+      "sat": "Sat",
+      "sun": "Sun"
+    },
+    "part": {
+      "morning": "mornings",
+      "afternoon": "afternoons",
+      "evening": "evenings",
+      "night": "late at night"
+    },
+    "posts": "{count} posts",
+    "postsOne": "1 post"
+  },
+  "competitorAnalysis": {
+    "title": "Competitor analysis",
+    "subtitle": "How each competitor posts, compared with you — from their public Instagram data.",
+    "tracking": "Tracking {count} of {max} competitors on your plan.",
+    "emptyTitle": "No competitors yet",
+    "emptyHint": "Add the accounts you compete with to see how they post and how you compare.",
+    "add": "Add a competitor",
+    "pick": "Choose a competitor",
+    "issue": {
+      "private": "This account is private now, so Instagram doesn't share its posts. The numbers below are from the last time it was public.",
+      "not_business": "This is a personal account now. Instagram only shares data for business and creator accounts, so the numbers below may be out of date.",
+      "not_found": "Instagram couldn't find this account at the last weekly check (it may be renamed, deleted or personal). The numbers below may be out of date."
+    },
+    "vs": "You vs @{handle}",
+    "noPosts": "No public posts to analyse yet.",
+    "dataAt": "Their data from {date}.",
+    "aiTitle": "What they do, and ideas for you",
+    "theyBetter": "Where they do better",
+    "youBetter": "Where you do better",
+    "ideas": "Ideas to try",
+    "growth": "Followers over time",
+    "growthChange": "{pct}% over {weeks} weekly snapshots.",
+    "growthSoon": "Growth shows here after two weekly snapshots.",
+    "mix": "Content mix",
+    "days": "Posting days",
+    "usual": "They post most on {day}, usually {time}.",
+    "hashtags": "Hashtags they use",
+    "hashtagsPerPost": "{count} hashtags per post on average.",
+    "noHashtags": "They don't use hashtags in these posts.",
+    "contentTypes": "Content types",
+    "bestPosts": "Their best recent posts",
+    "metric": "Measured",
+    "you": "You",
+    "youAhead": "You're ahead",
+    "theyAhead": "They're ahead",
+    "metrics": {
+      "followers": "Followers",
+      "postsPerWeek": "Posts per week",
+      "engagementPct": "Engagement (per follower)",
+      "avgInteractions": "Likes + comments per post",
+      "reelShare": "Reels share",
+      "hashtagsPerPost": "Hashtags per post",
+      "posts": "Posts analysed"
+    },
+    "aheadLegend": "Bold = ahead on that number (green when it's you). Engagement per follower is the fairest comparison between accounts of different sizes."
+  },
+  "postPerformance": {
+    "title": "Post performance",
+    "subtitle": "Your recent posts compared with each other and with your average.",
+    "emptyTitle": "No posts yet",
+    "notConnected": "Connect Instagram to see your posts",
+    "emptyHint": "Once your posts are synced, each one shows how it did against your average.",
+    "avgInteractions": "Avg likes + comments",
+    "avgReach": "Avg reach",
+    "trend": "Newer vs older posts",
+    "chartTitle": "Your last {count} posts",
+    "chartHint": "Likes + comments per post, oldest to newest. The dashed line is your average; the best post is highlighted.",
+    "noCaption": "(no caption)",
+    "reachShort": "reach {value}",
+    "vsAvg": "vs average",
+    "interactionsValue": "{value} likes + comments",
+    "avgLine": "Average: {value} likes + comments",
+    "back": "Post performance",
+    "goneTitle": "This post isn't available",
+    "goneHint": "It may have been deleted, or it's older than the posts we keep.",
+    "openOnInstagram": "Open on Instagram",
+    "vsAverageTitle": "Compared with your average",
+    "metric": {
+      "likes": "Likes",
+      "comments": "Comments",
+      "reach": "Reach",
+      "saves": "Saves",
+      "shares": "Shares",
+      "views": "Views"
+    },
+    "vsAvgOf": "vs {avg} average ({posts})",
+    "noAverage": "Not enough posts to compare yet.",
+    "earlyComparison": "Only a few posts to compare with, so treat this as an early read.",
+    "aiTitle": "How it did",
+    "learn": "What to learn:",
+    "historyTitle": "Over time",
+    "historyHint": "Daily numbers over {days} days.",
+    "historySoon": "The chart fills in as we take a snapshot each day (two days are needed).",
+    "interactions": "Likes + comments"
+  },
+  "methods": {
+    "title": "Marketing methods",
+    "subtitle": "Which kinds of posts work best for you: collaborations, giveaways, offers and more.",
+    "emptyTitle": "No posts to sort yet",
+    "emptyHint": "Once your posts are synced, each one gets a type you can correct with one tap.",
+    "postsTitle": "Your posts",
+    "postsHint": "Types are suggested from the caption, mentions and format. Tap a type to correct it.",
+    "aiPending": "The AI is suggesting types for your newest posts…",
+    "aiUnavailable": "AI suggestions aren't available right now, so types are guessed from captions. Tap a type to correct it.",
+    "rankingTitle": "What works best",
+    "rankingHint": "Average likes + comments per post for each type (reach where Instagram reports it), against your overall average.",
+    "avgLine": "{value} likes + comments",
+    "reachLine": "reach {value}",
+    "basedOn": "Based on {count} posts",
+    "basedOnOne": "Based on 1 post",
+    "tooFew": "too few posts to rank",
+    "promotedTitle": "Promoted vs normal posts",
+    "markedByYou": "Marked by you",
+    "promotedHint": "We can't see ad spend, so mark the posts you paid to promote. This compares their likes, comments and reach with your other posts.",
+    "noPromoted": "No posts marked as promoted yet. Use the Promoted button on a post below.",
+    "promotedSide": "Promoted",
+    "organicSide": "Normal",
+    "promotedDiff": "likes + comments for promoted posts vs normal ones.",
+    "promotedFew": "Too few posts on one side for a reliable comparison.",
+    "changeMethod": "Change the type",
+    "source": {
+      "rule": "From the caption",
+      "ai": "AI suggestion",
+      "user": "Set by you"
+    },
+    "promoted": "Promoted",
+    "competitorsTitle": "What competitors post",
+    "competitorsHint": "Estimated from their captions (we can't see their ads or reach)."
   }
 }
