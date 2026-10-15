@@ -12,3 +12,4 @@ export * from "./api";
 export * from "./onboarding";
 export * from "./analysis";
 export * from "./monitoring";
+export * from "./statistics";

@@ -56,7 +56,8 @@
     "competitorAnalysis": "Analysis",
     "postPerformance": "Post performance",
     "methods": "Methods",
-    "postMonitoring": "Post monitoring"
+    "postMonitoring": "Post monitoring",
+    "statistics": "Statistics"
   },
   "plans": {
     "starter": "Starter",
@@ -1098,7 +1099,8 @@
       "settings": "Settings",
       "postInsights": "Post performance",
       "methods": "Marketing methods",
-      "monitoring": "Post monitoring"
+      "monitoring": "Post monitoring",
+      "statistics": "Statistics"
     },
     "moduleHints": {
       "dashboard": "Widgets on the client's home screen.",
@@ -1113,7 +1115,8 @@
       "settings": "Business settings the client can edit.",
       "postInsights": "Each post vs the account's average, daily history and AI notes.",
       "methods": "Collaborations, giveaways, offers… ranked by engagement; promoted posts.",
-      "monitoring": "Monitor posts hourly or daily, with alerts and a summary at the end."
+      "monitoring": "Monitor posts hourly or daily, with alerts and a summary at the end.",
+      "statistics": "Followers, reach, engagement and posting over 7 days to a year, with an AI summary."
     },
     "items": {
       "dashboard_profileHeader": "Profile header",
@@ -2174,5 +2177,51 @@
       "failed": "The last reading didn't work. We'll try again within the hour."
     },
     "historyMore": "Show {count} more"
+  },
+  "statistics": {
+    "title": "Statistics",
+    "subtitle": "Your account over time: followers, reach, engagement and how you post.",
+    "range": {
+      "7d": "7 days",
+      "30d": "30 days",
+      "90d": "90 days",
+      "1y": "1 year"
+    },
+    "notConnected": "Connect Instagram to see your statistics",
+    "notConnectedHint": "Once your account is synced, the numbers build up here day by day.",
+    "availableFrom": "Data available from {date}.",
+    "noDataYet": "No data stored yet.",
+    "partial": "This period starts earlier, so the numbers cover only part of it.",
+    "whyStored": "Instagram only shares recent numbers, so longer trends build up from what we store every day.",
+    "sampleFollowers": "Follower counts before that are sample data.",
+    "followers": "Followers (change in the period)",
+    "postsPerWeek": "Posts per week",
+    "avgReach": "Average reach per post",
+    "engagement": "Engagement rate",
+    "vsBefore": "vs the period before",
+    "postsInPeriod": "Posts in this period: {count} · likes and comments: {interactions}",
+    "summaryTitle": "Summary of the period",
+    "followersChart": "Followers",
+    "followersSoon": "The chart fills in with one follower count per day (it needs at least 2 in this period).",
+    "activityChart": "Posts and engagement",
+    "activityHint": "Likes and comments on the posts of each day, week or month (tap a bar for the number of posts).",
+    "noPosts": "No posts in this period.",
+    "reachChart": "Average reach per post",
+    "reachSoon": "Instagram hasn't reported reach for enough posts in this period.",
+    "engagementChart": "Engagement rate",
+    "engagementHint": "Likes and comments per post as a percent of followers when it was posted.",
+    "engagementSoon": "Not enough posts with follower counts in this period.",
+    "noValue": "No posts",
+    "bestDays": "Best days",
+    "bestTimes": "Best times",
+    "contentMix": "Content mix",
+    "postsCount": "Posts: {count}",
+    "mixNote": "Posts: {count} · {avg} likes and comments on average",
+    "dayPart": {
+      "morning": "Morning (6–12)",
+      "afternoon": "Afternoon (12–5)",
+      "evening": "Evening (5–10)",
+      "night": "Night (10–6)"
+    }
   }
 }

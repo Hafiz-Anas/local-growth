@@ -1,5 +1,7 @@
 import type { MethodRank, PromotedComparison, Method } from "../../analysis/methods";
 import type { MonitorOutcome, MonitorPoint } from "../../analysis/monitoring";
+import type { StatisticsData } from "../../analysis/statistics";
+import { statisticsDataBlock } from "./statistics";
 import type { AccountStats, MetricComparison } from "../../analysis/posts";
 import { statsLines } from "./analysis";
 import { focusLines, type BusinessFocus } from "./focus";
@@ -107,6 +109,8 @@ export interface AssistantAnalysis {
   methods?: { ranking: MethodRank[]; promoted: PromotedComparison } | null;
   /** Analytics: posts being monitored (latest reading vs the account's average) and recently ended monitoring. */
   monitoring?: AssistantMonitoring | null;
+  /** Analytics: account numbers over the last 30 days vs the 30 before (the Statistics page). */
+  statistics?: { data: StatisticsData; demo: boolean } | null;
   /** Competitors: measured numbers per competitor, weekly growth, comparison and estimated content types. */
   competitors?: Array<{
     handle: string;
@@ -342,6 +346,9 @@ export function formatFacts(facts: AssistantFacts, mode: FactsScope, now = new D
           : "No posts are marked as promoted.",
       );
     }
+  }
+  if (analysis?.statistics && (mode === "analytics" || mode === "strategy")) {
+    lines.push("", "## Statistics: the last 30 days vs the 30 before (from stored daily follower counts and posts; correlation, not causation)", statisticsDataBlock(analysis.statistics.data, { demo: analysis.statistics.demo }));
   }
   if (analysis?.monitoring && (mode === "analytics" || mode === "strategy")) lines.push(...monitoringLines(analysis.monitoring));
   if (analysis?.competitors && mode === "competitors") {

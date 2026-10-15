@@ -223,7 +223,7 @@ test("the assistant gets the new data in the Analytics and Competitors modes", a
 
 test("navigation: the new pages live under Insights and Competitors", async () => {
   await page.goto("/post-performance");
-  await expect(page.getByTestId("section-tabs").getByRole("link")).toHaveText(["Recommendations", "Reports", "Post performance", "Post monitoring", "Methods", "Posting experiment"]);
+  await expect(page.getByTestId("section-tabs").getByRole("link")).toHaveText(["Recommendations", "Reports", "Statistics", "Post performance", "Post monitoring", "Methods", "Posting experiment"]);
   await expect(page.locator("aside").getByRole("link", { name: "Insights" })).toHaveAttribute("aria-current", "page");
   await page.goto("/competitors/analysis");
   await expect(page.getByTestId("section-tabs").getByRole("link", { name: "Analysis" })).toHaveAttribute("aria-current", "page");
@@ -258,7 +258,7 @@ test("feature switches: a page that's off is gone from the navigation and answer
   await set({ methods: false, postInsights: false, "competitors.analysis": false });
   try {
     await page.goto("/recommendations");
-    await expect(page.getByTestId("section-tabs").getByRole("link")).toHaveText(["Recommendations", "Reports", "Post monitoring", "Posting experiment"]);
+    await expect(page.getByTestId("section-tabs").getByRole("link")).toHaveText(["Recommendations", "Reports", "Statistics", "Post monitoring", "Posting experiment"]);
     expect((await page.request.get("/api/methods")).status()).toBe(404);
     expect((await page.request.get("/api/post-performance")).status()).toBe(404);
     expect((await page.request.get("/api/competitors/analysis")).status()).toBe(404);

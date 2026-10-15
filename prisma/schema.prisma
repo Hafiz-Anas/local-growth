@@ -353,6 +353,7 @@ model Business {
   postMethods         PostMethod[]
   postInsights        PostInsight[]
   postMonitors        PostMonitor[]
+  statisticsSummaries StatisticsSummary[]
 }
 
 /// One row per (business, feature key). A sub-feature ("engagement.dmRules") is
@@ -695,6 +696,23 @@ model MonitorSnapshot {
   monitor PostMonitor @relation(fields: [monitorId], references: [id], onDelete: Cascade)
 
   @@index([monitorId, takenAt])
+}
+
+/// The AI's short summary of a Statistics period (EN + AR), per range ("7d" | "30d" | "90d" | "1y"),
+/// cached until the period's numbers change (`inputHash`). The numbers themselves are never stored:
+/// they are computed from the follower snapshots and posts on every load (lib/analysis/statistics.ts).
+model StatisticsSummary {
+  id          String   @id @default(cuid())
+  businessId  String
+  range       String
+  inputHash   String
+  /// { en, ar }
+  summary     Json
+  generatedAt DateTime @default(now())
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, range])
 }
 
 // ─── Brand profile ───────────────────────────────────────────────────────────

@@ -31,6 +31,8 @@ import type {
   PostDetailDto,
   MonitoringDto,
   MonitorDetailDto,
+  StatisticsDto,
+  StatRange,
   ScheduledPostDto,
   TrendsDto,
   WeeklyReportDto,
@@ -58,6 +60,7 @@ export const qk = {
   postDetail: (id: string) => ["post-performance", id] as const,
   monitoring: ["monitoring"] as const,
   monitor: (id: string) => ["monitoring", id] as const,
+  statistics: (range: string) => ["statistics", range] as const,
   brandVoice: ["brand-voice"] as const,
   connection: ["instagram-connection"] as const,
   onboarding: ["onboarding"] as const,
@@ -186,6 +189,8 @@ export const usePostDetail = (id: string) =>
 /** Post monitoring: monitored posts, the plan's limit, recent posts to pick from and the history. */
 export const useMonitoring = (enabled = true) => useClientData<MonitoringDto>(qk.monitoring, "/api/monitoring", (d) => d.monitoring, enabled);
 export const useMonitor = (id: string) => useClientData<MonitorDetailDto>(qk.monitor(id), `/api/monitoring/${encodeURIComponent(id)}`, (d) => d.monitorDetails?.[id]);
+/** Statistics for one period (numbers + cached AI summary; the summary is requested separately). */
+export const useStatistics = (range: StatRange) => useClientData<StatisticsDto>(qk.statistics(range), `/api/statistics?range=${range}`, (d) => d.statistics?.[range]);
 export const useBrandVoice = (enabled = true) =>
   useClientData<BrandVoiceDto | null>(qk.brandVoice, "/api/brand-voice", (d) => d.brandVoice ?? null, enabled);
 export const useConnection = (enabled = true) =>

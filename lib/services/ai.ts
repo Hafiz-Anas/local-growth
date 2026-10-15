@@ -14,6 +14,7 @@ import type { EditExample, RegenerateTone } from "@/lib/replies";
 import type { Method } from "@/lib/analysis/methods";
 import { parseClassification, parseCompetitorInsight, parsePostInsight, type CompetitorInsight, type PostInsight } from "./text/analysis";
 import { parseMonitorSummary } from "./text/monitoring";
+import { parseStatisticsSummary } from "./text/statistics";
 import { composeCaption, cleanReply, greetName, isArabic, parseBrandContext, parseCaptions, replyLanguage, stripAvoided } from "./text/output";
 import {
   assistantPrompt,
@@ -22,6 +23,7 @@ import {
   competitorInsightPrompt,
   postInsightPrompt,
   monitorSummaryPrompt,
+  statisticsSummaryPrompt,
   brandPrefillPrompt,
   captionPrompt,
   replyPrompt,
@@ -180,6 +182,8 @@ export interface AIService {
   postInsight(request: AnalysisTextRequest): Promise<{ ok: true; insight: PostInsight } | { ok: false; reason: TextFailureReason }>;
   /** Short EN + AR summary when monitoring a post ends. A failure says why; the history then shows the numbers only. */
   monitorSummary(request: AnalysisTextRequest): Promise<SummaryAnswer>;
+  /** Short EN + AR summary of a Statistics period (correlation, not causation). A failure says why; the page then shows numbers and charts only. */
+  statisticsSummary(request: AnalysisTextRequest): Promise<SummaryAnswer>;
 }
 
 export type SummaryAnswer = { ok: true; en: string; ar: string } | { ok: false; reason: TextFailureReason };
@@ -482,9 +486,14 @@ export class MockAIService implements AIService {
   async monitorSummary(): Promise<SummaryAnswer> {
     return { ok: false, reason: "not_configured" };
   }
+
+  /** MOCK: no summary; the Statistics page shows numbers and charts only. */
+  async statisticsSummary(): Promise<SummaryAnswer> {
+    return { ok: false, reason: "not_configured" };
+  }
 }
 
-type AICall = "ai.captions" | "ai.reply.comment" | "ai.reply.dm" | "ai.reply.rewrite" | "ai.competitor" | "ai.classify" | "ai.post" | "ai.monitor" | "ai.brand_context" | "ai.assistant" | "ai.strategy" | "ai.report" | "ai.prefill";
+type AICall = "ai.captions" | "ai.reply.comment" | "ai.reply.dm" | "ai.reply.rewrite" | "ai.competitor" | "ai.classify" | "ai.post" | "ai.monitor" | "ai.statistics" | "ai.brand_context" | "ai.assistant" | "ai.strategy" | "ai.report" | "ai.prefill";
 
 /**
  * Gemini text model (prompts in ./text/prompts.ts). Never fails: when the
@@ -508,7 +517,7 @@ export class GeminiAIService implements AIService {
     const config = readGeminiTextConfig();
     // What the user gets instead of a model answer, for the log.
     const instead =
-      call === "ai.report" || call === "ai.competitor" || call === "ai.post" || call === "ai.monitor"
+      call === "ai.report" || call === "ai.competitor" || call === "ai.post" || call === "ai.monitor" || call === "ai.statistics"
         ? { text: call === "ai.report" ? "published the report with numbers only" : "showed the numbers only", fallback: "numbers_only" }
         : call === "ai.classify"
           ? { text: "kept the rule-based post types", fallback: "rules" }
@@ -684,6 +693,16 @@ export class GeminiAIService implements AIService {
       request.businessId,
       () => monitorSummaryPrompt({ businessName: request.businessName, businessNameAr: request.businessNameAr, data: request.data }),
       (answer) => ({ ok: true, ...parseMonitorSummary(answer, request.data) }),
+      (reason) => ({ ok: false, reason }),
+    );
+  }
+
+  async statisticsSummary(request: AnalysisTextRequest) {
+    return this.run<SummaryAnswer>(
+      "ai.statistics",
+      request.businessId,
+      () => statisticsSummaryPrompt({ businessName: request.businessName, businessNameAr: request.businessNameAr, data: request.data }),
+      (answer) => ({ ok: true, ...parseStatisticsSummary(answer, request.data) }),
       (reason) => ({ ok: false, reason }),
     );
   }

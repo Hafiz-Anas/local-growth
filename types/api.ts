@@ -460,6 +460,8 @@ export interface PreviewDto {
     monitoring?: import("./monitoring").MonitoringDto;
     /** Every monitor in the overview, opened read-only. */
     monitorDetails?: Record<string, import("./monitoring").MonitorDetailDto>;
+    /** Statistics for every range. */
+    statistics?: Record<string, import("./statistics").StatisticsDto>;
     brandVoice?: BrandVoiceDto | null;
     brand: BrandProfileDto;
     instagram: InstagramConnectionDto;

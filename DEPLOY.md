@@ -56,7 +56,7 @@ Set these under **Project → Settings → Environment Variables**, scoped to **
 | `CRON_SECRET` | New random secret (same command as `AUTH_SECRET`). Turns on scheduled publishing; see *Publishing to Instagram* below. Mark it **Sensitive**. |
 | `META_WEBHOOK_VERIFY_TOKEN` | New random string (same command as `AUTH_SECRET`). Entered again in Meta's webhook settings (section 5). Mark it **Sensitive**. |
 
-Optional: `COMPETITOR_CRON_BATCH` (AI competitor comparisons per daily run, default 10), `MONITOR_CRON_BATCH` (post-monitoring readings per run, default 100), `GEMINI_IMAGE_MODEL`, `META_OAUTH_RESPONSE_TYPE` (defaults to `code`), and `EMAIL_VERIFICATION_BANNER` (`true` shows the "Verify your email" banner after login; leave it unset, which means off, until verification emails are really delivered).
+Optional: `COMPETITOR_CRON_BATCH` (AI competitor comparisons per daily run, default 10), `MONITOR_CRON_BATCH` (post-monitoring readings per run, default 100). The daily job also stores one follower count per business per day for the Statistics page; `GEMINI_IMAGE_MODEL`, `META_OAUTH_RESPONSE_TYPE` (defaults to `code`), and `EMAIL_VERIFICATION_BANNER` (`true` shows the "Verify your email" banner after login; leave it unset, which means off, until verification emails are really delivered).
 
 **Don't set these on Vercel:** `UPLOAD_DIR` (local storage only), `GEMINI_API_BASE`, `META_GRAPH_BASE_URL` and `RESEND_API_BASE` (test stubs only), and `ADMIN_*` (used only by `create-admin` on your machine).
 

@@ -15,6 +15,7 @@ import {
 import { DM_REPLY_MAX, REGENERATE_TONES } from "@/lib/replies";
 import { MAX_COMPETITORS_LIMIT, MAX_MONITORED_POSTS_LIMIT } from "@/config/plans";
 import { MONITOR_DURATIONS } from "@/lib/analysis/monitoring";
+import { STAT_RANGES } from "@/lib/analysis/statistics";
 import { METHODS } from "@/lib/analysis/methods";
 import { MAX_RULE_KEYWORDS, MAX_RULE_POSTS, PRIVATE_REPLY_MAX, PUBLIC_REPLY_MAX, normalizeText } from "@/lib/keyword-replies";
 import { ASSISTANT_MAX_QUESTION, ASSISTANT_MODES } from "@/lib/services/text/assistant";
@@ -472,3 +473,7 @@ export const prefillSchema = z.object({ locale: z.enum(["en", "ar"]).default("en
 
 export const monitorStartSchema = z.object({ igMediaId: z.string().trim().min(1).max(100), duration: z.enum(MONITOR_DURATIONS) }).strict();
 export const monitorExtendSchema = z.object({ duration: z.enum(MONITOR_DURATIONS) }).strict();
+
+// Statistics -----------------------------------------------------------------------
+
+export const statisticsQuerySchema = z.object({ range: z.enum(STAT_RANGES).default("30d") });

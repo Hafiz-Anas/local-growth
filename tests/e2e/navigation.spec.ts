@@ -54,7 +54,7 @@ test("desktop: one sidebar entry per section; Insights holds its pages as tabs",
 
   await sidebar(page).getByRole("link", { name: "Insights" }).click();
   await expect(page).toHaveURL(/\/recommendations$/);
-  await expect(sectionTabs(page).getByRole("link")).toHaveText(["Recommendations", "Reports", "Post performance", "Post monitoring", "Methods", "Posting experiment"]);
+  await expect(sectionTabs(page).getByRole("link")).toHaveText(["Recommendations", "Reports", "Statistics", "Post performance", "Post monitoring", "Methods", "Posting experiment"]);
   await expect(sectionTabs(page).getByRole("link", { name: "Recommendations" })).toHaveAttribute("aria-current", "page");
 
   await sectionTabs(page).getByRole("link", { name: "Reports" }).click();

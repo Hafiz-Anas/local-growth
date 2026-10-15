@@ -46,6 +46,8 @@ export const METHODS_AI_LIMIT: RateLimitRule = { name: "methods-ai", limit: 4, w
 export const MONITOR_START_LIMIT: RateLimitRule = { name: "monitor-start", limit: 30, windowMs: 60 * 60 * 1000 };
 /** AI summaries of ended monitoring asked for again from the page, per business. */
 export const MONITOR_SUMMARY_LIMIT: RateLimitRule = { name: "monitor-summary", limit: 10, windowMs: 60 * 60 * 1000 };
+/** AI summaries of a Statistics period per business (each range is cached until its numbers change). */
+export const STATISTICS_SUMMARY_LIMIT: RateLimitRule = { name: "statistics-summary", limit: 10, windowMs: 60 * 60 * 1000 };
 /** AI post images per business (each one costs a paid model call). */
 export const IMAGE_GENERATION_LIMIT: RateLimitRule = { name: "image-generation", limit: 20, windowMs: 60 * 60 * 1000 };
 

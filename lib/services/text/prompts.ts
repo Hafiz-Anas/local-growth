@@ -623,3 +623,36 @@ export function monitorSummaryPrompt(input: MonitorSummaryPromptInput): TextProm
     timeoutMs: 45_000,
   };
 }
+
+// ─── Statistics: the summary of a period ─────────────────────────────────────
+
+export interface StatisticsSummaryPromptInput {
+  businessName: string;
+  businessNameAr: string | null;
+  /** statisticsDataBlock() output: the only numbers the summary may use. */
+  data: string;
+}
+
+export function statisticsSummaryPrompt(input: StatisticsSummaryPromptInput): TextPrompt {
+  return {
+    system: [
+      `You write a short summary of an Instagram statistics period for the owner of ${input.businessName}, a small local business in Kuwait.`,
+      "",
+      "Rules:",
+      ...ANALYSIS_RULES,
+      "- 2–4 short sentences: how followers, posting, reach and engagement moved compared with the period before, and what stood out (days, times, formats). End with one practical idea, as a suggestion.",
+      "- Describe patterns as things that happened together, never as causes: e.g. \"Reels went together with more likes\", not \"Reels caused more likes\".",
+      "- If the data only covers part of the period, or there are fewer than 3 posts, say the picture is early.",
+      "- If the data is demo data, say so.",
+      "- No greeting, no sign-off.",
+      `- ${nameRule(input.businessName, input.businessNameAr)}`,
+      "",
+      fenced("statistics_data", input.data),
+    ].join("\n"),
+    user: "Write the summary as JSON.",
+    schema: REPORT_SUMMARY_SCHEMA,
+    temperature: 0.3,
+    maxOutputTokens: 2048,
+    timeoutMs: 45_000,
+  };
+}

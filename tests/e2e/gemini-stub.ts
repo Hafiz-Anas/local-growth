@@ -16,6 +16,8 @@ import { createServer } from "node:http";
  * - post explanations (schema with "learn_en") get a summary without numbers;
  * - monitoring summaries (system prompt "finished monitoring") get a summary quoting the readings count from the
  *   data (or an invented number while `state.inventMonitor` is set, which must be rejected);
+ * - statistics summaries (system prompt "statistics period") get a summary without numbers (or an invented
+ *   number while `state.inventStatistics` is set);
  * - chat requests get an answer echoing the question (Arabic for an Arabic question);
  * - a question containing "[down]", or `state.fail`, gets a 503.
  */
@@ -23,7 +25,7 @@ import { createServer } from "node:http";
 export interface StubCall {
   system: string;
   turns: Array<{ role: string; text: string }>;
-  kind: "strategy" | "report" | "monitor" | "prefill" | "reply" | "competitor" | "classify" | "postInsight" | "chat";
+  kind: "strategy" | "report" | "monitor" | "statistics" | "prefill" | "reply" | "competitor" | "classify" | "postInsight" | "chat";
 }
 
 export const STUB_PORT = Number(process.env.E2E_GEMINI_STUB_PORT ?? 4010);
@@ -57,7 +59,7 @@ export function stubRecommendations(n: number) {
 
 export async function startGeminiStub(port = STUB_PORT) {
   const calls: StubCall[] = [];
-  const state = { fail: false, analyses: 0, inventNumbersFor: "", rewrites: 0, inventFor: "", inventMonitor: false };
+  const state = { fail: false, analyses: 0, inventNumbersFor: "", rewrites: 0, inventFor: "", inventMonitor: false, inventStatistics: false };
   const server = createServer((req, res) => {
     let raw = "";
     req.on("data", (chunk) => (raw += chunk));
@@ -70,6 +72,8 @@ export async function startGeminiStub(port = STUB_PORT) {
         ? "strategy"
         : props.summary_en && system.includes("finished monitoring")
           ? "monitor"
+          : props.summary_en && system.includes("statistics period")
+          ? "statistics"
           : props.summary_en && props.learn_en
           ? "postInsight"
           : props.summary_en
@@ -113,6 +117,12 @@ export async function startGeminiStub(port = STUB_PORT) {
           state.inventMonitor
             ? { summary_en: "It reached 987654 people.", summary_ar: "وصل إلى 987654 شخصاً." }
             : { summary_en: `Based on ${readings} readings, the post kept growing while it was monitored. Posts like this seem to work for you.`, summary_ar: `بناءً على ${readings} قراءات، استمر المنشور في النمو أثناء المراقبة. يبدو أن منشورات كهذه تناسبكم.` },
+        );
+      } else if (kind === "statistics") {
+        text = JSON.stringify(
+          state.inventStatistics
+            ? { summary_en: "Reach grew 987654% this period.", summary_ar: "نما الوصول 987654% في هذه الفترة." }
+            : { summary_en: "Posting more often went together with more likes and comments than the period before; Reels stood out. Try another Reel this week.", summary_ar: "ترافق النشر الأكثر مع إعجابات وتعليقات أكثر من الفترة السابقة، وبرزت الريلز. جربوا ريلاً آخر هذا الأسبوع." },
         );
       } else if (kind === "competitor") {
         const handle = system.match(/competitors \(@([^)]+)\)/)?.[1] ?? "";

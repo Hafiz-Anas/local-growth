@@ -73,6 +73,7 @@ export const USER_NAV: NavItem[] = [
     pages: [
       { href: "/recommendations", labelKey: "nav.recommendations", feature: "recommendations" },
       { href: "/reports", labelKey: "nav.reports", feature: "reports" },
+      { href: "/statistics", labelKey: "nav.statistics", feature: "statistics" },
       { href: "/post-performance", labelKey: "nav.postPerformance", feature: "postInsights" },
       { href: "/post-monitoring", labelKey: "nav.postMonitoring", feature: "monitoring" },
       { href: "/methods", labelKey: "nav.methods", feature: "methods" },
