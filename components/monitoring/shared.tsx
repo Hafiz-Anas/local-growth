@@ -48,19 +48,28 @@ export function MonitorStatusBadge({ status }: { status: MonitorStatus }) {
 /** Tiny line chart of likes + comments over the monitoring period (no axes; decorative, the numbers are next to it). */
 export function MiniChart({ values, className }: { values: number[]; className?: string }) {
   const { dir } = useI18n();
-  if (values.length < 2) return <div className={cn("h-10 w-24 rounded-button bg-button-secondary/60", className)} aria-hidden="true" />;
+  if (values.length < 2) {
+    // One reading so far: a faint dashed baseline until the line can be drawn.
+    return (
+      <svg viewBox="0 0 96 40" preserveAspectRatio="none" className={cn("h-10 w-24 shrink-0", className)} aria-hidden="true" data-testid="mini-chart">
+        <line x1="0" y1="20" x2="96" y2="20" stroke="var(--lge-text-secondary)" strokeOpacity="0.5" strokeWidth="1.5" strokeDasharray="4 4" vectorEffect="non-scaling-stroke" />
+      </svg>
+    );
+  }
   const w = 96;
   const h = 40;
   const min = Math.min(...values);
   const max = Math.max(...values);
-  const span = max - min || 1;
+  const span = max - min;
   const pts = values.map((v, i) => {
     const x = (i / (values.length - 1)) * w;
-    return `${dir === "rtl" ? w - x : x},${h - 3 - ((v - min) / span) * (h - 6)}`;
+    // A flat series is drawn through the middle.
+    const y = span ? h - 3 - ((v - min) / span) * (h - 6) : h / 2;
+    return `${dir === "rtl" ? w - x : x},${y}`;
   });
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className={cn("h-10 w-24 shrink-0", className)} aria-hidden="true" data-testid="mini-chart">
-      <polyline points={pts.join(" ")} fill="none" stroke="var(--lge-chart-line)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+    <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className={cn("h-10 w-24 shrink-0", className)} aria-hidden="true" data-testid="mini-chart">
+      <polyline points={pts.join(" ")} fill="none" stroke="var(--lge-chart-line)" strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />
     </svg>
   );
 }

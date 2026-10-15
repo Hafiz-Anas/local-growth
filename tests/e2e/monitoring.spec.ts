@@ -43,6 +43,7 @@ function testDb() {
       });
       await pool.query(`UPDATE "PostMonitor" SET ${keys.map((k, i) => `"${k}" = $${i + 2}`).join(", ")} WHERE id = $1`, [id, ...values]);
     },
+    anyActive: async () => (await pool.query<{ id: string }>(`SELECT id FROM "PostMonitor" WHERE status = 'ACTIVE' AND interval = 'HOURLY' ORDER BY "startedAt" LIMIT 1`)).rows[0]?.id,
     readings: async (id: string) => Number((await pool.query(`SELECT count(*) FROM "MonitorSnapshot" WHERE "monitorId" = $1`, [id])).rows[0].count),
     dailyRows: async (businessId: string, igMediaId: string, date: string) =>
       Number((await pool.query(`SELECT count(*) FROM "PostSnapshot" WHERE "businessId" = $1 AND "igMediaId" = $2 AND date = $3`, [businessId, igMediaId, date])).rows[0].count),
@@ -252,4 +253,135 @@ test("daily monitoring reuses the day's snapshot instead of asking Instagram aga
 test("notification settings list post monitoring", async () => {
   await page.goto("/settings");
   await expect(page.getByText("Big changes on a monitored post, and when monitoring ends.")).toBeVisible();
+});
+
+// ── Part 2: the Post monitoring tab ─────────────────────────────────────────────
+
+test("the Post monitoring tab: status, time left and a mini chart per post, and the history with summaries", async () => {
+  await stopAll();
+  const posts = (await overview()).posts;
+  const { id: hourlyId } = (await (await start(posts[3].id, "24h")).json()).data as { id: string };
+  expect((await start(posts[4].id, "7d")).status()).toBe(201);
+  for (let i = 0; i < 2; i++) {
+    await db.update(hourlyId, { nextReadingAt: new Date(Date.now() - 1000) });
+    await runCron();
+  }
+
+  await page.goto("/post-monitoring");
+  await expect(page.getByRole("heading", { name: "Post monitoring" })).toBeVisible();
+  await expect(page.getByTestId("section-tabs").getByRole("link", { name: "Post monitoring" })).toHaveAttribute("aria-current", "page");
+  await expect(page.locator("aside").getByRole("link", { name: "Insights" })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByTestId("monitor-limit")).toHaveText("Monitoring 2 of 5 posts on your plan.");
+  const rows = page.getByTestId("monitor-row");
+  await expect(rows).toHaveCount(2);
+  // Ending soonest first.
+  await expect(rows.first().getByTestId("monitor-timing")).toHaveText(/Ends in (23|24) hours · reading every hour/);
+  await expect(rows.nth(1).getByTestId("monitor-timing")).toHaveText(/Ends in 7 days · reading once a day/);
+  await expect(rows.first().getByTestId("mini-chart")).toBeVisible();
+  await expect(rows.first().getByTestId("monitor-status")).toHaveText("Monitoring");
+
+  const history = page.getByTestId("history-row");
+  expect(await history.count()).toBeGreaterThanOrEqual(3);
+  expect(await history.count()).toBeLessThanOrEqual(10);
+  if (await page.getByTestId("history-more").isVisible()) await page.getByTestId("history-more").click();
+  await expect(page.getByTestId("history-summary").filter({ hasText: "Based on 4 readings" }).first()).toBeVisible();
+
+  // The full view: latest numbers, the chart over the period with the average line, Extend / Stop.
+  await rows.first().click();
+  await expect(page).toHaveURL(new RegExp(`/post-monitoring/${hourlyId}$`));
+  await expect(page.getByTestId("monitor-metrics").locator('[data-metric="likes"]')).toContainText("since monitoring started");
+  await expect(page.getByTestId("monitor-chart")).toBeVisible();
+  await expect(page.getByText(/^Your average: /)).toBeVisible();
+  await page.getByRole("radio", { name: "Reach" }).click();
+  await expect(page.getByTestId("monitor-chart")).toBeVisible();
+  await expect(page.getByTestId("monitor-extend")).toBeVisible();
+  await expect(page.getByTestId("monitor-open")).toHaveCount(0);
+  await expect(page.getByText("Readings: 3")).toBeVisible();
+
+  // An ended one: final numbers and the summary.
+  await page.goto("/post-monitoring");
+  if (await page.getByTestId("history-more").isVisible()) await page.getByTestId("history-more").click();
+  await page.getByTestId("history-row").filter({ hasText: "Based on 4 readings" }).first().click();
+  const outcome = page.getByTestId("monitor-outcome");
+  await expect(outcome).toContainText("Final numbers");
+  await expect(outcome).toContainText("Readings");
+  await expect(outcome).toContainText("Change while monitored");
+  await expect(page.getByTestId("ai-explanation-text")).toContainText("Based on 4 readings, the post kept growing");
+  await expect(page.getByTestId("monitor-status")).toHaveText("Ended");
+});
+
+test("monitor a post from the tab's picker", async () => {
+  await page.goto("/post-monitoring");
+  await page.getByTestId("monitor-add").click();
+  const dialog = page.getByRole("dialog");
+  const choices = dialog.getByTestId("monitor-pick-posts").getByRole("radio");
+  await expect(choices.filter({ hasText: "Monitoring" })).toHaveCount(2);
+  await choices.and(page.locator(":not([disabled])")).first().click();
+  await dialog.getByRole("radio", { name: "2 hours" }).click();
+  await dialog.getByTestId("monitor-pick-start").click();
+  await expect(page.getByText("Monitoring started. The first reading is in.")).toBeVisible();
+  await expect(page.getByTestId("monitor-row")).toHaveCount(3);
+  await expect(page.getByTestId("monitor-limit")).toHaveText("Monitoring 3 of 5 posts on your plan.");
+});
+
+test("the assistant's Analytics mode gets the monitoring numbers", async () => {
+  const res = await page.request.post("/api/assistant/messages", { data: { mode: "analytics", text: "How are my monitored posts doing?" } });
+  expect(res.status()).toBe(201);
+  const system = stub.calls.filter((c) => c.kind === "chat").at(-1)!.system;
+  expect(system).toContain("## Post monitoring");
+  expect(system).toContain("Monitoring now:");
+  expect(system).toMatch(/Monitoring ended \d{4}-\d{2}-\d{2}: .*readings/);
+});
+
+test("Arabic, right to left, on a phone", async () => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await switchLanguage(page, "ar");
+  try {
+    await page.goto("/post-monitoring");
+    await expect(page.getByRole("heading", { name: "مراقبة المنشورات" })).toBeVisible();
+    await expect(page.getByTestId("monitor-limit")).toHaveText("المنشورات قيد المراقبة: 3 من 5 حسب باقتكم.");
+    await expect(page.getByTestId("monitor-row").first().getByTestId("monitor-timing")).toContainText("قراءة كل ساعة");
+    await page.waitForLoadState("networkidle");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
+    await page.getByTestId("monitor-row").first().click();
+    await expect(page.getByText("أحدث الأرقام")).toBeVisible();
+    await page.waitForLoadState("networkidle");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
+    await page.goto("/post-performance");
+    await page.getByTestId("recent-post").first().click();
+    await expect(page.getByTestId("monitor-card")).toContainText("راقبوا هذا المنشور");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
+  } finally {
+    await switchLanguage(page, "en");
+    await page.setViewportSize({ width: 1366, height: 900 });
+  }
+});
+
+test("feature switch: monitoring off is gone everywhere, and the admin preview shows it read-only when on", async ({ browser }) => {
+  const set = (enabled: boolean) =>
+    asAdmin(browser, async (admin, id) => expect((await admin.request.patch(`/api/admin/businesses/${id}/permissions`, { data: { changes: { monitoring: enabled } } })).ok()).toBe(true));
+  await asAdmin(browser, async (admin, id) => {
+    const preview = (await (await admin.request.get(`/api/admin/preview/${id}`)).json()).data;
+    expect(preview.data.monitoring.active.length).toBe(3);
+    expect(Object.keys(preview.data.monitorDetails).length).toBeGreaterThanOrEqual(3);
+  });
+  await set(false);
+  try {
+    await page.goto("/recommendations");
+    await expect(page.getByTestId("section-tabs").getByRole("link", { name: "Post monitoring" })).toHaveCount(0);
+    expect((await page.request.get("/api/monitoring")).status()).toBe(404);
+    expect((await page.request.get("/post-monitoring")).status()).toBe(404);
+    await page.goto("/post-performance");
+    await page.getByTestId("recent-post").first().click();
+    await expect(page.getByTestId("post-metrics")).toBeVisible();
+    await expect(page.getByTestId("monitor-card")).toHaveCount(0);
+    // The job leaves a business with the feature off alone.
+    const id = (await db.anyActive())!;
+    await db.update(id, { nextReadingAt: new Date(Date.now() - 1000) });
+    const before = await db.readings(id);
+    await runCron();
+    expect(await db.readings(id)).toBe(before);
+  } finally {
+    await set(true);
+  }
 });

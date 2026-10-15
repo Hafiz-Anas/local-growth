@@ -55,7 +55,8 @@
     "competitorAccounts": "Accounts",
     "competitorAnalysis": "Analysis",
     "postPerformance": "Post performance",
-    "methods": "Methods"
+    "methods": "Methods",
+    "postMonitoring": "Post monitoring"
   },
   "plans": {
     "starter": "Starter",
@@ -2112,6 +2113,66 @@
       "30d": "30 days",
       "90d": "90 days",
       "1y": "1 year"
-    }
+    },
+    "title": "Post monitoring",
+    "subtitle": "Posts you're watching closely: their numbers hour by hour or day by day.",
+    "add": "Monitor a post",
+    "notConnected": "Connect Instagram to monitor your posts",
+    "notConnectedHint": "Once your posts are synced you can monitor any of the recent ones.",
+    "usage": "Monitoring {count} of {max} posts on your plan.",
+    "emptyTitle": "No posts are being monitored",
+    "emptyHint": "Open a post in Post performance and turn on “Monitor this post”, or pick one here.",
+    "history": "History",
+    "historyEmpty": "Posts you monitored appear here with their final numbers and a short summary.",
+    "noReadings": "No readings yet.",
+    "readingIssue": "Reading delayed",
+    "readings": "Readings: {count}",
+    "numbersOnly": "No AI summary for this one: the numbers are complete.",
+    "pickTitle": "Monitor a post",
+    "pickHint": "Pick one of your recent posts, then for how long.",
+    "back": "Post monitoring",
+    "goneTitle": "This monitoring isn't available",
+    "goneHint": "It may belong to another account or have been removed.",
+    "postedOn": "Posted {date}",
+    "latestTitle": "Latest numbers",
+    "sinceStart": "{value} since monitoring started",
+    "lastReading": "Last reading {time}",
+    "vsAverageOf": "likes and comments vs your average of {avg} (from {posts} posts)",
+    "chartTitle": "Over the monitoring period",
+    "chartHint": {
+      "hourly": "A reading every hour. The dashed line is your average.",
+      "daily": "A reading every day. The dashed line is your average."
+    },
+    "chartSoon": {
+      "hourly": "The chart fills in with a reading every hour (it needs at least 2).",
+      "daily": "The chart fills in with a reading every day (it needs at least 2)."
+    },
+    "averageLine": "Your average: {value}",
+    "metric": {
+      "interactions": "Likes + comments",
+      "likes": "Likes",
+      "comments": "Comments",
+      "reach": "Reach",
+      "saves": "Saves",
+      "shares": "Shares",
+      "views": "Views"
+    },
+    "outcomeTitle": "Final numbers",
+    "outcome": {
+      "period": "Monitored",
+      "readings": "Readings",
+      "gained": "Change while monitored",
+      "vsAverage": "Likes + comments vs your average",
+      "peak": "Fastest growth",
+      "peakValue": "+{value} likes and comments, {from} – {to}"
+    },
+    "summaryTitle": "Summary",
+    "errors": {
+      "not_connected": "We couldn't read the post: reconnect Instagram. We'll try again within the hour.",
+      "rate_limited": "Instagram asked us to slow down, so this reading waits. We'll try again within the hour.",
+      "permission": "Instagram didn't allow reading this post's numbers. Reconnect Instagram and allow insights.",
+      "failed": "The last reading didn't work. We'll try again within the hour."
+    },
+    "historyMore": "Show {count} more"
   }
 }

@@ -24,7 +24,7 @@ import { MonitorTiming } from "./shared";
  * "Monitor this post" on a post's detail view: a switch, then how long (2 hours … 1 year).
  * While monitored: when it ends, Extend, Stop and a link to the full monitoring view.
  */
-export function MonitorPostCard({ igMediaId }: { igMediaId: string }) {
+export function MonitorPostCard({ igMediaId, showLink = true }: { igMediaId: string; showLink?: boolean }) {
   const { t } = useI18n();
   const { isPreview } = useActiveClient();
   const queryClient = useQueryClient();
@@ -118,7 +118,7 @@ export function MonitorPostCard({ igMediaId }: { igMediaId: string }) {
 
       {active && !picking && (
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <Badge variant="success" size="sm">
+          <Badge variant="success" size="sm" data-testid="monitor-status">
             {t("monitoring.status.active")}
           </Badge>
           <Button variant="secondary" size="sm" disabled={busy || isPreview} onClick={() => setPicking("extend")} data-testid="monitor-extend">
@@ -127,10 +127,12 @@ export function MonitorPostCard({ igMediaId }: { igMediaId: string }) {
           <Button variant="danger" size="sm" disabled={busy || isPreview} onClick={() => setConfirmStop(true)} data-testid="monitor-stop">
             {t("monitoring.stop")}
           </Button>
+          {showLink && (
           <Link href={`/post-monitoring/${active.id}`} className="ms-auto inline-flex items-center gap-0.5 text-caption font-semibold text-primary" data-testid="monitor-open">
             {t("monitoring.open")}
             <ChevronRight className="size-3.5 rtl:-scale-x-100" aria-hidden="true" />
           </Link>
+          )}
         </div>
       )}
 

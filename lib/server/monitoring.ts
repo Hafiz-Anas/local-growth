@@ -33,7 +33,7 @@ import { getInstagramAccount } from "./instagram-account";
 import { coolingDown } from "./meta-client";
 import { notify } from "./notifications";
 import { ownPosts } from "./post-data";
-import { MONITOR_ACTION_LIMIT, MONITOR_SUMMARY_LIMIT, getRateLimiter } from "./rate-limit";
+import { MONITOR_START_LIMIT, MONITOR_SUMMARY_LIMIT, getRateLimiter } from "./rate-limit";
 import { getPlanLimits } from "./settings";
 
 /**
@@ -199,15 +199,16 @@ export async function monitorDetail(businessId: string, id: string): Promise<Mon
 
 // ─── Start, extend, stop ─────────────────────────────────────────────────────
 
-async function consumeAction(businessId: string) {
-  if (!(await getRateLimiter().consume(MONITOR_ACTION_LIMIT, businessId))) {
-    throw new ApiError(429, "rate_limited", "Too many monitoring changes in the last hour. Try again later.");
+/** Starting reads the post from Instagram; extending and stopping don't (and are bounded by the starts). */
+async function consumeStart(businessId: string) {
+  if (!(await getRateLimiter().consume(MONITOR_START_LIMIT, businessId))) {
+    throw new ApiError(429, "rate_limited", "You've started monitoring many posts in the last hour. Try again later.");
   }
 }
 
 export async function startMonitor(ctx: { businessId: string; userId: string | null }, igMediaId: string, duration: MonitorDuration): Promise<MonitorItemDto> {
   const { businessId } = ctx;
-  await consumeAction(businessId);
+  await consumeStart(businessId);
   const own = await ownPosts(businessId);
   if (!own.connected) throw new ApiError(409, "instagram_not_connected", "Connect Instagram to monitor a post.");
   const post = own.posts.find((p) => p.id === igMediaId);
@@ -254,7 +255,6 @@ async function ownActive(businessId: string, id: string): Promise<MonitorRow> {
 }
 
 export async function extendMonitor(ctx: { businessId: string; userId: string | null }, id: string, duration: MonitorDuration): Promise<MonitorItemDto> {
-  await consumeAction(ctx.businessId);
   const row = await ownActive(ctx.businessId, id);
   const endsAt = new Date(extendedEnd(row.endsAt.getTime(), duration));
   const interval = intervalFor(endsAt.getTime() - row.startedAt.getTime()) === "hourly" ? "HOURLY" : "DAILY";
@@ -264,7 +264,6 @@ export async function extendMonitor(ctx: { businessId: string; userId: string | 
 }
 
 export async function stopMonitor(ctx: { businessId: string; userId: string | null }, id: string): Promise<MonitorItemDto> {
-  await consumeAction(ctx.businessId);
   const row = await ownActive(ctx.businessId, id);
   const finished = await finishMonitor(row, "STOPPED");
   await logActivity({ businessId: ctx.businessId, userId: ctx.userId, action: "monitoring.stopped", details: { igMediaId: row.igMediaId } });

@@ -35,10 +35,10 @@ describe("navigation config: one obvious home per page", () => {
     for (const key of keys) for (const locale of ["en", "ar"]) assert.equal(typeof get(locale, key), "string", `${locale}: ${key}`);
   });
 
-  it("groups recommendations, reports, post performance, methods and the posting experiment under Insights", () => {
+  it("groups recommendations, reports, post performance, post monitoring, methods and the posting experiment under Insights", () => {
     const insights = section(filterNav(USER_NAV, allOn()), "nav.insights")!;
     assert.equal(insights.href, "/recommendations");
-    assert.deepEqual(insights.pages!.map((p) => p.href), ["/recommendations", "/reports", "/post-performance", "/methods", "/experiment"]);
+    assert.deepEqual(insights.pages!.map((p) => p.href), ["/recommendations", "/reports", "/post-performance", "/post-monitoring", "/methods", "/experiment"]);
     assert.deepEqual(section(filterNav(USER_NAV, allOn()), "nav.competitors")!.pages!.map((p) => p.href), ["/competitors", "/competitors/analysis"]);
     assert.equal(ROUTE_FEATURES["/competitors/analysis"], "competitors.analysis");
     assert.equal(ROUTE_FEATURES["/reports"], "reports");
@@ -50,13 +50,13 @@ describe("feature switches: hidden modules appear nowhere", () => {
   it("removes a hidden page from its section, and the section links to the first visible page", () => {
     const insights = section(filterNav(USER_NAV, without("recommendations")), "nav.insights")!;
     assert.equal(insights.href, "/reports");
-    assert.deepEqual(insights.pages!.map((p) => p.href), ["/reports", "/post-performance", "/methods", "/experiment"]);
+    assert.deepEqual(insights.pages!.map((p) => p.href), ["/reports", "/post-performance", "/post-monitoring", "/methods", "/experiment"]);
     // competitors.analysis off: Competitors keeps one page (no tabs).
     assert.deepEqual(section(filterNav(USER_NAV, without("competitors.analysis")), "nav.competitors")!.pages!.map((p) => p.href), ["/competitors"]);
   });
 
   it("removes a section whose pages are all hidden", () => {
-    const nav = filterNav(USER_NAV, without("recommendations", "reports", "postInsights", "methods", "experiment", "competitors"));
+    const nav = filterNav(USER_NAV, without("recommendations", "reports", "postInsights", "monitoring", "methods", "experiment", "competitors"));
     assert.deepEqual(labels(nav), ["nav.home", "nav.posts", "nav.engagement", "nav.settings"]);
     const { tabs, more } = splitForPhone(nav);
     assert.deepEqual(labels(tabs), ["nav.home", "nav.posts", "nav.engagement"]);
