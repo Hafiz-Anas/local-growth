@@ -47,9 +47,11 @@ Set these under **Project → Settings → Environment Variables**, scoped to **
 | `META_APP_SECRET` | Meta app secret (Meta for Developers → App settings → Basic) |
 | `META_REDIRECT_URI` | `https://<your-domain>/api/integrations/instagram/callback` |
 | `META_GRAPH_VERSION` | `v26.0` |
-| `AI_PROVIDER` | `mock` |
+| `AI_PROVIDER` | `gemini` (text: captions, reply drafts, Regenerate, assistant, recommendations, reports; `mock` = template text, no AI calls) |
+| `GEMINI_TEXT_RPM` | `12` (text requests per minute per instance; over it, template text or "AI unavailable") |
+| `GEMINI_TEXT_RPD` | `450` (text requests per day per instance, resets at midnight Pacific time) |
 | `IMAGE_PROVIDER` | `gemini` (or `mock` for placeholder images) |
-| `GEMINI_API_KEY` | Google AI Studio key (needed when `IMAGE_PROVIDER="gemini"`) |
+| `GEMINI_API_KEY` | Google AI Studio key (needed when `AI_PROVIDER` or `IMAGE_PROVIDER` is `gemini`). Mark it **Sensitive**. |
 | `RATE_LIMIT_STORE` | `memory` |
 | `CRON_SECRET` | New random secret (same command as `AUTH_SECRET`). Turns on scheduled publishing; see *Publishing to Instagram* below. Mark it **Sensitive**. |
 | `META_WEBHOOK_VERIFY_TOKEN` | New random string (same command as `AUTH_SECRET`). Entered again in Meta's webhook settings (section 5). Mark it **Sensitive**. |
