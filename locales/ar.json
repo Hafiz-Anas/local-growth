@@ -35,8 +35,7 @@
     "optional": "اختياري"
   },
   "nav": {
-    "dashboard": "لوحة التحكم",
-    "competitors": "تحليل المنافسين",
+    "competitors": "المنافسون",
     "postGenerator": "مولّد المنشورات",
     "experiment": "تجربة النشر",
     "engagement": "التفاعل",
@@ -47,7 +46,12 @@
     "onboarding": "التهيئة",
     "assistant": "المساعد الذكي",
     "recommendations": "التوصيات",
-    "reports": "التقارير"
+    "reports": "التقارير",
+    "main": "التنقل الرئيسي",
+    "home": "الرئيسية",
+    "posts": "المنشورات",
+    "insights": "التحليلات",
+    "replies": "الردود"
   },
   "plans": {
     "starter": "الأساسية",

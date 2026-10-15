@@ -9,15 +9,11 @@ import { LogoMark, Wordmark } from "@/components/brand/logo";
 import { Avatar } from "@/components/shared/avatar";
 import { Tooltip } from "@/components/ui/tooltip";
 import { useI18n } from "@/lib/i18n/provider";
+import { isActiveItem } from "@/lib/navigation";
 import { setSidebarCollapsed, useSidebarCollapsed, useSidebarIconOnly } from "@/lib/sidebar";
 import { cn } from "@/lib/utils";
 import { NavIcon } from "./nav-icon";
 import { AdminShield, ProfileMenuTrigger, type MenuUser } from "./profile-menu";
-
-export function isActivePath(pathname: string, href: string, exact = false) {
-  if (exact) return pathname === href;
-  return pathname === href || pathname.startsWith(`${href}/`);
-}
 
 /*
  * Width/visibility is pure CSS so the saved state applies before paint:
@@ -48,10 +44,11 @@ export function Sidebar({
   const tooltipSide = dir === "rtl" ? "left" : "right";
 
   const renderItem = (item: NavItem) => {
-    const active = isActivePath(pathname, item.href, item.href === homeHref);
+    // A section is active on any of its pages (e.g. Insights on Reports).
+    const active = isActiveItem(pathname, item, homeHref);
     const label = t(item.labelKey);
     return (
-      <li key={item.href}>
+      <li key={item.labelKey}>
         <Tooltip label={label} side={tooltipSide} disabled={!iconOnly}>
           <Link href={item.href} aria-current={active ? "page" : undefined} aria-label={iconOnly ? label : undefined} className={ROW}>
             <NavIcon name={item.icon} active={active} />

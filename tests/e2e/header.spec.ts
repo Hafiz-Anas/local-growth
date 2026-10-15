@@ -86,7 +86,7 @@ test("language switch works from the menu (Arabic, right to left) and survives a
   await page.waitForResponse((r) => r.url().includes("/api/me/preferences") && r.request().method() === "PATCH");
 });
 
-test("phone width: the connection status fits, and the menu has the page shortcuts", async ({ browser }) => {
+test("phone width: the connection status fits; Settings is in the menu, the sections in the tab bar", async ({ browser }) => {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
   await login(page);
   await page.goto("/dashboard");
@@ -95,10 +95,12 @@ test("phone width: the connection status fits, and the menu has the page shortcu
   expect(overflow).toBe(0);
   await openMenu(page);
   await expect(page.getByRole("menu").getByText("Pro", { exact: true })).toBeVisible();
-  await page.getByRole("menuitem", { name: "Reports" }).click();
-  await page.waitForURL(/\/reports$/);
-  await openMenu(page);
-  await page.getByRole("menuitem", { name: "Recommendations" }).click();
+  // All five sections fit the tab bar, so the menu has no page shortcuts — and no "Profile" that only led back home.
+  await expect(page.getByTestId("menu-shortcut")).toHaveCount(0);
+  await expect(page.getByRole("menuitem", { name: "Profile" })).toHaveCount(0);
+  await page.getByRole("menuitem", { name: "Settings" }).click();
+  await page.waitForURL(/\/settings$/);
+  await page.getByTestId("tab-bar").getByRole("link", { name: "Insights" }).click();
   await page.waitForURL(/\/recommendations$/);
   await page.close();
 });

@@ -14,6 +14,7 @@ import { VerifyEmailBanner } from "@/components/shared/verify-email-banner";
 import { Button } from "@/components/ui/button";
 import { exitPreviewAction } from "@/lib/auth/actions";
 import { useI18n } from "@/lib/i18n/provider";
+import { splitForPhone } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 import { PreferencesSync } from "@/components/providers/preferences-sync";
 import type { UiPreferences } from "@/types";
@@ -22,6 +23,7 @@ import { NotificationBell } from "@/components/notifications/notification-bell";
 import { MobileTabBar } from "./mobile-tab-bar";
 import { NavIcon } from "./nav-icon";
 import { CONTENT_INSET, ProfileMenu, type MenuUser, type MenuUserBase } from "./profile-menu";
+import { SectionTabs } from "./section-tabs";
 import { Sidebar } from "./sidebar";
 
 /** `nav` is built on the server from the enabled features — hidden items never reach the browser. */
@@ -42,25 +44,24 @@ export function UserShell({
   const { client, isPreview } = useActiveClient();
   const { t, locale } = useI18n();
   const withBanner = useAssistantBanner();
+  const phone = splitForPhone(nav);
+  // Phones: sections that don't fit the tab bar live in the profile menu.
+  const shortcuts = phone.more.map((item) => ({ href: item.href, label: t(item.labelKey), icon: <NavIcon name={item.icon} className="size-4" /> }));
 
   // In preview the menu belongs to the admin; otherwise to the signed-in user.
   const user: MenuUser =
     base.role === "admin"
-      ? { ...base, secondary: t("roles.admin"), profileHref: "/admin/profile", settingsHref: "/admin/system" }
+      ? { ...base, secondary: t("roles.admin"), profileHref: "/admin/profile", settingsHref: "/admin/system", shortcuts }
       : {
           ...base,
           secondary: client.instagramHandle === null ? client.businessName : `@${client.handle}`,
-          profileHref: "/dashboard",
           settingsHref: "/settings",
           plan: client.plan,
-          // Phones: the tab bar is full, so these live in the menu.
-          shortcuts: nav
-            .filter((item) => item.href === "/recommendations" || item.href === "/reports")
-            .map((item) => ({ href: item.href, label: t(item.labelKey), icon: <NavIcon name={item.icon} className="size-4" /> })),
+          shortcuts,
         };
 
-  const main = nav.filter((i) => i.href !== "/settings");
-  const bottom = nav.filter((i) => i.href === "/settings");
+  const main = nav.filter((i) => i.placement !== "bottom");
+  const bottom = nav.filter((i) => i.placement === "bottom");
 
   return (
     <div className="min-h-dvh">
@@ -126,11 +127,12 @@ export function UserShell({
             withBanner ? "pb-[calc(var(--tabbar-height)+var(--assistant-bar-height)+32px)] md:pb-[calc(var(--assistant-bar-height)+48px)]" : "pb-[calc(var(--tabbar-height)+32px)] md:pb-12",
           )}
         >
+          <SectionTabs nav={nav} homeHref="/dashboard" />
           {children}
         </main>
       </div>
       <AssistantBanner />
-      <MobileTabBar items={nav.filter((i) => i.mobile)} homeHref="/dashboard" />
+      <MobileTabBar items={phone.tabs} homeHref="/dashboard" />
     </div>
   );
 }

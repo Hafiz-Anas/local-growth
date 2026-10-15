@@ -35,10 +35,9 @@
     "optional": "optional"
   },
   "nav": {
-    "dashboard": "Dashboard",
-    "competitors": "Competitor Insights",
+    "competitors": "Competitors",
     "postGenerator": "Post Generator",
-    "experiment": "Posting Experiment",
+    "experiment": "Posting experiment",
     "engagement": "Engagement",
     "settings": "Settings",
     "overview": "Overview",
@@ -47,7 +46,12 @@
     "onboarding": "Onboarding",
     "assistant": "AI Assistant",
     "recommendations": "Recommendations",
-    "reports": "Reports"
+    "reports": "Reports",
+    "main": "Main",
+    "home": "Home",
+    "posts": "Posts",
+    "insights": "Insights",
+    "replies": "Replies"
   },
   "plans": {
     "starter": "Starter",

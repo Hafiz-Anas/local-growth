@@ -1,5 +1,6 @@
 import {
   Activity,
+  BarChart3,
   Bot,
   Compass,
   FileText,
@@ -25,6 +26,7 @@ const ICONS: Record<NavIconName, LucideIcon> = {
   assistant: Bot,
   recommendations: Lightbulb,
   reports: FileText,
+  insights: BarChart3,
   settings: Settings,
   clients: Users,
   onboarding: Rocket,

@@ -29,7 +29,8 @@ export interface MenuUser {
   role: Role;
   /** Secondary line under the name: "Administrator" or the business handle. */
   secondary: string;
-  profileHref: string;
+  /** Admins only: their profile page (a business user's profile is the business, edited in Settings). */
+  profileHref?: string;
   settingsHref: string;
   /** The business's plan (users only), shown in the menu. */
   plan?: PlanId;
@@ -78,19 +79,21 @@ function ProfileMenuBody({ user }: { user: MenuUser }) {
       </DropdownMenuLabel>
       <DropdownMenuSeparator />
       {user.shortcuts?.map((s) => (
-        <DropdownMenuItem key={s.href} asChild className="md:hidden">
+        <DropdownMenuItem key={s.href} asChild className="md:hidden" data-testid="menu-shortcut">
           <Link href={s.href}>
             {s.icon}
             {s.label}
           </Link>
         </DropdownMenuItem>
       ))}
-      <DropdownMenuItem asChild>
-        <Link href={user.profileHref}>
-          <CircleUserRound />
-          {t("topbar.profile")}
-        </Link>
-      </DropdownMenuItem>
+      {user.profileHref && (
+        <DropdownMenuItem asChild>
+          <Link href={user.profileHref}>
+            <CircleUserRound />
+            {t("topbar.profile")}
+          </Link>
+        </DropdownMenuItem>
+      )}
       <DropdownMenuItem asChild>
         <Link href={user.settingsHref}>
           <Settings />

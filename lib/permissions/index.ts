@@ -17,8 +17,19 @@ export function isFeatureEnabled(permissions: Permissions | undefined, key: Feat
   return parent ? permissions[parent] === true : true;
 }
 
+/**
+ * Navigation with only what the business may open: items and section pages whose feature is OFF are
+ * removed (never grayed out), a section without visible pages is removed, and a section links to
+ * its first visible page.
+ */
 export function filterNav(items: NavItem[], permissions: Permissions | undefined): NavItem[] {
-  return items.filter((item) => !item.feature || isFeatureEnabled(permissions, item.feature));
+  const allowed = (key?: FeatureKey) => !key || isFeatureEnabled(permissions, key);
+  return items.flatMap((item) => {
+    if (!allowed(item.feature)) return [];
+    if (!item.pages) return [item];
+    const pages = item.pages.filter((page) => allowed(page.feature));
+    return pages.length ? [{ ...item, pages, href: pages[0].href }] : [];
+  });
 }
 
 export function countEnabled(permissions: Permissions): number {
