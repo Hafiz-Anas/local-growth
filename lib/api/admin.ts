@@ -6,6 +6,7 @@ import { initials, toneFor } from "@/lib/utils";
 import type {
   ActivityLogDto,
   AdminBusinessDto,
+  AdminInstagramAccountsDto,
   AdminIntegrationDto,
   AdminOnboardingDto,
   AdminOverviewDto,
@@ -48,6 +49,10 @@ export const useAdminSettings = () =>
 /** A client's Instagram connection details and Meta integration log. */
 export const useAdminIntegration = (id: string) =>
   useQuery<AdminIntegrationDto, ApiClientError>({ queryKey: qk.admin.integration(id), queryFn: () => apiFetch(`/api/admin/businesses/${id}/integration`) });
+
+/** Every Instagram account a client's logins can switch between, with the plan limit. */
+export const useAdminAccounts = (id: string) =>
+  useQuery<AdminInstagramAccountsDto, ApiClientError>({ queryKey: qk.admin.accounts(id), queryFn: () => apiFetch(`/api/admin/businesses/${id}/accounts`) });
 
 /** A client's brand context and brand posts (read-only). */
 export const useAdminBrand = (id: string) =>

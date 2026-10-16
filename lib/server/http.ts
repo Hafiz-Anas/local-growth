@@ -55,6 +55,10 @@ export type ApiErrorCode =
   | "monitor_limit"
   /** The post is already being monitored. */
   | "monitor_exists"
+  /** The login has all the Instagram accounts its plan allows (PlanLimits.instagramAccounts). */
+  | "account_limit"
+  /** The screen was rendered for another Instagram account than the active one (switched in another tab). */
+  | "account_switched"
   | "internal_error";
 
 /** Throw from route code (or guards); `handler()` turns it into the JSON error response. */

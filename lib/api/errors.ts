@@ -32,6 +32,8 @@ const KNOWN = new Set([
   "regenerate_limit",
   "analysis_limit",
   "monitor_exists",
+  "account_limit",
+  "account_switched",
   "network_error",
   "internal_error",
 ]);
@@ -93,7 +95,7 @@ export function isInstagramNotConnected(error: unknown): boolean {
  * login), and a toast for everything else.
  */
 export function reportError(error: unknown, t: Translate) {
-  if (error instanceof ApiClientError && error.status === 401) return;
+  if (error instanceof ApiClientError && (error.status === 401 || error.code === "account_switched")) return;
   if (isInstagramNotConnected(error)) return notify.instagramRequired(t("errors.instagram_not_connected"));
   notify.error(errorMessage(error, t));
 }

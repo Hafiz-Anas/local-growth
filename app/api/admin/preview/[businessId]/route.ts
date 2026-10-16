@@ -27,7 +27,7 @@ export const GET = handler(async (_request, context: RouteContext<"/api/admin/pr
   if (!(await db.business.count({ where: { id: businessId } }))) throw notFound("Business");
 
   const { permissions, enabled } = await getPermissionsDto(businessId);
-  const owner = await db.user.findFirst({ where: { businessId, role: "USER" }, orderBy: { createdAt: "asc" }, select: { notificationPrefs: true } });
+  const owner = await db.user.findFirst({ where: { role: "USER", memberships: { some: { businessId } } }, orderBy: { createdAt: "asc" }, select: { notificationPrefs: true } });
   const on = (key: Parameters<typeof isFeatureEnabled>[1]) => isFeatureEnabled(permissions, key);
 
   const preview: PreviewDto = {

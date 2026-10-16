@@ -135,7 +135,7 @@ function MockConnectForm({ initialHandle, onConnected }: { initialHandle: string
     },
     onError: (e) => {
       const reason = Array.isArray(e.details) ? (e.details as Array<{ message?: string }>)[0]?.message : undefined;
-      setError(reason === "handle_taken" ? t("onboarding.instagram.handleTaken") : errorMessage(e, t));
+      setError(reason === "handle_taken" ? t("onboarding.instagram.handleTaken") : reason === "already_added" ? t("onboarding.instagram.alreadyAdded") : errorMessage(e, t));
     },
   });
 

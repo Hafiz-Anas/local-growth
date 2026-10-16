@@ -5,7 +5,7 @@ import { AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
 import { Segmented } from "@/components/settings/segmented";
 import { Avatar } from "@/components/shared/avatar";
 import { FEATURE_KEYS } from "@/config/features";
-import { MAX_COMPETITORS_LIMIT, MAX_MONITORED_POSTS_LIMIT, PLAN_IDS, PLAN_PRESETS, type PlanLimits } from "@/config/plans";
+import { MAX_COMPETITORS_LIMIT, MAX_INSTAGRAM_ACCOUNTS_LIMIT, MAX_MONITORED_POSTS_LIMIT, PLAN_IDS, PLAN_PRESETS, type PlanLimits } from "@/config/plans";
 import { apiFetch, type ApiClientError } from "@/lib/api/client";
 import { qk } from "@/lib/api/queries";
 import { countEnabled } from "@/lib/permissions";
@@ -172,7 +172,7 @@ function SelfSignupCard() {
   );
 }
 
-/** Limits per plan: competitor accounts each plan can track and posts it can monitor at once (default 5 each). Saved when a field loses focus. */
+/** Limits per plan: competitor accounts each plan can track, posts it can monitor at once (default 5 each) and Instagram accounts per login (default 1). Saved when a field loses focus. */
 function PlanLimitsCard() {
   const { t } = useI18n();
   const queryClient = useQueryClient();
@@ -187,6 +187,7 @@ function PlanLimitsCard() {
   const fields: Array<{ field: keyof PlanLimits; label: string; max: number; testId: (plan: PlanId) => string }> = [
     { field: "competitors", label: t("admin.system.planLimitCompetitors"), max: MAX_COMPETITORS_LIMIT, testId: (plan) => `plan-limit-${plan}` },
     { field: "monitoredPosts", label: t("admin.system.planLimitMonitored"), max: MAX_MONITORED_POSTS_LIMIT, testId: (plan) => `plan-limit-monitored-${plan}` },
+    { field: "instagramAccounts", label: t("admin.system.planLimitAccounts"), max: MAX_INSTAGRAM_ACCOUNTS_LIMIT, testId: (plan) => `plan-limit-accounts-${plan}` },
   ];
 
   return (

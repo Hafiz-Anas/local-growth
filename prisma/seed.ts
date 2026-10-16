@@ -421,6 +421,10 @@ async function main() {
   }
   await seedSelfSignup(hashes.get(SELF_SIGNUP_EMAIL)!);
 
+  // Each login belongs to its Instagram account (BusinessMember) — the account switcher lists these.
+  const owners = await db.user.findMany({ where: { businessId: { not: null } }, select: { id: true, businessId: true } });
+  await db.businessMember.createMany({ data: owners.map((u) => ({ userId: u.id, businessId: u.businessId! })) });
+
   await db.activityLog.createMany({
     data: MOCK_ACTIVITY.map((item) => ({
       businessId: item.clientId,
@@ -433,6 +437,7 @@ async function main() {
 
   const counts = {
     users: await db.user.count(),
+    businessMembers: await db.businessMember.count(),
     businesses: await db.business.count(),
     featurePermissions: await db.featurePermission.count(),
     instagramConnections: await db.instagramConnection.count(),

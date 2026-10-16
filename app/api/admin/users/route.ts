@@ -14,7 +14,8 @@ export const GET = handler(async (request) => {
     where: {
       ...(role && { role: role === "admin" ? "ADMIN" : "USER" }),
       ...(status && { status: status === "active" ? "ACTIVE" : "SUSPENDED" }),
-      ...(businessId && { businessId }),
+      // Everyone with access to that client's Instagram account, whichever account they have open.
+      ...(businessId && { memberships: { some: { businessId } } }),
       ...(q && { OR: [{ email: { contains: q, mode: "insensitive" } }, { name: { contains: q, mode: "insensitive" } }] }),
     },
     select: ADMIN_USER_SELECT,
@@ -43,6 +44,7 @@ export const POST = handler(async (request) => {
         role: input.role === "admin" ? "ADMIN" : "USER",
         businessId: input.businessId ?? null,
         avatarUrl: input.avatarUrl ?? null,
+        ...(input.businessId && { memberships: { create: { businessId: input.businessId } } }),
       },
       select: ADMIN_USER_SELECT,
     });

@@ -4,7 +4,7 @@ import { listNotifications, markAllNotificationsRead } from "@/lib/server/notifi
 
 /** POST /api/notifications/read-all — mark all of the user's notifications as read. */
 export const POST = handler(async () => {
-  const { session } = await requireFeature("notifications");
-  await markAllNotificationsRead(session.userId);
-  return ok(await listNotifications(session.userId));
+  const { session, businessId } = await requireFeature("notifications");
+  await markAllNotificationsRead(session.userId, businessId);
+  return ok(await listNotifications(session.userId, businessId));
 });

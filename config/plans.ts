@@ -72,14 +72,17 @@ export type PlanLimits = {
   competitors: number;
   /** Posts a business can monitor at the same time ("Monitor this post"). */
   monitoredPosts: number;
+  /** Instagram accounts one login can switch between (the account switcher's "Add account"). */
+  instagramAccounts: number;
 };
 
 export const DEFAULT_PLAN_LIMITS: Record<PlanId, PlanLimits> = {
-  starter: { competitors: 5, monitoredPosts: 5 },
-  growth: { competitors: 5, monitoredPosts: 5 },
-  pro: { competitors: 5, monitoredPosts: 5 },
+  starter: { competitors: 5, monitoredPosts: 5, instagramAccounts: 1 },
+  growth: { competitors: 5, monitoredPosts: 5, instagramAccounts: 1 },
+  pro: { competitors: 5, monitoredPosts: 5, instagramAccounts: 1 },
 };
 
 /** Bounds for the admin's settings. */
 export const MAX_COMPETITORS_LIMIT = 20;
 export const MAX_MONITORED_POSTS_LIMIT = 25;
+export const MAX_INSTAGRAM_ACCOUNTS_LIMIT = 20;

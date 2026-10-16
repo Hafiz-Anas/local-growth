@@ -9,6 +9,7 @@ import { buildDialogUrl, ESSENTIAL_SCOPES, getMetaConfig, META_SCOPES } from "@/
 import { MetaApiError } from "@/lib/services/meta/errors";
 import { toPageOption, type PageCandidate, type TokenInfo } from "@/lib/services/meta/mappers";
 import type { MetaConnectOutcome, MetaPageOptionDto } from "@/types";
+import { isOwnOtherAccount } from "./accounts";
 import { logActivity } from "./activity";
 import { ensureWebhookSubscription } from "./instagram-dm";
 import { logIntegration } from "./integration-log";
@@ -210,6 +211,9 @@ async function connectCandidate(ctx: ConnectContext, grant: UserGrant, page: Pag
   const handleTaken = page.username ? await db.business.count({ where: { instagramHandle: page.username, id: { not: businessId } } }) : 0;
   if (elsewhere || handleTaken) {
     await cancelPending(businessId);
+    // The same Instagram account can't be added twice — not even to the same login.
+    const own = await isOwnOtherAccount(ctx.userId, businessId, { OR: [{ instagramConnection: { igAccountKey: accountKey } }, ...(page.username ? [{ instagramHandle: page.username }] : [])] });
+    if (own) return { outcome: await fail(ctx, "already_added", "This Instagram account is already one of the user's accounts.", { username: page.username }) };
     return { outcome: await fail(ctx, "taken", "This Instagram account is already connected to another business.", { username: page.username }) };
   }
 
@@ -253,7 +257,11 @@ async function connectCandidate(ctx: ConnectContext, grant: UserGrant, page: Pag
       await tx.instagramConnection.update({ where: { businessId }, data: { profile: Prisma.DbNull, insights: Prisma.DbNull } });
     }
     await tx.instagramConnection.upsert({ where: { businessId }, update: data, create: { businessId, ...data } });
-    if (page.username) await tx.business.update({ where: { id: businessId }, data: { instagramHandle: page.username } });
+    if (page.username) {
+      const { name } = await tx.business.findUniqueOrThrow({ where: { id: businessId }, select: { name: true } });
+      // A newly added account has no name yet: it starts as its handle (editable in the next step).
+      await tx.business.update({ where: { id: businessId }, data: { instagramHandle: page.username, ...(!name.trim() && { name: page.username }) } });
+    }
     await tx.metaPendingConnection.deleteMany({ where: { businessId } });
     await logActivity({ businessId, userId: ctx.userId, action: "instagram.connected", details: { username: page.username, provider: "meta" } }, tx);
   });

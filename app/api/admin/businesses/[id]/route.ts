@@ -39,24 +39,39 @@ export const PATCH = handler(async (request, context: Ctx) => {
   return ok(await getAdminBusiness(id));
 });
 
-/** DELETE /api/admin/businesses/:id — removes the business, its users and all of its data. */
+/**
+ * DELETE /api/admin/businesses/:id — removes the business (one Instagram account) and all of its
+ * data, and the logins that have no other Instagram account. Logins with other accounts keep
+ * them: if this one was active, their oldest other account becomes active.
+ */
 export const DELETE = handler(async (_request, context: Ctx) => {
   const session = await requireRole("ADMIN");
   const { id } = await readParams(context, "id");
   const business = await db.business.findUnique({
     where: { id },
-    select: { name: true, instagramHandle: true, avatarUrl: true, users: { select: { avatarUrl: true } } },
+    select: {
+      name: true,
+      instagramHandle: true,
+      avatarUrl: true,
+      members: { select: { user: { select: { id: true, avatarUrl: true, businessId: true, memberships: { where: { businessId: { not: id } }, select: { businessId: true }, orderBy: { createdAt: "asc" }, take: 1 } } } } },
+    },
   });
   if (!business) throw notFound("Business");
 
+  const users = business.members.map((m) => m.user);
+  // Logins with another account switch to it; logins with only this one are removed with it.
+  const staying = users.filter((u) => u.memberships.length > 0);
   await db.$transaction(async (tx) => {
+    for (const u of staying) if (u.businessId === id) await tx.user.update({ where: { id: u.id }, data: { businessId: u.memberships[0].businessId } });
+    await tx.user.deleteMany({ where: { id: { in: users.filter((u) => u.memberships.length === 0).map((u) => u.id) } } });
     await tx.business.delete({ where: { id } });
     // The business row is gone, so the entry is platform-level; details keep the reference.
     await logActivity({ userId: session.userId, action: "business.deleted", details: { businessId: id, name: business.name, handle: business.instagramHandle } }, tx);
   });
 
   const storage = getStorageService();
-  for (const url of new Set([business.avatarUrl, ...business.users.map((u) => u.avatarUrl)])) {
+  const stayingAvatars = new Set(staying.map((u) => u.avatarUrl));
+  for (const url of new Set([business.avatarUrl, ...users.map((u) => u.avatarUrl).filter((url) => !stayingAvatars.has(url))])) {
     const key = url ? storage.keyFromUrl(url) : null;
     if (key) await storage.delete(key);
   }

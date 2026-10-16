@@ -54,7 +54,7 @@ export const POST = handler(async (request) => {
     if (owner && passwordHash) {
       const user = await tx.user.create({
         // Created by Raid's team, so the address counts as verified.
-        data: { email: owner.email, name: owner.name, passwordHash, role: "USER", businessId: created.id, avatarUrl: fields.avatarUrl ?? null, emailVerifiedAt: new Date() },
+        data: { email: owner.email, name: owner.name, passwordHash, role: "USER", businessId: created.id, avatarUrl: fields.avatarUrl ?? null, emailVerifiedAt: new Date(), memberships: { create: { businessId: created.id } } },
         select: { id: true },
       });
       await logActivity({ businessId: created.id, userId: session.userId, action: "user.created", details: { targetUserId: user.id, email: owner.email } }, tx);

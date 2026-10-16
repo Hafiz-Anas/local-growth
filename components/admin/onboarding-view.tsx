@@ -138,7 +138,7 @@ function BusinessRow({ business: b }: { business: AdminOnboardingBusinessDto }) 
           <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span className="truncate text-body font-semibold">{b.name}</span>
             <Badge variant={b.source === "self_signup" ? "outline" : "neutral"} size="sm">
-              {b.source === "self_signup" ? t("adminOnboarding.selfSignup") : t("adminOnboarding.invited")}
+              {b.source === "self_signup" ? t("adminOnboarding.selfSignup") : b.source === "account_added" ? t("adminOnboarding.accountAdded") : t("adminOnboarding.invited")}
             </Badge>
             <PlanBadge plan={b.plan} />
           </span>

@@ -51,7 +51,11 @@ export function ClientOnboardingCard({ business }: { business: AdminBusinessDto 
             {t("admin.onboarding.title")}
           </CardTitle>
           <CardDescription>
-            {business.source === "self_signup" ? t("admin.onboarding.selfSignup") : t("admin.onboarding.adminCreated")}
+            {business.source === "self_signup"
+              ? t("admin.onboarding.selfSignup")
+              : business.source === "account_added"
+                ? t("admin.onboarding.accountAdded")
+                : t("admin.onboarding.adminCreated")}
             {business.onboardingInvitedAt && (
               <>
                 {" · "}
@@ -74,7 +78,7 @@ export function ClientOnboardingCard({ business }: { business: AdminBusinessDto 
           </Button>
         )}
         {!hasUsers && !inProgress && <p className="text-caption text-muted">{t("admin.onboarding.noUsers")}</p>}
-        {(business.source === "self_signup" || business.onboardingInvitedAt) && (
+        {(business.source !== "admin_created" || business.onboardingInvitedAt) && (
           <Link href="/admin/onboarding" className="text-caption font-semibold text-primary hover:text-link">
             {t("admin.onboarding.details")}
           </Link>

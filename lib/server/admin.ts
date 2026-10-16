@@ -15,7 +15,7 @@ export const ADMIN_BUSINESS_SELECT = {
   onboardingStatus: true,
   onboardingStep: true,
   onboardingInvitedAt: true,
-  users: { select: { id: true, email: true, name: true, status: true }, orderBy: { createdAt: "asc" } },
+  members: { select: { user: { select: { id: true, email: true, name: true, status: true } } }, orderBy: { createdAt: "asc" } },
   permissions: { select: { featureKey: true, enabled: true } },
   activity: { select: { createdAt: true }, orderBy: { createdAt: "desc" }, take: 1 },
 } satisfies Prisma.BusinessSelect;
@@ -24,7 +24,7 @@ export function toAdminBusiness(row: Prisma.BusinessGetPayload<{ select: typeof 
   return {
     ...toBusinessSummary(row),
     createdAt: row.createdAt.toISOString(),
-    users: row.users.map((u) => ({ ...u, status: u.status.toLowerCase() as UserStatus })),
+    users: row.members.map(({ user: u }) => ({ ...u, status: u.status.toLowerCase() as UserStatus })),
     enabledFeatures: enabledFeatureKeys(permissionsFromRows(row.permissions)).length,
     totalFeatures: FEATURE_KEYS.length,
     lastActivityAt: row.activity[0]?.createdAt.toISOString() ?? null,

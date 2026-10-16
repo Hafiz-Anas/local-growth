@@ -375,22 +375,27 @@ export async function addOnboardingCompetitor(businessId: string, handle: string
 export async function inviteToOnboarding(businessId: string, actorId: string, baseUrl: string) {
   const business = await db.business.findUnique({
     where: { id: businessId },
-    select: { name: true, onboardingStatus: true, users: { where: { role: "USER", status: "ACTIVE" }, select: { email: true, name: true, uiPreferences: true } } },
+    select: {
+      name: true,
+      onboardingStatus: true,
+      members: { where: { user: { role: "USER", status: "ACTIVE" } }, select: { user: { select: { email: true, name: true, uiPreferences: true } } } },
+    },
   });
   if (!business) throw notFound("Business");
-  if (business.users.length === 0) throw new ApiError(409, "conflict", "This business has no login to invite.", [{ path: "users", message: "no_users" }]);
+  const users = business.members.map((m) => m.user);
+  if (users.length === 0) throw new ApiError(409, "conflict", "This business has no login to invite.", [{ path: "users", message: "no_users" }]);
 
   await db.$transaction(async (tx) => {
     await tx.business.update({
       where: { id: businessId },
       data: { onboardingStatus: "IN_PROGRESS", onboardingInvitedAt: new Date(), ...(business.onboardingStatus === "COMPLETED" && { onboardingStep: 1 }) },
     });
-    await logActivity({ businessId, userId: actorId, action: "onboarding.invited", details: { recipients: business.users.length } }, tx);
+    await logActivity({ businessId, userId: actorId, action: "onboarding.invited", details: { recipients: users.length } }, tx);
   });
   const loginUrl = new URL("/login", baseUrl).toString();
   // The invite itself is saved; a failed email (already logged) only lowers the count the admin sees.
   let emailed = 0;
-  for (const user of business.users) {
+  for (const user of users) {
     try {
       await getEmailService().sendOnboardingInvite({ to: user.email, name: user.name, locale: emailLocale(user.uiPreferences), businessName: business.name, loginUrl });
       emailed++;
@@ -398,7 +403,7 @@ export async function inviteToOnboarding(businessId: string, actorId: string, ba
       if (!(error instanceof EmailSendError)) throw error;
     }
   }
-  return { recipients: business.users.length, emailed };
+  return { recipients: users.length, emailed };
 }
 
 const FUNNEL_STEPS = [...EVENT_STEPS, "completed"] as const;
@@ -406,7 +411,7 @@ const FUNNEL_STEPS = [...EVENT_STEPS, "completed"] as const;
 /** Admin Onboarding page: every self sign-up (and invited client) with its progress, timings, errors and feedback. */
 export async function getAdminOnboarding(): Promise<AdminOnboardingDto> {
   const rows = await db.business.findMany({
-    where: { OR: [{ source: "SELF_SIGNUP" }, { onboardingInvitedAt: { not: null } }] },
+    where: { OR: [{ source: { in: ["SELF_SIGNUP", "ACCOUNT_ADDED"] } }, { onboardingInvitedAt: { not: null } }] },
     orderBy: { createdAt: "desc" },
     select: {
       id: true,
@@ -417,7 +422,7 @@ export async function getAdminOnboarding(): Promise<AdminOnboardingDto> {
       createdAt: true,
       onboardingStatus: true,
       onboardingStep: true,
-      users: { where: { role: "USER" }, select: { name: true, email: true, emailVerifiedAt: true }, orderBy: { createdAt: "asc" }, take: 1 },
+      members: { where: { user: { role: "USER" } }, select: { user: { select: { name: true, email: true, emailVerifiedAt: true } } }, orderBy: { createdAt: "asc" }, take: 1 },
       onboardingEvents: { select: { id: true, step: true, event: true, details: true, durationMs: true, createdAt: true }, orderBy: { createdAt: "asc" } },
       feedback: { select: { id: true, step: true, note: true, createdAt: true, user: { select: { name: true } } }, orderBy: { createdAt: "desc" } },
       integrationEvents: { select: INTEGRATION_EVENT_SELECT, orderBy: { createdAt: "desc" }, take: 20 },
@@ -440,7 +445,7 @@ export async function getAdminOnboarding(): Promise<AdminOnboardingDto> {
     }
     const errors = events.filter((e) => e.event === "ERROR");
     const completed = b.onboardingStatus === "COMPLETED" ? [...events].reverse().find((e) => e.event === "COMPLETED" && (e.step === "result" || (e.details as { finished?: boolean } | null)?.finished === true)) : undefined;
-    const owner = b.users[0];
+    const owner = b.members[0]?.user;
     return {
       id: b.id,
       name: b.name,

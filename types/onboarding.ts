@@ -5,7 +5,7 @@ import type { PlanId } from "./permissions";
 export type { BusinessType, EventStepId, InstagramLanguage, OnboardingStepId, PostPurpose };
 
 export type OnboardingStatus = "in_progress" | "completed";
-export type BusinessSource = "admin_created" | "self_signup";
+export type BusinessSource = "admin_created" | "self_signup" | "account_added";
 export type CompetitorValidation = "ready" | "not_business" | "private" | "not_found" | "own_account";
 export type OnboardingEventType = "started" | "completed" | "back" | "error" | "abandoned";
 
@@ -187,7 +187,7 @@ export interface AdminSettingsDto {
   /** Onboarding can't be finished without connecting Instagram (default off). */
   requireInstagramConnection: boolean;
   /** Limits per plan (defaults in config/plans.ts → DEFAULT_PLAN_LIMITS). */
-  planLimits: Record<PlanId, { competitors: number; monitoredPosts: number }>;
+  planLimits: Record<PlanId, { competitors: number; monitoredPosts: number; instagramAccounts: number }>;
   /** Read-only: the Meta integration's state (for the System page). */
   meta: { flow: ConnectFlow; configured: boolean; graphVersion: string | null; missing: string[] };
 }

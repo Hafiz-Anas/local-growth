@@ -118,13 +118,13 @@ export function ClientsView() {
 export function OnboardingTags({ business: b }: { business: AdminBusinessDto }) {
   const { t } = useI18n();
   const inProgress = b.onboardingStatus === "in_progress";
-  if (b.source !== "self_signup" && !inProgress) return null;
+  if (b.source === "admin_created" && !inProgress) return null;
   const n = Math.min(stepNumber(b.onboardingStep), PROGRESS_STEPS.length);
   return (
     <span className="mt-1 flex flex-wrap gap-1">
-      {b.source === "self_signup" && (
+      {b.source !== "admin_created" && (
         <Badge variant="outline" size="sm">
-          {t("adminOnboarding.selfSignup")}
+          {t(b.source === "account_added" ? "adminOnboarding.accountAdded" : "adminOnboarding.selfSignup")}
         </Badge>
       )}
       {inProgress ? (

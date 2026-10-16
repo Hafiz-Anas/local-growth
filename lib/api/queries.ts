@@ -41,6 +41,8 @@ import { apiFetch, type ApiClientError } from "./client";
 
 /** Query keys, shared by queries, mutations and cache updates. */
 export const qk = {
+  /** The login's Instagram accounts (account switcher). */
+  accounts: ["accounts"] as const,
   me: ["me"] as const,
   dashboard: ["dashboard"] as const,
   competitors: ["competitors"] as const,
@@ -84,6 +86,7 @@ export const qk = {
     business: (id: string) => ["admin", "business", id] as const,
     permissions: (id: string) => ["admin", "permissions", id] as const,
     integration: (id: string) => ["admin", "integration", id] as const,
+    accounts: (id: string) => ["admin", "accounts", id] as const,
     users: (businessId?: string) => ["admin", "users", businessId ?? "all"] as const,
     activity: (businessId?: string) => ["admin", "activity", businessId ?? "all"] as const,
     system: ["admin", "system"] as const,

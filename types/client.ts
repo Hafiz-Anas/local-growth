@@ -46,3 +46,35 @@ export interface Client {
    */
   setup?: { onboardingStepsLeft: number | null; goalsPromptDue: boolean };
 }
+
+/** One Instagram account in the account switcher (GET /api/accounts). */
+export interface InstagramAccountDto {
+  id: string;
+  /** Null until Instagram is connected (a newly added account in its setup). */
+  handle: string | null;
+  name: string;
+  avatarUrl: string | null;
+  avatarInitials: string;
+  avatarTone: MediaTone;
+  connection: ConnectionStatus;
+  /** Setup (onboarding) not finished yet. */
+  setupInProgress: boolean;
+  /** Unread notifications about this account for the signed-in user. */
+  unread: number;
+  active: boolean;
+}
+
+export interface InstagramAccountsDto {
+  items: InstagramAccountDto[];
+  /** Accounts this login has, and how many its plan allows (admin System page). */
+  count: number;
+  limit: number;
+  canAdd: boolean;
+}
+
+/** A client's Instagram accounts as admins see them (client detail page). */
+export interface AdminInstagramAccountsDto {
+  items: Array<{ id: string; name: string; handle: string | null; connection: ConnectionStatus; setupInProgress: boolean; plan: PlanId }>;
+  count: number;
+  limit: number;
+}

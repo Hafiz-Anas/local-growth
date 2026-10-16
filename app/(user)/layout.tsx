@@ -7,7 +7,8 @@ import { db } from "@/lib/db";
 import { filterNav } from "@/lib/permissions";
 import { getClientView, getUiPreferences } from "@/lib/server/client-view";
 import { verificationBannerEnabled } from "@/lib/server/email-verification";
-import { initials } from "@/lib/utils";
+import { ACCOUNT_META } from "@/lib/api/client";
+import { initials, toneFor } from "@/lib/utils";
 
 export default async function UserLayout({ children }: LayoutProps<"/">) {
   const { session, clientId, isPreview, permissions } = await getActiveClientContext();
@@ -23,13 +24,14 @@ export default async function UserLayout({ children }: LayoutProps<"/">) {
   const [client, preferences] = await Promise.all([getClientView(clientId), getUiPreferences(session.userId)]);
   if (!client) redirect(session.role === "admin" ? "/admin" : "/login");
 
-  // The profile row belongs to whoever is signed in: the admin while previewing, else the user.
+  // The profile row belongs to whoever is signed in (the admin while previewing): the person,
+  // not the Instagram account — it stays the same when switching accounts.
   const menuUser = {
     name: session.name,
     email: session.email,
     avatarUrl: session.avatarUrl,
-    initials: isPreview ? initials(session.name) : client.avatarInitials,
-    tone: isPreview ? ("night" as const) : client.avatarTone,
+    initials: initials(session.name),
+    tone: isPreview ? ("night" as const) : toneFor(session.userId),
     role: session.role,
   };
 
@@ -38,6 +40,8 @@ export default async function UserLayout({ children }: LayoutProps<"/">) {
 
   return (
     <ActiveClientProvider client={client} permissions={permissions} isPreview={isPreview}>
+      {/* The account this page shows; apiFetch sends it so a stale tab can't change another account. */}
+      {!isPreview && <meta name={ACCOUNT_META} content={clientId} />}
       <UserShell user={menuUser} nav={nav} preferences={preferences} emailUnverified={verificationBannerEnabled() && Boolean(user && !user.emailVerifiedAt)}>
         {children}
       </UserShell>

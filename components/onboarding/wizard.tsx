@@ -4,6 +4,7 @@ import { startTransition, useEffect, useRef, useState, type ReactNode } from "re
 import { useRouter } from "next/navigation";
 import { Clock, LogOut } from "lucide-react";
 import { LogoMark, Wordmark } from "@/components/brand/logo";
+import { AccountSwitcher, type CurrentAccount } from "@/components/layout/account-switcher";
 import { LanguageToggle, ThemeToggle } from "@/components/layout/toggles";
 import { ErrorState, Skeleton } from "@/components/shared/states";
 import { VerifyEmailBanner } from "@/components/shared/verify-email-banner";
@@ -29,8 +30,11 @@ export function OnboardingWizard({
   userName,
   verificationUnsent = false,
   showVerifyBanner = false,
+  account,
 }: {
   userName: string;
+  /** Set when the login has other Instagram accounts: the switcher replaces the logo, so an added account's setup can be left for another account. */
+  account?: CurrentAccount;
   verificationUnsent?: boolean;
   /** EMAIL_VERIFICATION_BANNER (lib/server/email-verification.ts). */
   showVerifyBanner?: boolean;
@@ -79,10 +83,14 @@ export function OnboardingWizard({
       {showVerifyBanner && query.data && <VerifyEmailBanner unverified={!query.data.emailVerified} email={query.data.email} sendFailed={verificationUnsent} />}
       <header className="sticky top-0 z-20 border-b border-border bg-background">
         <div className="mx-auto flex h-14 w-full max-w-[680px] items-center gap-2 px-4">
-          <span className="inline-flex items-center gap-2">
-            <LogoMark className="size-7" />
-            <Wordmark className="hidden text-[18px] sm:inline" />
-          </span>
+          {account ? (
+            <AccountSwitcher current={account} compact />
+          ) : (
+            <span className="inline-flex items-center gap-2">
+              <LogoMark className="size-7" />
+              <Wordmark className="hidden text-[18px] sm:inline" />
+            </span>
+          )}
           <span className="ms-auto" />
           {step && (
             <Button variant="ghost" size="sm" onClick={finishLater} disabled={deferring}>

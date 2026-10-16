@@ -36,7 +36,7 @@ function claimsToToken(claims: SessionClaims) {
   };
 }
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
+export const { handlers, auth, signIn, signOut, unstable_update: updateSession } = NextAuth({
   // Self-hosted: trust the Host header (set AUTH_URL in production).
   trustHost: true,
   session: { strategy: "jwt", maxAge: SESSION_MAX_AGE },
@@ -97,12 +97,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (!token.sub) return null;
 
       // Every request: end the session if the user was deleted or suspended, or
-      // the password changed since this token was issued.
+      // the password changed since this token was issued; reload the claims when the
+      // active Instagram account changed or the user no longer belongs to it.
       const refreshedAt = token.refreshedAt ?? 0;
-      const check = await checkSession(token.sub, token.sessionVersion ?? 0, refreshedAt);
+      const check = await checkSession(token.sub, token.sessionVersion ?? 0, refreshedAt, token.businessId ?? null);
       if (check === "revoked") return null;
 
-      // Reload claims when the user or the business's permissions changed.
+      // Reload claims when the user, the active account or its permissions changed.
       if (check === "stale" || trigger === "update" || Date.now() - refreshedAt > CLAIMS_MAX_AGE_MS) {
         const startedAt = Date.now();
         const claims = await loadSessionClaims(token.sub);

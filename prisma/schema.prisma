@@ -140,6 +140,8 @@ enum OnboardingStatus {
 enum BusinessSource {
   ADMIN_CREATED
   SELF_SIGNUP
+  /// A client added another Instagram account to their login ("Add account" in the account switcher).
+  ACCOUNT_ADDED
 }
 
 /// Result of InstagramService.lookupBusinessAccount for a competitor handle.
@@ -239,7 +241,8 @@ model User {
   avatarUrl     String?
   role          Role       @default(USER)
   status        UserStatus @default(ACTIVE)
-  /// Null for admins; every USER manages exactly one business.
+  /// The active Instagram account (a Business): what every user screen and API shows. Always one of
+  /// `memberships` (checked on every request, lib/auth/claims.ts). Null for admins.
   businessId    String?
   /// { sidebarCollapsed: boolean, theme: "light" | "dark" | "system", language: "en" | "ar" }
   uiPreferences Json       @default("{\"sidebarCollapsed\": false, \"theme\": \"system\", \"language\": \"en\"}")
@@ -253,7 +256,9 @@ model User {
   updatedAt     DateTime   @default(now()) @updatedAt
   lastLoginAt   DateTime?
 
-  business                Business?                @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  business                Business?                @relation(fields: [businessId], references: [id], onDelete: SetNull)
+  /// Every Instagram account (Business) this login can switch to.
+  memberships             BusinessMember[]
   passwordResetTokens     PasswordResetToken[]
   emailVerificationTokens EmailVerificationToken[]
   feedback                Feedback[]
@@ -322,7 +327,9 @@ model Business {
   goalsPromptDoneAt DateTime?
   source            BusinessSource   @default(ADMIN_CREATED)
 
+  /// Users whose active account this is (User.businessId). Who belongs to it: `members`.
   users               User[]
+  members             BusinessMember[]
   brandPosts          BrandPost[]
   brandContexts       BrandContext[]
   onboardingEvents    OnboardingEvent[]
@@ -354,6 +361,22 @@ model Business {
   postInsights        PostInsight[]
   postMonitors        PostMonitor[]
   statisticsSummaries StatisticsSummary[]
+}
+
+/// A login's access to one Instagram account (Business). One user can have several — the
+/// account switcher lists them; the plan limit is PlanLimits.instagramAccounts. Background jobs
+/// work per business and never look at which account is active.
+model BusinessMember {
+  id         String   @id @default(cuid())
+  userId     String
+  businessId String
+  createdAt  DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, businessId])
+  @@index([businessId])
 }
 
 /// One row per (business, feature key). A sub-feature ("engagement.dmRules") is
@@ -1138,7 +1161,8 @@ model Recommendation {
 
 // ─── Notifications and weekly reports ────────────────────────────────────────
 
-/// One notification for one user (read state is per person). `type` is a key of
+/// One notification for one user about one Instagram account (read state is per person; the
+/// center and the unread counts are per account). `type` is a key of
 /// lib/notifications.ts; the text is rendered from `params` in the user's language.
 /// `dedupeKey` keeps one live row per recurring subject (e.g. "replies_waiting"): a new event
 /// updates that row instead of adding another. In-app only for now; `emailedAt` is for the
@@ -1158,8 +1182,8 @@ model Notification {
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, dedupeKey])
-  @@index([userId, createdAt])
+  @@unique([userId, businessId, dedupeKey])
+  @@index([userId, businessId, createdAt])
 }
 
 /// A week's numbers vs the week before (computed in code, lib/services/text/report.ts) and a

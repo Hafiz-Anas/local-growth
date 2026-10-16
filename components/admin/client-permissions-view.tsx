@@ -29,6 +29,7 @@ import { BusinessUsersCard } from "./business-users-card";
 import { ClientBrandCard, ClientOnboardingCard } from "./client-onboarding-card";
 import { DeleteBusinessDialog } from "./delete-business-dialog";
 import { IntegrationCard } from "./integration-card";
+import { InstagramAccountsCard } from "./instagram-accounts-card";
 
 const itemKey = (key: FeatureKey) => `features.items.${key.replace(".", "_")}`;
 
@@ -229,6 +230,8 @@ export function ClientPermissionsView({ clientId }: { clientId: string }) {
       )}
 
       <ClientOnboardingCard business={business.data} />
+
+      <InstagramAccountsCard businessId={clientId} />
 
       <IntegrationCard businessId={clientId} />
 

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { encrypt } from "@/lib/crypto";
+import { isOwnOtherAccount } from "@/lib/server/accounts";
 import { logActivity } from "@/lib/server/activity";
 import { requireBusiness } from "@/lib/server/guards";
 import { ApiError, handler, ok, readJson } from "@/lib/server/http";
@@ -37,7 +38,7 @@ export const POST = handler(async (request) => {
   const { handle: requested } = hasBody ? await readJson(request, connectSchema) : { handle: undefined };
   const business = await db.business.findUniqueOrThrow({
     where: { id: businessId },
-    select: { instagramHandle: true, onboardingStatus: true, instagramConnection: { select: { status: true } } },
+    select: { name: true, instagramHandle: true, onboardingStatus: true, instagramConnection: { select: { status: true } } },
   });
   const onboarding = business.onboardingStatus === "IN_PROGRESS";
 
@@ -47,8 +48,11 @@ export const POST = handler(async (request) => {
       throw new ApiError(409, "conflict", "Disconnect the current account before connecting another.", [{ path: "handle", message: "already_connected" }]);
     }
     if (await db.business.count({ where: { instagramHandle: requested, id: { not: businessId } } })) {
-      if (onboarding) await recordError(businessId, "instagram", { kind: "connect", reason: "handle_taken" });
-      throw new ApiError(409, "conflict", "This Instagram account is already connected to another business.", [{ path: "handle", message: "handle_taken" }]);
+      // The same Instagram account can't be added twice — not even to the same login.
+      const own = await isOwnOtherAccount(session.userId, businessId, { instagramHandle: requested });
+      const reason = own ? "already_added" : "handle_taken";
+      if (onboarding) await recordError(businessId, "instagram", { kind: "connect", reason });
+      throw new ApiError(409, "conflict", own ? "This Instagram account is already one of your accounts." : "This Instagram account is already connected to another business.", [{ path: "handle", message: reason }]);
     }
     handle = requested;
   }
@@ -78,7 +82,10 @@ export const POST = handler(async (request) => {
     lastSyncAt: now,
   };
   await db.$transaction([
-    ...(handle !== business.instagramHandle ? [db.business.update({ where: { id: businessId }, data: { instagramHandle: handle } })] : []),
+    // A newly added account has no name yet: it starts as its handle (editable in the next step).
+    ...(handle !== business.instagramHandle || !business.name.trim()
+      ? [db.business.update({ where: { id: businessId }, data: { instagramHandle: handle, ...(!business.name.trim() && { name: handle }) } })]
+      : []),
     db.instagramConnection.upsert({ where: { businessId }, update: data, create: { businessId, ...data } }),
   ]);
   await logActivity({ businessId, userId: session.userId, action: "instagram.connected", details: { username: account.username } });

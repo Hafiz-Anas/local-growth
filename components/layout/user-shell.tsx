@@ -3,11 +3,10 @@
 import type { ReactNode } from "react";
 import { startTransition } from "react";
 import Link from "next/link";
-import { Eye, MapPin } from "lucide-react";
+import { Eye } from "lucide-react";
 import type { NavItem } from "@/config/navigation";
 import { LogoMark } from "@/components/brand/logo";
 import { useActiveClient } from "@/components/providers/active-client-provider";
-import { Avatar } from "@/components/shared/avatar";
 import { ConnectionPill } from "@/components/shared/connection-pill";
 import { InstagramIssueBanner } from "@/components/shared/instagram-issue-banner";
 import { VerifyEmailBanner } from "@/components/shared/verify-email-banner";
@@ -22,6 +21,7 @@ import { AssistantBanner, useAssistantBanner } from "@/components/assistant/assi
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { MobileTabBar } from "./mobile-tab-bar";
 import { NavIcon } from "./nav-icon";
+import { AccountSwitcher } from "./account-switcher";
 import { CONTENT_INSET, ProfileMenu, type MenuUser, type MenuUserBase } from "./profile-menu";
 import { SectionTabs } from "./section-tabs";
 import { Sidebar } from "./sidebar";
@@ -93,23 +93,17 @@ export function UserShell({
             <Link href="/dashboard" className="md:hidden" aria-label="Local Growth Engine">
               <LogoMark className="size-7" />
             </Link>
-            <div className="flex min-w-0 items-center gap-2.5">
-              <Avatar
-                src={client.avatarUrl}
-                initials={client.avatarInitials}
-                tone={client.avatarTone}
-                size="sm"
-                ring="story"
-                className="hidden sm:inline-flex"
-              />
-              <div className="min-w-0 leading-4">
-                <p className="truncate text-body font-semibold">{client.handle}</p>
-                <p className="flex items-center gap-1 truncate text-caption text-muted">
-                  <MapPin className="size-3 shrink-0" aria-hidden="true" />
-                  {locale === "ar" ? client.locationAr : client.location}
-                </p>
-              </div>
-            </div>
+            {/* The active Instagram account; tapping it switches between the login's accounts. */}
+            <AccountSwitcher
+              readOnly={isPreview}
+              current={{
+                handle: client.instagramHandle ?? null,
+                name: locale === "ar" ? client.businessNameAr : client.businessName,
+                avatarUrl: client.avatarUrl,
+                avatarInitials: client.avatarInitials,
+                avatarTone: client.avatarTone,
+              }}
+            />
 
             <div className="ms-auto flex items-center gap-1 sm:gap-2">
               {/* Only the Instagram connection here; plan, language and appearance are in the profile menu. */}

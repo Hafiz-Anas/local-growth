@@ -1,4 +1,6 @@
 import "server-only";
+import { headers } from "next/headers";
+import { ACCOUNT_HEADER, accountMismatch } from "@/lib/accounts";
 import { getSession } from "@/lib/auth/server";
 import { isFeatureEnabled, permissionsFromKeys } from "@/lib/permissions";
 import type { FeatureKey, Permissions, Session } from "@/types";
@@ -32,10 +34,17 @@ export interface BusinessContext {
   permissions: Permissions;
 }
 
-/** A signed-in USER with a business. */
+/**
+ * A signed-in USER and their active Instagram account. The session's account is checked against
+ * the user's memberships on every request (lib/auth/claims.ts). A screen rendered for another
+ * account (switched in another tab) gets 409 `account_switched` instead of changing this one.
+ */
 export async function requireBusiness(): Promise<BusinessContext> {
   const session = await requireRole("USER");
-  if (!session.businessId) throw new ApiError(403, "forbidden", "This account has no business.");
+  if (!session.businessId) throw new ApiError(403, "forbidden", "This login has no Instagram account.");
+  if (accountMismatch((await headers()).get(ACCOUNT_HEADER), session.businessId)) {
+    throw new ApiError(409, "account_switched", "Another Instagram account is active now. Reload to continue.");
+  }
   return { session, businessId: session.businessId, permissions: permissionsFromKeys(session.features) };
 }
 

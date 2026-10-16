@@ -966,10 +966,11 @@
         "missing": "missing in .env: {list}"
       },
       "planLimits": "Limits per plan",
-      "planLimitsHint": "How many competitor accounts a business on each plan can track, and how many of its posts it can monitor at the same time (default 5 each).",
+      "planLimitsHint": "How many competitor accounts each plan can track and how many posts it can monitor at once (default 5 each), and how many Instagram accounts one login can switch between (default 1).",
       "planLimitsSaved": "Plan limits saved.",
       "planLimitCompetitors": "Competitors",
-      "planLimitMonitored": "Posts monitored at once"
+      "planLimitMonitored": "Posts monitored at once",
+      "planLimitAccounts": "Instagram accounts per login"
     },
     "console": "Client management console",
     "activity": {
@@ -1043,7 +1044,8 @@
       "details": "See onboarding details",
       "readOnly": "read-only",
       "noBrand": "No brand profile built yet.",
-      "inviteEmailFailed": "Invite saved, but the email couldn't be sent to {count} user(s). They'll still see the setup when they log in."
+      "inviteEmailFailed": "Invite saved, but the email couldn't be sent to {count} user(s). They'll still see the setup when they log in.",
+      "accountAdded": "Added by the client from the account switcher"
     },
     "integration": {
       "title": "Instagram integration",
@@ -1083,6 +1085,15 @@
     "profile": {
       "title": "Profile",
       "subtitle": "Your own account: photo, password, language and appearance."
+    },
+    "accounts": {
+      "title": "Instagram accounts",
+      "hint": "Every Instagram account this client's logins can switch between.",
+      "count": "{count} of {limit} on the plan",
+      "notConnected": "Not connected yet",
+      "settingUp": "Setup not finished",
+      "open": "Open",
+      "current": "This account"
     }
   },
   "features": {
@@ -1191,7 +1202,9 @@
     "regenerate_limit": "You've asked for a lot of new drafts in the last hour. Edit this one, or try again later.",
     "analysis_limit": "You've asked for a lot of AI explanations in the last hour. All the numbers are here; try again later.",
     "monitor_limit": "Your plan monitors up to {max} posts at a time. Stop one first.",
-    "monitor_exists": "This post is already being monitored."
+    "monitor_exists": "This post is already being monitored.",
+    "account_limit": "Your plan's Instagram accounts are all in use. Contact us to add more.",
+    "account_switched": "Another Instagram account was opened in another tab. Reloading…"
   },
   "states": {
     "loadFailed": "Couldn't load this",
@@ -1450,7 +1463,8 @@
         "professional": "Your Instagram must be a professional account: in Instagram, Settings → Account type and tools → Switch to professional account (Business or Creator).",
         "page": "Link it to a Facebook Page: in Instagram, Edit profile → Page → connect or create a Page.",
         "login": "Then press Connect and log in with the Facebook account that manages that Page, and allow access to the Instagram account."
-      }
+      },
+      "alreadyAdded": "This Instagram account is already one of yours. Switch to it from the account menu at the top."
     },
     "competitors": {
       "displayName": "Display name (optional)",
@@ -1796,7 +1810,8 @@
       "not_connected": "Instagram not connected",
       "permission_missing": "Instagram permission missing",
       "rate_limited": "Instagram rate limit"
-    }
+    },
+    "accountAdded": "Added account"
   },
   "instagramConnect": {
     "continueWithFacebook": "Continue with Facebook",
@@ -1814,7 +1829,8 @@
       "error": "We couldn't connect Instagram this time. Please try again.",
       "unavailable": "Connecting Instagram is temporarily unavailable. Please try again later.",
       "no_account": "We couldn't find an Instagram business account.",
-      "pick": "Choose which Instagram account to connect."
+      "pick": "Choose which Instagram account to connect.",
+      "already_added": "This Instagram account is already one of yours. Switch to it from the account menu at the top."
     },
     "noAccount": {
       "title": "We couldn't find an Instagram business account",
@@ -2223,5 +2239,18 @@
       "evening": "Evening (5–10)",
       "night": "Night (10–6)"
     }
+  },
+  "accounts": {
+    "title": "Your Instagram accounts",
+    "switcherLabel": "Switch Instagram account (now: {account})",
+    "otherUnread": "{count} unread on your other Instagram accounts",
+    "unread": "{count} unread notifications",
+    "active": "Active",
+    "add": "Add Instagram account",
+    "newAccount": "New Instagram account",
+    "settingUp": "Setup not finished",
+    "loadFailed": "Couldn't load your Instagram accounts.",
+    "limitOne": "Your plan includes 1 Instagram account. Contact us to add more.",
+    "limitMany": "Your plan includes {limit} Instagram accounts and they're all in use. Contact us to add more."
   }
 }

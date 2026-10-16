@@ -19,6 +19,8 @@ export const GET = handler(async (_request, context: Ctx) => {
 /**
  * PATCH /api/admin/users/:id  { email?, name?, role?, businessId?, avatarUrl? }
  * The resulting user must be consistent: USER ↔ has a business, ADMIN ↔ none.
+ * A new businessId moves the login from its active Instagram account to that one (its other
+ * accounts stay); turning it into an admin removes every account.
  * Changes reach the user's live sessions on their next request.
  */
 export const PATCH = handler(async (request, context: Ctx) => {
@@ -38,6 +40,11 @@ export const PATCH = handler(async (request, context: Ctx) => {
   }
 
   const user = await db.$transaction(async (tx) => {
+    if (businessId !== before.businessId) {
+      if (role === "ADMIN") await tx.businessMember.deleteMany({ where: { userId: id } });
+      else if (before.businessId) await tx.businessMember.deleteMany({ where: { userId: id, businessId: before.businessId } });
+      if (businessId) await tx.businessMember.upsert({ where: { userId_businessId: { userId: id, businessId } }, update: {}, create: { userId: id, businessId } });
+    }
     const updated = await tx.user.update({
       where: { id },
       data: {

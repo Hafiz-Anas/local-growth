@@ -23,7 +23,7 @@ import type { InstagramConnectionDto, MetaConnectOutcome, MetaPageOptionDto } fr
 
 export type ReturnTo = "onboarding" | "settings";
 
-const OUTCOMES: MetaConnectOutcome[] = ["connected", "cancelled", "pick", "no_account", "taken", "declined", "unavailable", "expired", "error"];
+const OUTCOMES: MetaConnectOutcome[] = ["connected", "cancelled", "pick", "no_account", "taken", "already_added", "declined", "unavailable", "expired", "error"];
 
 /** Where the browser goes to start Facebook Login. `rerequest` asks again for declined permissions. */
 export function metaStartHref(returnTo: ReturnTo, rerequest = false) {

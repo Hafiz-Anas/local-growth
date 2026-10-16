@@ -13,7 +13,7 @@ import {
   POST_PURPOSES,
 } from "@/config/onboarding";
 import { DM_REPLY_MAX, REGENERATE_TONES } from "@/lib/replies";
-import { MAX_COMPETITORS_LIMIT, MAX_MONITORED_POSTS_LIMIT } from "@/config/plans";
+import { MAX_COMPETITORS_LIMIT, MAX_INSTAGRAM_ACCOUNTS_LIMIT, MAX_MONITORED_POSTS_LIMIT } from "@/config/plans";
 import { MONITOR_DURATIONS } from "@/lib/analysis/monitoring";
 import { STAT_RANGES } from "@/lib/analysis/statistics";
 import { METHODS } from "@/lib/analysis/methods";
@@ -308,7 +308,11 @@ export const adminResetPasswordSchema = z.union([
 
 /** Per-plan limits an admin can set (System page). */
 const planLimitSchema = z
-  .object({ competitors: z.number().int().min(1).max(MAX_COMPETITORS_LIMIT), monitoredPosts: z.number().int().min(1).max(MAX_MONITORED_POSTS_LIMIT) })
+  .object({
+    competitors: z.number().int().min(1).max(MAX_COMPETITORS_LIMIT),
+    monitoredPosts: z.number().int().min(1).max(MAX_MONITORED_POSTS_LIMIT),
+    instagramAccounts: z.number().int().min(1).max(MAX_INSTAGRAM_ACCOUNTS_LIMIT),
+  })
   .partial();
 export const planLimitsSchema = z.object({ starter: planLimitSchema, growth: planLimitSchema, pro: planLimitSchema }).partial();
 

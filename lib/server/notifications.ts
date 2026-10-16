@@ -48,7 +48,8 @@ export async function notify(input: NotifyInput): Promise<number> {
       where: { id: input.businessId },
       select: {
         permissions: { select: { featureKey: true, enabled: true } },
-        users: { where: { role: "USER", status: "ACTIVE" }, select: { id: true, notificationPrefs: true } },
+        // Everyone with access to this Instagram account, whichever account they have open.
+        members: { where: { user: { role: "USER", status: "ACTIVE" } }, select: { user: { select: { id: true, notificationPrefs: true } } } },
       },
     });
     if (!business) return 0;
@@ -56,7 +57,7 @@ export async function notify(input: NotifyInput): Promise<number> {
     if (!isFeatureEnabled(permissions, "notifications")) return 0;
     if (!notificationRelevant(def.features, (key) => isFeatureEnabled(permissions, key))) return 0;
 
-    const recipients = business.users.filter((u) => notificationPrefsSchema.catch(notificationPrefsSchema.parse({})).parse(u.notificationPrefs ?? {})[def.pref]);
+    const recipients = business.members.map((m) => m.user).filter((u) => notificationPrefsSchema.catch(notificationPrefsSchema.parse({})).parse(u.notificationPrefs ?? {})[def.pref]);
     const params = (input.params ?? {}) as Prisma.InputJsonObject;
     const href = input.href ?? def.href;
     const now = new Date();
@@ -67,7 +68,7 @@ export async function notify(input: NotifyInput): Promise<number> {
         rows.push({ id: row.id, userId: user.id, type: input.type });
         continue;
       }
-      const existing = await db.notification.findUnique({ where: { userId_dedupeKey: { userId: user.id, dedupeKey: input.dedupeKey } }, select: { id: true, readAt: true, createdAt: true } });
+      const existing = await db.notification.findUnique({ where: { userId_businessId_dedupeKey: { userId: user.id, businessId: input.businessId, dedupeKey: input.dedupeKey } }, select: { id: true, readAt: true, createdAt: true } });
       if (!existing) {
         const row = await db.notification.create({ data: { userId: user.id, businessId: input.businessId, type: input.type, params, href, dedupeKey: input.dedupeKey }, select: { id: true } });
         rows.push({ id: row.id, userId: user.id, type: input.type });
@@ -103,21 +104,22 @@ function toDto(row: Prisma.NotificationGetPayload<{ select: typeof SELECT }>): N
   return { id: row.id, type: row.type, params: row.params as NotificationDto["params"], href: row.href, read: Boolean(row.readAt), createdAt: row.createdAt.toISOString() };
 }
 
-export async function listNotifications(userId: string, limit = 30): Promise<NotificationsDto> {
+/** The center shows the active Instagram account's notifications only (the switcher counts the others). */
+export async function listNotifications(userId: string, businessId: string, limit = 30): Promise<NotificationsDto> {
   const [rows, unread] = await Promise.all([
-    db.notification.findMany({ where: { userId }, orderBy: { createdAt: "desc" }, take: limit, select: SELECT }),
-    db.notification.count({ where: { userId, readAt: null } }),
+    db.notification.findMany({ where: { userId, businessId }, orderBy: { createdAt: "desc" }, take: limit, select: SELECT }),
+    db.notification.count({ where: { userId, businessId, readAt: null } }),
   ]);
   return { items: rows.map(toDto).filter((n): n is NotificationDto => n !== null), unread };
 }
 
-export async function markNotificationRead(userId: string, id: string): Promise<void> {
-  const { count } = await db.notification.updateMany({ where: { id, userId, readAt: null }, data: { readAt: new Date() } });
-  if (!count && !(await db.notification.count({ where: { id, userId } }))) throw notFound("Notification");
+export async function markNotificationRead(userId: string, businessId: string, id: string): Promise<void> {
+  const { count } = await db.notification.updateMany({ where: { id, userId, businessId, readAt: null }, data: { readAt: new Date() } });
+  if (!count && !(await db.notification.count({ where: { id, userId, businessId } }))) throw notFound("Notification");
 }
 
-export async function markAllNotificationsRead(userId: string): Promise<number> {
-  return (await db.notification.updateMany({ where: { userId, readAt: null }, data: { readAt: new Date() } })).count;
+export async function markAllNotificationsRead(userId: string, businessId: string): Promise<number> {
+  return (await db.notification.updateMany({ where: { userId, businessId, readAt: null }, data: { readAt: new Date() } })).count;
 }
 
 /** Daily: Meta connections that need the owner to log in again (expired or revoked), re-alerting every 3 days at most. */

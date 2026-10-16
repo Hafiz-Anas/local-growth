@@ -36,7 +36,7 @@ export async function getClientView(businessId: string): Promise<Client | null> 
       onboardingStep: true,
       aim: true,
       goalsPromptDoneAt: true,
-      users: { where: { role: "USER" }, select: { id: true, email: true }, orderBy: { createdAt: "asc" }, take: 1 },
+      members: { where: { user: { role: "USER" } }, select: { user: { select: { id: true, email: true } } }, orderBy: { createdAt: "asc" }, take: 1 },
       instagramConnection: { select: { status: true, tokenExpiresAt: true, connectedAt: true, provider: true, missingPermissions: true } },
       brandVoice: { select: { whatsappNumber: true } },
       activity: { select: { createdAt: true }, orderBy: { createdAt: "desc" }, take: 1 },
@@ -54,7 +54,7 @@ export async function getClientView(businessId: string): Promise<Client | null> 
     : conn?.provider === "META" && conn.status === "CONNECTED" && conn.missingPermissions.length
       ? { reason: "permissions", permissions: conn.missingPermissions }
       : null;
-  const owner = row.users[0];
+  const owner = row.members[0]?.user;
   return {
     id: row.id,
     userId: owner?.id ?? "",

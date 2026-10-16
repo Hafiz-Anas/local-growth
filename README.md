@@ -214,7 +214,7 @@ Real Instagram data comes through **"Instagram API with Facebook Login"** (Faceb
 
 **Keyword replies** (feature `engagement.dmRules`, Engagement → Keyword replies): a comment that matches a rule's keyword (whole word or exact comment; case, punctuation, emojis and Arabic spelling variants ignored — `lib/keyword-replies.ts`) gets the rule's public reply and, optionally, a private DM (Instagram private reply by `comment_id`, once per comment, within 7 days). Comments arrive in real time through the `comments` webhook field on the same `/api/webhooks/instagram` route; the Instagram sync is the fallback. One reply per comment, never to the business's own comments, and the same person + rule at most once per 24 hours. With "Send automatically" off the reply waits in the approval queue. A comment a rule handled never also gets an AI draft. Every send and failure is in the admin integration log (`keyword.*`). Locally: `npm run simulate-comment -- --handle <instagram handle> --text "MENU"` (local app and database only).
 
-**E2E tests:** `npm run test:e2e` (Playwright, `tests/e2e`) drives a running app on a seeded throwaway database — see `playwright.config.ts`.
+**E2E tests:** `npm run test:e2e` (Playwright, `tests/e2e`) starts the app itself on a seeded throwaway database, always with `EMAIL_PROVIDER=console` (no real email is ever sent) — see `playwright.config.ts`.
 
 **Still simulated with a Meta connection** (labelled in the app): keyword DM rules (comment → DM) — need Meta's private-replies API; trending audio/hashtags — not in the Graph API.
 

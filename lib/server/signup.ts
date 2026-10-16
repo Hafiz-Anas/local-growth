@@ -55,6 +55,7 @@ export async function createSelfSignup(input: SignupInput, baseUrl: string): Pro
           passwordHash,
           role: "USER",
           businessId: business.id,
+          memberships: { create: { businessId: business.id } },
           uiPreferences: { sidebarCollapsed: false, theme: "dark", language: input.language },
         },
         select: { id: true },

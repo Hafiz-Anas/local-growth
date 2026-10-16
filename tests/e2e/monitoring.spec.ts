@@ -172,8 +172,8 @@ test("the plan's limit (configurable, default 5) and one monitor per post", asyn
     await stopAll();
     await setLimit(5);
   }
-  // The competitor limit is untouched by the new field.
-  await asAdmin(browser, async (admin) => expect((await (await admin.request.get("/api/admin/settings")).json()).data.planLimits.pro).toEqual({ competitors: 5, monitoredPosts: 5 }));
+  // The other limits are untouched by the monitoring field.
+  await asAdmin(browser, async (admin) => expect((await (await admin.request.get("/api/admin/settings")).json()).data.planLimits.pro).toEqual({ competitors: 5, monitoredPosts: 5, instagramAccounts: 1 }));
 });
 
 test("the hourly job: needs CRON_SECRET, reads due posts, alerts on a spike and ends with an AI summary", async ({ request }) => {
