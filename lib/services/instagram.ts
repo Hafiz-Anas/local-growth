@@ -133,6 +133,11 @@ export interface InstagramService {
    * InstagramNotConnectedError, InstagramPermissionError or InstagramRateLimitedError.
    */
   getPostMetrics(account: InstagramAccount, mediaId: string): Promise<PostMetrics | null>;
+  /**
+   * A current link to one of the account's own post images (a video's thumbnail), read at the time
+   * of use because Instagram's links expire. Null when the post no longer exists or has no image.
+   */
+  getMediaImageUrl(account: InstagramAccount, mediaId: string): Promise<string | null>;
   getComments(account: InstagramAccount): Promise<InstagramComment[]>;
   /** Throws InstagramMessagingError("comment_unavailable") when the comment no longer exists. */
   replyToComment(account: InstagramAccount, commentId: string, text: string): Promise<{ id: string }>;
@@ -248,6 +253,9 @@ class RoutingInstagramService implements InstagramService {
   }
   getPostMetrics(account: InstagramAccount, mediaId: string) {
     return this.for(account).getPostMetrics(account, mediaId);
+  }
+  getMediaImageUrl(account: InstagramAccount, mediaId: string) {
+    return this.for(account).getMediaImageUrl(account, mediaId);
   }
   getComments(account: InstagramAccount) {
     return this.for(account).getComments(account);

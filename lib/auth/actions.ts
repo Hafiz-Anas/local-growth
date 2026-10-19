@@ -52,34 +52,33 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
   redirect(HOME_BY_ROLE[user?.role === "ADMIN" ? "admin" : "user"]);
 }
 
-export type SignupField = "name" | "email" | "password" | "businessName";
+export type SignupField = "email" | "password";
 export type SignupError = "invalid" | "email_taken" | "rate_limited" | "generic";
 
 export interface SignupState {
   error: SignupError | null;
   /** Fields the server rejected (the form also checks them before submitting). */
   fields: SignupField[];
-  values: { name: string; email: string; businessName: string };
+  values: { email: string };
 }
 
 /**
- * Public sign-up: creates the user and business (see createSelfSignup), signs
- * them in and goes straight to the onboarding wizard. Rate-limited per IP.
+ * Public sign-up, step 1 of 2: email and password create the user and an unnamed business (see
+ * createSelfSignup) and sign them in; step 2 connects Instagram (/signup/instagram), which names the
+ * business. Rate-limited per IP.
  */
 export async function signupAction(_prev: SignupState, formData: FormData): Promise<SignupState> {
   const raw = {
-    name: String(formData.get("name") ?? ""),
     email: String(formData.get("email") ?? ""),
     password: String(formData.get("password") ?? ""),
-    businessName: String(formData.get("businessName") ?? ""),
   };
-  const values = { name: raw.name, email: raw.email, businessName: raw.businessName };
+  const values = { email: raw.email };
 
   const requestHeaders = await headers();
   if (!(await getRateLimiter().consume(SIGNUP_LIMIT, clientIp(requestHeaders)))) return { error: "rate_limited", fields: [], values };
 
   const parsed = signupSchema.safeParse(raw);
-  const weak = passwordProblems(raw.password, { email: raw.email, name: raw.name }).length > 0;
+  const weak = passwordProblems(raw.password, { email: raw.email, name: "" }).length > 0;
   if (!parsed.success || weak) {
     const fields = new Set<SignupField>(parsed.success ? [] : parsed.error.issues.map((i) => i.path[0] as SignupField));
     if (weak) fields.add("password");
@@ -106,7 +105,7 @@ export async function signupAction(_prev: SignupState, formData: FormData): Prom
     if (error instanceof AuthError) redirect("/login");
     throw error;
   }
-  redirect(emailSent ? "/onboarding" : "/onboarding?verification=unsent");
+  redirect(emailSent ? "/signup/instagram" : "/signup/instagram?verification=unsent");
 }
 
 export async function logoutAction() {

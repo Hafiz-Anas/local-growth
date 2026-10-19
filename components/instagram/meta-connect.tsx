@@ -15,13 +15,13 @@ import type { InstagramConnectionDto, MetaConnectOutcome, MetaPageOptionDto } fr
 
 /**
  * Facebook Login for Business ("Instagram API with Facebook Login"), shared by
- * onboarding step 2 and Settings. The browser goes to
+ * sign-up (/signup/instagram), onboarding and Settings. The browser goes to
  * /api/integrations/instagram/start, Meta sends it back to the page with
  * ?instagram=<outcome>, and these components explain the outcome (picker for
  * several accounts, help when there is no business account, calm message on cancel).
  */
 
-export type ReturnTo = "onboarding" | "settings";
+export type ReturnTo = "signup" | "onboarding" | "settings";
 
 const OUTCOMES: MetaConnectOutcome[] = ["connected", "cancelled", "pick", "no_account", "taken", "already_added", "declined", "unavailable", "expired", "error"];
 

@@ -113,6 +113,8 @@ async function seedBusiness(client: Client, index: number, passwordHash: string,
       avatarUrl: client.avatarUrl,
       plan: client.plan.toUpperCase() as Plan,
       createdAt: new Date(Date.now() - (120 - index * 30) * DAY),
+      // Demo clients are set up already: no "complete the new onboarding steps" prompt.
+      setupPromptDoneAt: new Date(),
       users: {
         create: {
           id: ownerId,
@@ -308,9 +310,9 @@ async function seedAnalysisHistory(client: Client, pack: (typeof CLIENT_DATA)[st
 const SELF_SIGNUP_EMAIL = "bakery@localgrowth.dev";
 
 /**
- * A self sign-up that stopped halfway through onboarding (step 3, competitors),
- * with the event trail and a problem report — so the admin Onboarding page has
- * data, and logging in as this user resumes the wizard at step 3.
+ * A self sign-up that connected Instagram (mock) and stopped halfway through onboarding (step 3,
+ * goals), with the event trail and a problem report — so the admin Onboarding page has data, and
+ * logging in as this user resumes the wizard at step 3.
  */
 async function seedSelfSignup(passwordHash: string) {
   const account = DEMO_ACCOUNTS.find((a) => a.email === SELF_SIGNUP_EMAIL)!;
@@ -323,12 +325,13 @@ async function seedSelfSignup(passwordHash: string) {
     data: {
       id: businessId,
       name: account.name,
+      instagramHandle: "fereej.bakes",
       location: "Salmiya, Kuwait",
       plan: "STARTER",
       createdAt: at(0),
       source: "SELF_SIGNUP",
       onboardingStatus: "IN_PROGRESS",
-      onboardingStep: 2,
+      onboardingStep: 3,
       businessType: "bakery",
       description: "Fresh Kuwaiti and Levantine bakes every morning — fatayer, maamoul and celebration cakes, with delivery in Salmiya.",
       products: ["Cheese fatayer", "Date maamoul", "Saffron cake"],
@@ -339,6 +342,18 @@ async function seedSelfSignup(passwordHash: string) {
       },
       permissions: { create: FEATURE_KEYS.map((featureKey) => ({ featureKey, enabled: PLAN_PRESETS.starter[featureKey] })) },
       brandVoice: { create: { defaultHashtags: [], brandWords: [], wordsToAvoid: [] } },
+      // Sign-up connected Instagram (mock), which named the business.
+      instagramConnection: {
+        create: {
+          igUserId: "17841400000099",
+          username: "fereej.bakes",
+          accessTokenEncrypted: encrypt("mock-ig-token-fereej.bakes"),
+          tokenExpiresAt: new Date(Date.now() + 50 * DAY),
+          connectedAt: at(1),
+          lastSyncAt: at(1),
+          status: "CONNECTED",
+        },
+      },
       competitors: {
         create: [
           { handle: "salmiya.bakehouse", followers: 12400, engagementRate: 4.1, validationStatus: "READY", lastValidatedAt: at(8), lastFetchedAt: at(8) },
@@ -350,20 +365,22 @@ async function seedSelfSignup(passwordHash: string) {
     },
   });
 
-  // signup → instagram skipped → business (one validation error) → competitors, abandoned twice.
+  // signup → instagram → business (one validation error) → style skipped → goals, abandoned twice (competitors were added earlier).
   const events: Array<{ minute: number; step: string; event: "STARTED" | "COMPLETED" | "BACK" | "ERROR" | "ABANDONED"; durationMs?: number; details?: object }> = [
     { minute: 0, step: "signup", event: "COMPLETED", details: { plan: "starter" } },
     { minute: 0.5, step: "instagram", event: "STARTED" },
-    { minute: 1.2, step: "instagram", event: "COMPLETED", durationMs: 42_000, details: { skipped: true } },
+    { minute: 1.2, step: "instagram", event: "COMPLETED", durationMs: 42_000 },
     { minute: 1.2, step: "business", event: "STARTED" },
     { minute: 3, step: "business", event: "ERROR", details: { kind: "validation", fields: ["products"], source: "browser" } },
     { minute: 5.7, step: "business", event: "COMPLETED", durationMs: 270_000 },
-    { minute: 5.7, step: "competitors", event: "STARTED" },
+    { minute: 5.7, step: "style", event: "STARTED" },
+    { minute: 6.4, step: "style", event: "COMPLETED", durationMs: 42_000, details: { skipped: true } },
+    { minute: 6.4, step: "goals", event: "STARTED" },
     { minute: 10, step: "competitors", event: "ERROR", details: { kind: "competitor_lookup", handle: "private_breadclub", reason: "private" } },
     { minute: 12, step: "competitors", event: "ERROR", details: { kind: "competitor_lookup", handle: "personal_umm.ali", reason: "not_business" } },
-    { minute: 15.5, step: "competitors", event: "ABANDONED", durationMs: 588_000, details: { reason: "page_closed" } },
-    { minute: 24 * 60, step: "competitors", event: "STARTED" },
-    { minute: 24 * 60 + 3, step: "competitors", event: "ABANDONED", durationMs: 186_000, details: { reason: "logged_out" } },
+    { minute: 15.5, step: "goals", event: "ABANDONED", durationMs: 546_000, details: { reason: "page_closed" } },
+    { minute: 24 * 60, step: "goals", event: "STARTED" },
+    { minute: 24 * 60 + 3, step: "goals", event: "ABANDONED", durationMs: 186_000, details: { reason: "logged_out" } },
   ];
   await db.onboardingEvent.createMany({
     data: events.map((e) => ({ businessId, step: e.step, event: e.event, durationMs: e.durationMs ?? null, details: e.details ?? {}, createdAt: at(e.minute) })),
@@ -383,7 +400,8 @@ async function seedSelfSignup(passwordHash: string) {
   await db.activityLog.createMany({
     data: [
       { businessId, userId, action: "business.self_signup", details: { name: account.name, plan: "starter" }, createdAt: at(0) },
-      { businessId, userId, action: "onboarding.instagram_skipped", createdAt: at(1.2) },
+      { businessId, userId, action: "instagram.connected", details: { username: "fereej.bakes" }, createdAt: at(1) },
+      { businessId, userId, action: "onboarding.step_skipped", details: { step: "style" }, createdAt: at(6.4) },
       { businessId, userId, action: "competitor.added", details: { handle: "salmiya.bakehouse" }, createdAt: at(8) },
       { businessId, userId, action: "competitor.added", details: { handle: "oven.and.co" }, createdAt: at(9) },
     ],

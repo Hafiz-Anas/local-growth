@@ -22,7 +22,7 @@ import {
   type PostMetrics,
   type RateLimitUsage,
 } from "./instagram";
-import { businessDiscovery, fetchMediaCounts, fetchPostInsights, postCommentReply } from "./meta/api";
+import { businessDiscovery, fetchMediaCounts, fetchMediaImageUrl, fetchPostInsights, postCommentReply } from "./meta/api";
 import { MetaApiError, isMetaError } from "./meta/errors";
 import { MetaMessagingError, fetchMessagingProfile, sendPrivateReply, sendTextMessage } from "./meta/messaging";
 import { MetaPublishError, isPublicHttpsUrl, publishImage } from "./meta/publish";
@@ -121,6 +121,7 @@ export class MetaInstagramService implements InstagramService {
     const postsPublishedToday = await db.instagramMedia.count({ where: { businessId: account.businessId, postedAt: { gte: startOfTodayUtc() } } });
     return {
       username: profile?.username || account.username,
+      name: profile?.name ?? null,
       followers: profile?.followers ?? 0,
       following: profile?.follows ?? 0,
       posts: profile?.mediaCount ?? 0,
@@ -189,6 +190,17 @@ export class MetaInstagramService implements InstagramService {
     const top = (recent.length ? recent : rows).reduce<(typeof rows)[number] | null>((b, r) => (!b || r.likeCount + r.commentsCount > b.likeCount + b.commentsCount ? r : b), null);
     const ordered = top ? [top, ...rows.filter((r) => r !== top)] : rows;
     return ordered.slice(0, limit).map(toDto);
+  }
+
+  /** Live (1 call): Instagram's image links expire, so the style guide asks for a fresh one when it reads the photo. */
+  async getMediaImageUrl(account: InstagramAccount, mediaId: string): Promise<string | null> {
+    const { token } = requireConnection(account);
+    try {
+      return await fetchMediaImageUrl(graphFor(account.businessId), mediaId, token);
+    } catch (error) {
+      if (isMetaError(error, "not_found")) return null;
+      translate(error);
+    }
   }
 
   /** Live: the counts (1 call) and the post's insights (1 call); the stored copy is refreshed too. */

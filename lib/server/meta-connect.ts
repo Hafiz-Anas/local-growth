@@ -16,7 +16,7 @@ import { logIntegration } from "./integration-log";
 import { syncInstagram } from "./instagram-sync";
 import { graphFor } from "./meta-client";
 import { sealCredentials } from "./meta-credentials";
-import { recordError } from "./onboarding";
+import { adoptInstagramName, recordError } from "./onboarding";
 
 /**
  * Facebook Login for Business → a connected Instagram professional account.
@@ -39,7 +39,10 @@ export const OAUTH_COOKIE_PATH = "/api/integrations/instagram";
 const STATE_MAX_AGE_S = 10 * 60;
 const PENDING_TTL_MS = 15 * 60 * 1000;
 
-export type ReturnTo = "onboarding" | "settings";
+export type ReturnTo = "signup" | "onboarding" | "settings";
+
+const RETURN_TOS: ReturnTo[] = ["signup", "onboarding", "settings"];
+export const asReturnTo = (value: string | null | undefined): ReturnTo => (RETURN_TOS.includes(value as ReturnTo) ? (value as ReturnTo) : "settings");
 
 export interface ConnectContext {
   businessId: string;
@@ -58,6 +61,7 @@ interface OAuthState {
 /** Where to send the user back to, with the outcome for the page to explain. */
 export function returnUrl(returnTo: ReturnTo, outcome: MetaConnectOutcome, extra?: Record<string, string>): string {
   const params = new URLSearchParams({ instagram: outcome, ...extra });
+  if (returnTo === "signup") return `/signup/instagram?${params}`;
   return returnTo === "onboarding" ? `/onboarding?${params}` : `/settings?${params}#instagram`;
 }
 
@@ -83,8 +87,9 @@ export const stateCookieOptions = {
  * not expired, and issued to the same signed-in user and business.
  */
 export function verifyState(cookie: string | undefined, state: string | null, ctx: ConnectContext): { ok: true; returnTo: ReturnTo } | { ok: false; returnTo: ReturnTo; reason: "missing" | "expired" | "mismatch" } {
-  // Without a readable cookie, send the user back to where they are (the wizard redirects /settings away).
-  const fallback: ReturnTo = ctx.onboarding ? "onboarding" : "settings";
+  // Without a readable cookie, send the user back to where they are (the sign-up screen sends
+  // a connected account on to the wizard, and the wizard redirects /settings away).
+  const fallback: ReturnTo = ctx.onboarding ? "signup" : "settings";
   if (!cookie) return { ok: false, returnTo: fallback, reason: "missing" };
   let parsed: OAuthState;
   try {
@@ -92,7 +97,7 @@ export function verifyState(cookie: string | undefined, state: string | null, ct
   } catch {
     return { ok: false, returnTo: fallback, reason: "mismatch" };
   }
-  const returnTo: ReturnTo = parsed.r === "onboarding" ? "onboarding" : "settings";
+  const returnTo = asReturnTo(parsed.r);
   if (Date.now() - parsed.t > STATE_MAX_AGE_S * 1000) return { ok: false, returnTo, reason: "expired" };
   const a = Buffer.from(parsed.s ?? "");
   const b = Buffer.from(state ?? "");
@@ -168,8 +173,8 @@ export async function finishWithToken(ctx: ConnectContext, token: string, longLi
 
   await db.metaPendingConnection.upsert({
     where: { businessId: ctx.businessId },
-    update: { userId: ctx.userId, returnTo: ctx.onboarding ? "onboarding" : "settings", credentialsEncrypted: encrypt(JSON.stringify({ grant, candidates })), options: candidates.map(toPageOption) as unknown as Prisma.InputJsonArray, expiresAt: new Date(Date.now() + PENDING_TTL_MS) },
-    create: { businessId: ctx.businessId, userId: ctx.userId, returnTo: ctx.onboarding ? "onboarding" : "settings", credentialsEncrypted: encrypt(JSON.stringify({ grant, candidates })), options: candidates.map(toPageOption) as unknown as Prisma.InputJsonArray, expiresAt: new Date(Date.now() + PENDING_TTL_MS) },
+    update: { userId: ctx.userId, returnTo: ctx.onboarding ? "signup" : "settings", credentialsEncrypted: encrypt(JSON.stringify({ grant, candidates })), options: candidates.map(toPageOption) as unknown as Prisma.InputJsonArray, expiresAt: new Date(Date.now() + PENDING_TTL_MS) },
+    create: { businessId: ctx.businessId, userId: ctx.userId, returnTo: ctx.onboarding ? "signup" : "settings", credentialsEncrypted: encrypt(JSON.stringify({ grant, candidates })), options: candidates.map(toPageOption) as unknown as Prisma.InputJsonArray, expiresAt: new Date(Date.now() + PENDING_TTL_MS) },
   });
   await logIntegration({ businessId: ctx.businessId, level: "info", call: "oauth.connect", errorCode: "pick", message: `${candidates.length} Instagram accounts found — waiting for the user to pick one.` });
   return { outcome: "pick" };
@@ -257,11 +262,7 @@ async function connectCandidate(ctx: ConnectContext, grant: UserGrant, page: Pag
       await tx.instagramConnection.update({ where: { businessId }, data: { profile: Prisma.DbNull, insights: Prisma.DbNull } });
     }
     await tx.instagramConnection.upsert({ where: { businessId }, update: data, create: { businessId, ...data } });
-    if (page.username) {
-      const { name } = await tx.business.findUniqueOrThrow({ where: { id: businessId }, select: { name: true } });
-      // A newly added account has no name yet: it starts as its handle (editable in the next step).
-      await tx.business.update({ where: { id: businessId }, data: { instagramHandle: page.username, ...(!name.trim() && { name: page.username }) } });
-    }
+    if (page.username) await tx.business.update({ where: { id: businessId }, data: { instagramHandle: page.username } });
     await tx.metaPendingConnection.deleteMany({ where: { businessId } });
     await logActivity({ businessId, userId: ctx.userId, action: "instagram.connected", details: { username: page.username, provider: "meta" } }, tx);
   });
@@ -275,6 +276,11 @@ async function connectCandidate(ctx: ConnectContext, grant: UserGrant, page: Pag
 
   // Profile + posts before the user lands back (the wizard needs them); insights and comments right after.
   await syncInstagram(businessId, { scope: "basic", reason: "connect" }).catch((e) => console.error("[meta] initial sync failed", (e as Error).message));
+  // A new sign-up (or added account) is named after the Instagram account: its display name from the sync.
+  if (page.username) {
+    const profile = await db.instagramConnection.findUnique({ where: { businessId }, select: { profile: true } });
+    await adoptInstagramName(businessId, page.username, (profile?.profile as { name?: string | null } | null)?.name);
+  }
   after(() => syncInstagram(businessId, { scope: "deferred", reason: "connect" }).catch((e) => console.error("[meta] initial sync failed", (e as Error).message)));
   after(() => ensureWebhookSubscription(businessId));
   return { outcome: "connected", username: page.username };

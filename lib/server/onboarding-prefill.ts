@@ -11,10 +11,10 @@ import { getInstagramAccount } from "./instagram-account";
 import { recordError } from "./onboarding";
 
 /**
- * "Confirm your brand": suggestions from the connected account's bio and recent posts, so the
- * owner confirms instead of typing. Hashtags are read in code (always there); niche, tone and
- * products come from the AI when it's available — otherwise those stay empty and the wizard
- * carries on. Runs once per business (stored on Business.onboardingPrefill).
+ * "Your business": suggestions from the connected account's bio and recent posts, so the owner
+ * confirms instead of typing. Hashtags are read in code (always there); type, niche, tone, products
+ * and menu categories come from the AI when it's available — otherwise those stay empty and the
+ * wizard carries on. Runs once per business (stored on Business.onboardingPrefill).
  */
 
 const RECENT_POSTS = 12;
@@ -38,12 +38,12 @@ export async function prefillBrand(businessId: string, locale: "en" | "ar"): Pro
       bio = profile.bio ?? "";
       captions = [...media].sort((a, b) => b.postedAt.localeCompare(a.postedAt)).map((m) => m.caption).filter((c) => c.trim());
     } catch (error) {
-      await recordError(businessId, "brand", { kind: "prefill_instagram", message: (error as Error).message.slice(0, 200) });
+      await recordError(businessId, "business", { kind: "prefill_instagram", message: (error as Error).message.slice(0, 200) });
     }
   }
 
   const hashtags = extractHashtags([bio, ...captions]);
-  const result: OnboardingPrefillDto = { aiUsed: false, postsWithCaptions: captions.length, businessType: null, niche: null, toneLevel: null, hashtags, products: [] };
+  const result: OnboardingPrefillDto = { aiUsed: false, postsWithCaptions: captions.length, businessType: null, niche: null, toneLevel: null, hashtags, products: [], categories: [] };
 
   if (bio.trim() || captions.length) {
     const answer = await getAIService().brandPrefill({
@@ -60,9 +60,10 @@ export async function prefillBrand(businessId: string, locale: "en" | "ar"): Pro
         // The AI's pick first, then the rest the account uses.
         hashtags: [...new Set([...s.hashtags, ...hashtags])].slice(0, 8),
         products: s.products,
+        categories: s.categories,
       });
     } else {
-      await recordError(businessId, "brand", { kind: "prefill_ai", reason: answer.reason });
+      await recordError(businessId, "business", { kind: "prefill_ai", reason: answer.reason });
     }
   }
 

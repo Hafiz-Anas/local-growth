@@ -5,7 +5,8 @@ import { normalizeHashtag } from "./output";
 /**
  * Onboarding's AI pre-fill, the pure parts: the hashtags the business already uses (read in
  * code, so they're there even without the AI), the answer's schema, and the parsing guards —
- * hashtags only from that list, products only when they're named in the bio or captions.
+ * hashtags only from that list, products only when they're named in the bio or captions, and
+ * menu categories as short generic labels (e.g. "Sweets", "Main dishes").
  * Pure (no server-only) so it can be unit-tested.
  */
 
@@ -15,6 +16,8 @@ export interface PrefillSuggestion {
   toneLevel: number | null;
   hashtags: string[];
   products: string[];
+  /** Short generic menu / product categories, e.g. "Sweets", "Main dishes". */
+  categories: string[];
 }
 
 /** The hashtags in the bio and captions, most used first (spelling of the first use kept). */
@@ -45,8 +48,9 @@ export const PREFILL_SCHEMA = {
     tone_level: { type: "INTEGER", description: "0 = formal (Modern Standard Arabic, polished) … 50 = warm and friendly … 100 = casual (everyday Kuwaiti dialect, chatty)." },
     hashtags: { type: "ARRAY", items: { type: "STRING" }, description: "Up to 8 hashtags copied exactly from the candidate list; empty if none fit." },
     products: { type: "ARRAY", items: { type: "STRING" }, description: "Up to 5 products or services named in the bio or captions, as written there." },
+    categories: { type: "ARRAY", items: { type: "STRING" }, description: 'Up to 5 short menu or product categories the posts show, e.g. "Sweets", "Main dishes", "Coffee".' },
   },
-  required: ["business_type", "niche", "tone_level", "hashtags", "products"],
+  required: ["business_type", "niche", "tone_level", "hashtags", "products", "categories"],
 };
 
 const fold = (s: string) => s.toLocaleLowerCase().replace(/\s+/g, " ").trim();
@@ -79,11 +83,21 @@ export function parsePrefill(answer: string, guard: { candidates: string[]; sour
         .filter((p) => p.length >= 2 && source.includes(fold(p))),
     ),
   ].slice(0, 5);
+  const categories = [
+    ...new Set(
+      (Array.isArray(json.categories) ? json.categories : [])
+        .filter((c): c is string => typeof c === "string")
+        .map((c) => c.replace(/\s+/g, " ").replace(/^#+/, "").trim().slice(0, 40))
+        // Labels, not sentences, prices or links.
+        .filter((c) => c.length >= 2 && c.split(" ").length <= 4 && !/\d|https?:|www\./i.test(c)),
+    ),
+  ].slice(0, 5);
   return {
     businessType: type,
     niche: niche || null,
     toneLevel: Number.isFinite(tone) ? Math.max(0, Math.min(100, Math.round(tone))) : null,
     hashtags,
     products,
+    categories,
   };
 }

@@ -11,9 +11,10 @@ import { apiFetch } from "@/lib/api/client";
 import { qk, useAction, useGoals, type GoalsDto } from "@/lib/api/queries";
 import { useI18n } from "@/lib/i18n/provider";
 import { notify } from "@/store/ui-store";
+import { TargetsFeelingsFields, type TargetsFeelingsValue } from "@/components/onboarding/targets-feelings-fields";
 import { GoalsFields, type GoalsValue } from "./goals-fields";
 
-/** Settings → Goals: niche, aim, goals and timeline (set in onboarding; the AI works towards them). */
+/** Settings → Goals: niche, aim, goals, timeline, and what they want more of and how posts should feel (set in onboarding; the AI works towards them). */
 export function GoalsCard() {
   const { t } = useI18n();
   const goals = useGoals();
@@ -45,8 +46,9 @@ function GoalsForm({ initial }: { initial: GoalsDto }) {
     goals: (initial.goals.length ? initial.goals : DEFAULT_GOALS) as BusinessGoal[],
     timeline: (initial.timeline as GoalTimeline | null) ?? DEFAULT_TIMELINE,
   });
+  const [wants, setWants] = useState<TargetsFeelingsValue>({ targets: initial.targets, feelings: initial.feelings, feelingOther: initial.feelingOther });
   const save = useAction({
-    mutationFn: () => apiFetch<GoalsDto>("/api/brand/goals", { method: "PUT", body: { ...value, niche: niche.trim() || null } }),
+    mutationFn: () => apiFetch<GoalsDto>("/api/brand/goals", { method: "PUT", body: { ...value, ...wants, feelingOther: wants.feelingOther?.trim() || null, niche: niche.trim() || null } }),
     onSuccess: (data) => {
       queryClient.setQueryData(qk.goals, data);
       notify.success(t("goals.saved"));
@@ -67,6 +69,7 @@ function GoalsForm({ initial }: { initial: GoalsDto }) {
         <Input id="goals-niche" value={niche} onChange={(e) => setNiche(e.target.value)} maxLength={80} placeholder={t("onboarding.brand.nichePlaceholder")} dir="auto" />
       </div>
       <GoalsFields value={value} onChange={setValue} />
+      <TargetsFeelingsFields value={wants} onChange={setWants} />
       <Button type="submit" disabled={save.isPending || value.goals.length === 0}>
         {t("common.save")}
       </Button>

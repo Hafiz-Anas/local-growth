@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { AtSign, Check, CircleAlert, CircleCheck, Loader2, Plus, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { AtSign, Check, CircleAlert, CircleCheck, Loader2, Plus, Sparkles, X } from "lucide-react";
 import { HANDLE_PATTERN, normalizeHandle } from "@/components/competitors/helpers";
 import { Avatar } from "@/components/shared/avatar";
 import { EmptyState } from "@/components/shared/states";
@@ -18,7 +17,7 @@ import { qk } from "@/lib/api/queries";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn, formatCompact, initials, toneFor } from "@/lib/utils";
 import { notify } from "@/store/ui-store";
-import type { CompetitorValidation, OnboardingCompetitorDto, OnboardingStateDto } from "@/types";
+import type { CompetitorSuggestionsDto, CompetitorValidation, OnboardingCompetitorDto, OnboardingStateDto } from "@/types";
 import { StepFrame } from "../step-frame";
 import { useWizard } from "../wizard-context";
 
@@ -31,14 +30,14 @@ const BADGE: Record<CompetitorValidation, "success" | "warning" | "danger"> = {
 };
 
 /**
- * Step 4 — Competitors, optional: add a few accounts now or later (Competitor Insights). Both
- * "Finish" and "Add later" complete onboarding; nothing in the app needs competitors.
+ * Step 5 — Your competitors, optional: the AI suggests similar local accounts (each checked with
+ * Instagram first) and the owner can add their own — every handle goes through the usual
+ * validation. "Finish" and "Skip" both complete onboarding; nothing in the app needs competitors.
  */
 export function StepCompetitors() {
   const { t, locale } = useI18n();
-  const router = useRouter();
   const queryClient = useQueryClient();
-  const { state, go, moving } = useWizard();
+  const { state, go, moving, onFinished } = useWizard();
   const [handle, setHandle] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -49,18 +48,9 @@ export function StepCompetitors() {
   const finish = useMutation<{ status: "completed" }, ApiClientError, { skipped: boolean }>({
     meta: { handlesErrors: true },
     mutationFn: () => apiFetch("/api/onboarding/complete", { method: "POST" }),
-    onError: (e) => {
-      const reason = Array.isArray(e.details) ? (e.details as Array<{ message?: string }>)[0]?.message : undefined;
-      if (reason !== "instagram_required") return notify.error(errorMessage(e, t));
-      // An admin now requires Instagram: back to step 1.
-      notify.error(t("onboarding.blockers.instagram_required"));
-      void go("instagram", "jump");
-    },
-    onSuccess: () => {
-      // The (user) layout now lets them in.
-      router.replace("/dashboard?welcome=1");
-      router.refresh();
-    },
+    onError: (e) => notify.error(errorMessage(e, t)),
+    // The "all set" screen, then Home.
+    onSuccess: onFinished,
   });
   const updateList = (update: (list: OnboardingCompetitorDto[]) => OnboardingCompetitorDto[]) =>
     queryClient.setQueryData<OnboardingStateDto>(qk.onboarding, (s) => s && { ...s, competitors: update(s.competitors) });
@@ -107,15 +97,9 @@ export function StepCompetitors() {
       step="competitors"
       title={t("onboarding.steps.competitors.title")}
       helper={t("onboarding.steps.competitors.helper")}
-      onBack={() => go("goals", "back")}
+      onBack={() => go("location", "back")}
+      onSkip={() => finish.mutate({ skipped: true })}
       primary={{ label: t("onboarding.finish"), onClick: () => finish.mutate({ skipped: false }), busy: moving || finish.isPending, icon: <Check className="size-4" /> }}
-      secondary={
-        competitors.length === 0 && (
-          <Button variant="ghost" size="md" onClick={() => finish.mutate({ skipped: true })} disabled={finish.isPending}>
-            {t("onboarding.competitors.addLater")}
-          </Button>
-        )
-      }
       reportContext={{ ready, listed: competitors.length, statuses: competitors.map((c) => c.status) }}
     >
       <form onSubmit={submit} className="rounded-panel border border-border p-4">
@@ -153,6 +137,8 @@ export function StepCompetitors() {
         )}
       </form>
 
+      <Suggestions onAdd={(handle) => add.mutate({ handle, displayName: null })} adding={add.isPending ? (add.variables?.handle ?? null) : null} full={competitors.length >= MAX_ONBOARDING_COMPETITORS} />
+
       {ready > 0 && <p className="mt-6 mb-2 text-body font-semibold">{t("onboarding.competitors.tracked", { count: ready })}</p>}
 
       {competitors.length === 0 ? (
@@ -187,5 +173,67 @@ export function StepCompetitors() {
         </ul>
       )}
     </StepFrame>
+  );
+}
+
+/**
+ * Similar local accounts the AI suggested and Instagram confirmed. Asked for once when the step
+ * opens; while it works (or if the AI is unavailable) the owner can add accounts themselves.
+ */
+function Suggestions({ onAdd, adding, full }: { onAdd: (handle: string) => void; adding: string | null; full: boolean }) {
+  const { t, locale } = useI18n();
+  const queryClient = useQueryClient();
+  const stored = useQuery<CompetitorSuggestionsDto, ApiClientError>({ queryKey: qk.competitorSuggestions, queryFn: () => apiFetch("/api/onboarding/competitors/suggestions") });
+  const ask = useMutation<CompetitorSuggestionsDto, ApiClientError>({
+    meta: { handlesErrors: true },
+    mutationFn: () => apiFetch("/api/onboarding/competitors/suggestions", { method: "POST" }),
+    onSuccess: (data) => queryClient.setQueryData(qk.competitorSuggestions, data),
+  });
+  const asked = useRef(false);
+  useEffect(() => {
+    if (stored.data?.status !== "none" || asked.current) return;
+    asked.current = true;
+    ask.mutate();
+  }, [stored.data, ask]);
+
+  const data = stored.data?.status === "none" ? ask.data : stored.data;
+  const looking = stored.isPending || ask.isPending;
+  const unavailable = ask.isError || data?.status === "unavailable";
+
+  return (
+    <section className="mt-6" aria-labelledby="suggestions-title" data-testid="competitor-suggestions">
+      <h2 id="suggestions-title" className="mb-2 flex items-center gap-1.5 text-body font-semibold">
+        <Sparkles className="size-4" aria-hidden="true" />
+        {t("onboarding.competitors.suggestionsTitle")}
+      </h2>
+      {looking ? (
+        <p className="flex items-center gap-2 text-caption text-muted" role="status">
+          <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+          {t("onboarding.competitors.suggestionsLoading")}
+        </p>
+      ) : unavailable || !data?.items.length ? (
+        <p className="text-caption text-muted">{t(unavailable ? "onboarding.competitors.suggestionsUnavailable" : "onboarding.competitors.suggestionsNone")}</p>
+      ) : (
+        <ul className="divide-y divide-separator rounded-panel border border-border">
+          {data.items.map((s) => (
+            <li key={s.handle} className="flex items-center gap-3 px-4 py-2.5">
+              <Avatar src={s.avatarUrl} initials={initials(s.name ?? s.handle)} tone={toneFor(s.handle)} size="sm" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-body font-semibold" dir="ltr">
+                  @{s.handle}
+                </p>
+                <p className="truncate text-caption text-muted">
+                  {[s.name, s.followers ? t("onboarding.competitors.followers", { count: formatCompact(s.followers, locale) }) : null].filter(Boolean).join(" · ")}
+                </p>
+              </div>
+              <Button variant="secondary" size="sm" onClick={() => onAdd(s.handle)} disabled={full || adding !== null} aria-label={t("onboarding.competitors.addSuggestion", { handle: s.handle })}>
+                {adding === s.handle ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+                {t("common.add")}
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }

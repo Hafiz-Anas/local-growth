@@ -174,3 +174,23 @@ export async function adminAccountsFor(businessId: string): Promise<AdminInstagr
     limit: accountLimitFor(rows.map(planOf), limits),
   };
 }
+
+/**
+ * The account switcher's current account for the full-screen set-up pages (connect Instagram, the
+ * wizard), only when the login has other accounts — a way back from an added account's set-up.
+ */
+export async function setupSwitcherAccount(userId: string, businessId: string | null) {
+  if (!businessId) return undefined;
+  const [business, count] = await Promise.all([
+    db.business.findUnique({ where: { id: businessId }, select: { name: true, instagramHandle: true, avatarUrl: true } }),
+    db.businessMember.count({ where: { userId } }),
+  ]);
+  if (!business || count < 2) return undefined;
+  return {
+    handle: business.instagramHandle,
+    name: business.name,
+    avatarUrl: business.avatarUrl,
+    avatarInitials: initials(business.name || business.instagramHandle || "IG"),
+    avatarTone: toneFor(business.instagramHandle ?? businessId),
+  };
+}

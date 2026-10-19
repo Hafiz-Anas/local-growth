@@ -42,9 +42,10 @@ export interface Client {
   instagramIssue?: { reason: "reconnect" | "permissions"; permissions: string[] } | null;
   /**
    * Set-up prompts on the dashboard: `onboardingStepsLeft` when the owner chose "Finish later"
-   * (the wizard still has steps), `goalsPromptDue` once for businesses that never set their goals.
+   * (the wizard still has steps), `newStepsPromptDue` once for businesses that finished the older
+   * wizard (style, goals, location…), `goalsPromptDue` once for businesses that never set their goals.
    */
-  setup?: { onboardingStepsLeft: number | null; goalsPromptDue: boolean };
+  setup?: { onboardingStepsLeft: number | null; newStepsPromptDue: boolean; goalsPromptDue: boolean };
 }
 
 /** One Instagram account in the account switcher (GET /api/accounts). */

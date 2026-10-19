@@ -50,6 +50,12 @@ export const MONITOR_SUMMARY_LIMIT: RateLimitRule = { name: "monitor-summary", l
 export const STATISTICS_SUMMARY_LIMIT: RateLimitRule = { name: "statistics-summary", limit: 10, windowMs: 60 * 60 * 1000 };
 /** AI post images per business (each one costs a paid model call). */
 export const IMAGE_GENERATION_LIMIT: RateLimitRule = { name: "image-generation", limit: 20, windowMs: 60 * 60 * 1000 };
+/** Photo style-guide analyses per business (each is one AI call with up to 5 images; the AI's daily budget applies too). */
+export const STYLE_GUIDE_LIMIT: RateLimitRule = { name: "style-guide", limit: 6, windowMs: 60 * 60 * 1000 };
+/** Photos uploaded in onboarding's "Your style" per business. */
+export const STYLE_UPLOAD_LIMIT: RateLimitRule = { name: "style-upload", limit: 30, windowMs: 60 * 60 * 1000 };
+/** AI competitor suggestions asked for per business (stored once they worked). */
+export const COMPETITOR_SUGGEST_LIMIT: RateLimitRule = { name: "competitor-suggest", limit: 3, windowMs: 60 * 60 * 1000 };
 
 interface Bucket {
   count: number;

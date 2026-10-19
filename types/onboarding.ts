@@ -1,8 +1,8 @@
-import type { BusinessType, EventStepId, InstagramLanguage, OnboardingStepId, PostPurpose } from "@/config/onboarding";
+import type { BusinessType, EventStepId, Feeling, InstagramLanguage, OnboardingStepId, PostPurpose, ServiceMode, Target } from "@/config/onboarding";
 import type { ConnectFlow, InstagramConnectionDto, IntegrationEventDto } from "./api";
 import type { PlanId } from "./permissions";
 
-export type { BusinessType, EventStepId, InstagramLanguage, OnboardingStepId, PostPurpose };
+export type { BusinessType, EventStepId, Feeling, InstagramLanguage, OnboardingStepId, PostPurpose, ServiceMode, Target };
 
 export type OnboardingStatus = "in_progress" | "completed";
 export type BusinessSource = "admin_created" | "self_signup" | "account_added";
@@ -96,6 +96,14 @@ export interface BusinessProfileDto {
   timeline: string | null;
   /** Optional example caption (new accounts with few posts). */
   exampleCaption: string | null;
+  /** "Your goals": what they want more of, and how posts should feel. */
+  targets: Target[];
+  feelings: Feeling[];
+  feelingOther: string | null;
+  /** "Your location": config/kuwait.ts keys, and how customers are served. */
+  governorate: string | null;
+  area: string | null;
+  serviceMode: ServiceMode | null;
 }
 
 /** What the AI (and code, for hashtags) suggested from the Instagram bio and recent posts. Ran once; empty fields when the AI was unavailable. */
@@ -109,6 +117,8 @@ export interface OnboardingPrefillDto {
   toneLevel: number | null;
   hashtags: string[];
   products: string[];
+  /** Short menu / product categories (e.g. "Sweets"); older pre-fills don't have them. */
+  categories?: string[];
 }
 
 export interface OnboardingCompetitorDto {
@@ -129,15 +139,52 @@ export interface OnboardingStateDto {
   email: string;
   emailVerified: boolean;
   business: BusinessProfileDto;
-  /** `required`: admins require a connection to finish onboarding (System setting). */
-  instagram: InstagramConnectionDto & { handle: string | null; required: boolean };
+  instagram: InstagramConnectionDto & { handle: string | null };
   competitors: OnboardingCompetitorDto[];
   posts: BrandPostDto[];
   brand: BrandBasicsDto;
   /** The brand's hashtags (BrandVoice.defaultHashtags). */
   hashtags: string[];
-  /** Null until the "Confirm your brand" step asked for it. */
+  /** Null until the "Your business" step asked for it. */
   prefill: OnboardingPrefillDto | null;
+  /** The photo style guide ("Your style"), null until photos were picked or the recent posts read. */
+  style: StyleGuideDto | null;
+}
+
+// ─── Photo style guide ───────────────────────────────────────────────────────
+
+/** A photo the owner picked for "Your style": one of their posts, or an upload. */
+export type StylePhoto = { source: "instagram"; igMediaId: string } | { source: "upload"; url: string };
+
+export interface StyleGuideDto {
+  status: "building" | "ready" | "failed";
+  /** The one line the owner sees ("Warm colors, close-up, top-down angle"). */
+  summary: string | null;
+  /** The owner wrote or changed the line themselves. */
+  edited: boolean;
+  /** Read from the picks, from the most recent posts, or only the owner's own line. */
+  basis: "picked" | "recent" | "owner" | null;
+  photos: StylePhoto[];
+  /** Why the last analysis failed (TextFailureReason, "no_images", "rate_limited"). */
+  failureReason: string | null;
+  updatedAt: string;
+}
+
+/** Settings → Business. */
+export interface BusinessDetailsDto {
+  name: string;
+  /** Main products or menu categories ("Your business"). */
+  products: string[];
+  governorate: string | null;
+  area: string | null;
+  serviceMode: ServiceMode | null;
+}
+
+/** Similar local accounts the AI suggested and Instagram confirmed (competitors step). */
+export interface CompetitorSuggestionsDto {
+  /** "none" before asking, "unavailable" when the AI couldn't help this time. */
+  status: "none" | "ready" | "unavailable";
+  items: Array<{ handle: string; name: string | null; avatarUrl: string | null; followers: number }>;
 }
 
 /** Instagram media offered in the post picker. */

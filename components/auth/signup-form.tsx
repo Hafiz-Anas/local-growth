@@ -12,27 +12,25 @@ import { emailSchema } from "@/lib/validation/auth";
 import { PASSWORD_RULES, passwordProblems, passwordScore } from "@/lib/validation/password";
 import { AuthFooter, FloatingInput, ShowPasswordToggle } from "./auth-parts";
 
-const initialState: SignupState = { error: null, fields: [], values: { name: "", email: "", businessName: "" } };
+const initialState: SignupState = { error: null, fields: [], values: { email: "" } };
 
 /**
- * Public sign-up in the same Instagram-style card as the login screen. Creates
- * the account and business, then goes straight to the onboarding wizard.
+ * Public sign-up in the same Instagram-style card as the login screen, step 1 of 2: email and
+ * password. Step 2 connects Instagram (/signup/instagram), which also names the business.
  */
 export function SignupForm() {
   const { t } = useI18n();
   const [state, formAction, pending] = useActionState(signupAction, initialState);
-  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [businessName, setBusinessName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [touched, setTouched] = useState<Partial<Record<SignupField, boolean>>>({});
 
-  const personal = { email, name };
+  const personal = { email, name: "" };
   const problems = passwordProblems(password, personal);
   const score = passwordScore(password, personal);
   const emailValid = emailSchema.safeParse(email).success;
-  const valid = name.trim().length > 0 && emailValid && problems.length === 0 && businessName.trim().length > 0;
+  const valid = emailValid && problems.length === 0;
   const serverInvalid = (field: SignupField) => state.fields.includes(field);
   const invalid = (field: SignupField, ok: boolean) => (touched[field] && !ok) || serverInvalid(field);
   const touch = (field: SignupField) => () => setTouched((v) => ({ ...v, [field]: true }));
@@ -45,10 +43,12 @@ export function SignupForm() {
             <div className="mb-3 flex justify-center">
               <Logo className="[&_svg]:size-9 [&>span]:text-[30px]" />
             </div>
-            <p className="mb-6 text-center text-[17px] leading-5 font-semibold text-muted">{t("signup.tagline")}</p>
+            <p className="mb-2 text-center text-[17px] leading-5 font-semibold text-muted">{t("signup.tagline")}</p>
+            <p className="mb-6 text-center text-caption text-muted" data-testid="signup-step">
+              {t("signup.stepOf", { n: 1, total: 2 })} · {t("signup.steps.account")}
+            </p>
 
             <form action={formAction} className="space-y-1.5" noValidate>
-              <FloatingInput name="name" autoComplete="name" label={t("signup.name")} value={name} onChange={setName} onBlur={touch("name")} invalid={invalid("name", name.trim().length > 0)} />
               <FloatingInput
                 name="email"
                 type="email"
@@ -84,15 +84,6 @@ export function SignupForm() {
                   );
                 })}
               </ul>
-              <FloatingInput
-                name="businessName"
-                autoComplete="organization"
-                label={t("signup.businessName")}
-                value={businessName}
-                onChange={setBusinessName}
-                onBlur={touch("businessName")}
-                invalid={invalid("businessName", businessName.trim().length > 0)}
-              />
 
               <p className="px-1 pt-3 pb-1 text-center text-caption text-muted">{t("signup.terms")}</p>
               <Button type="submit" className="w-full" disabled={!valid || pending} aria-busy={pending}>

@@ -6,6 +6,7 @@ import {
   POST_METRICS,
   POST_METRICS_MINIMAL,
   businessDiscoveryFields,
+  displayUrl,
   mapComment,
   mapDebugToken,
   mapFollowerDaily,
@@ -98,6 +99,12 @@ export async function fetchMedia(client: GraphClient, igUserId: string, token: s
 export async function fetchMediaCounts(client: GraphClient, mediaId: string, token: string): Promise<{ likes: number; comments: number }> {
   const res = await client.get<GraphMedia>(mediaId, { fields: "id,like_count,comments_count" }, { call: "GET /{ig-media}", token, scopes: ["instagram_basic"] });
   return { likes: res.like_count ?? 0, comments: res.comments_count ?? 0 };
+}
+
+/** A post's current image link (a video's thumbnail); links expire, so read it at the time of use. */
+export async function fetchMediaImageUrl(client: GraphClient, mediaId: string, token: string): Promise<string | null> {
+  const res = await client.get<GraphMedia>(mediaId, { fields: "id,media_type,media_url,thumbnail_url" }, { call: "GET /{ig-media}", token, scopes: ["instagram_basic"] });
+  return displayUrl({ mediaType: res.media_type ?? "IMAGE", mediaUrl: res.media_url ?? null, thumbnailUrl: res.thumbnail_url ?? null });
 }
 
 /** Errors that stop a whole sync (anything else just makes a metric unavailable). */

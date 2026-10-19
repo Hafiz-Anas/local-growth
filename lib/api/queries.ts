@@ -37,6 +37,7 @@ import type {
   TrendsDto,
   WeeklyReportDto,
 } from "@/types";
+import type { Feeling, Target } from "@/config/onboarding";
 import { apiFetch, type ApiClientError } from "./client";
 
 /** Query keys, shared by queries, mutations and cache updates. */
@@ -66,6 +67,11 @@ export const qk = {
   brandVoice: ["brand-voice"] as const,
   connection: ["instagram-connection"] as const,
   onboarding: ["onboarding"] as const,
+  /** Photo style guide (onboarding "Your style", the "You're all set" screen, Settings). */
+  styleGuide: ["style-guide"] as const,
+  /** Settings → Business: name and location. */
+  businessDetails: ["business-details"] as const,
+  competitorSuggestions: ["onboarding", "competitor-suggestions"] as const,
   brand: ["brand"] as const,
   brandColors: ["brand", "colors"] as const,
   instagramMedia: ["instagram-media"] as const,
@@ -276,6 +282,10 @@ export interface GoalsDto {
   aim: string | null;
   goals: string[];
   timeline: string | null;
+  /** Onboarding's "Your goals". */
+  targets: Target[];
+  feelings: Feeling[];
+  feelingOther: string | null;
 }
 
 /** Niche, aim, goals and timeline (Settings → Goals; not loaded in admin preview). */

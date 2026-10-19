@@ -6,8 +6,12 @@ import { createServer } from "node:http";
  * - recommendations requests (responseSchema with "recommendations") get 3 numbered recommendations;
  * - weekly report summaries (responseSchema with "summary_en") get a summary without numbers, or —
  *   for the business named in `state.inventNumbersFor` — one with an invented number (must be rejected);
- * - onboarding pre-fill (responseSchema with "business_type") gets a bakery niche, tone 70 and the first
- *   two hashtag candidates;
+ * - onboarding pre-fill (responseSchema with "business_type") gets a bakery niche, tone 70, the first
+ *   two hashtag candidates and two menu categories;
+ * - photo style guides (schema with "palette", sent with images) get "Warm colors, close-up, top-down angle"
+ *   and the number of images in `state.styleImages`;
+ * - competitor suggestions (schema with "handles") get two local accounts and a private one (which the
+ *   Instagram check must drop);
  * - reply drafts (system prompt "You reply on behalf of") get a short reply; "Regenerate" requests (with a
  *   <previous_draft>) get "New draft (<tone>) v<n>", where tone is shorter / formal / friendly / new;
  * - competitor comparisons (schema with "tactics_en") get a comparison quoting only numbers from the data
@@ -25,14 +29,14 @@ import { createServer } from "node:http";
 export interface StubCall {
   system: string;
   turns: Array<{ role: string; text: string }>;
-  kind: "strategy" | "report" | "monitor" | "statistics" | "prefill" | "reply" | "competitor" | "classify" | "postInsight" | "chat";
+  kind: "strategy" | "report" | "monitor" | "statistics" | "prefill" | "style" | "suggest" | "reply" | "competitor" | "classify" | "postInsight" | "chat";
 }
 
 export const STUB_PORT = Number(process.env.E2E_GEMINI_STUB_PORT ?? 4010);
 
 interface RequestBody {
   systemInstruction?: { parts: Array<{ text: string }> };
-  contents?: Array<{ role: string; parts: Array<{ text: string }> }>;
+  contents?: Array<{ role: string; parts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> }>;
   generationConfig?: { responseSchema?: { properties?: Record<string, unknown> } };
 }
 
@@ -59,13 +63,13 @@ export function stubRecommendations(n: number) {
 
 export async function startGeminiStub(port = STUB_PORT) {
   const calls: StubCall[] = [];
-  const state = { fail: false, analyses: 0, inventNumbersFor: "", rewrites: 0, inventFor: "", inventMonitor: false, inventStatistics: false };
+  const state = { fail: false, styleImages: 0, analyses: 0, inventNumbersFor: "", rewrites: 0, inventFor: "", inventMonitor: false, inventStatistics: false };
   const server = createServer((req, res) => {
     let raw = "";
     req.on("data", (chunk) => (raw += chunk));
     req.on("end", () => {
       const body = JSON.parse(raw || "{}") as RequestBody;
-      const turns = (body.contents ?? []).map((c) => ({ role: c.role, text: c.parts.map((p) => p.text).join("") }));
+      const turns = (body.contents ?? []).map((c) => ({ role: c.role, text: c.parts.map((p) => p.text ?? "").join("") }));
       const props = body.generationConfig?.responseSchema?.properties ?? {};
       const system = body.systemInstruction?.parts[0]?.text ?? "";
       const kind = props.recommendations
@@ -80,6 +84,10 @@ export async function startGeminiStub(port = STUB_PORT) {
             ? "report"
             : props.business_type
               ? "prefill"
+              : props.palette
+                ? "style"
+                : props.handles
+                  ? "suggest"
               : props.tactics_en
                 ? "competitor"
                 : props.posts
@@ -102,7 +110,20 @@ export async function startGeminiStub(port = STUB_PORT) {
       } else if (kind === "prefill") {
         const system = body.systemInstruction?.parts[0]?.text ?? "";
         const candidates = (system.match(/<hashtag_candidates>\n([^<]*)\n<\/hashtag_candidates>/)?.[1] ?? "").split(/\s+/).filter((t) => t.startsWith("#"));
-        text = JSON.stringify({ business_type: "bakery", niche: "Home bakery for celebration cakes", tone_level: 70, hashtags: candidates.slice(0, 2), products: [] });
+        text = JSON.stringify({ business_type: "bakery", niche: "Home bakery for celebration cakes", tone_level: 70, hashtags: candidates.slice(0, 2), products: [], categories: ["Cakes", "Sweets"] });
+      } else if (kind === "style") {
+        state.styleImages = (body.contents ?? []).flatMap((c) => c.parts).filter((p) => p.inlineData).length;
+        text = JSON.stringify({
+          summary: "Warm colors, close-up, top-down angle",
+          palette: "warm golds and browns",
+          angle: "top-down",
+          lighting: "soft daylight",
+          closeness: "close-up",
+          background: "marble counter with a few props",
+          mood: "homely",
+        });
+      } else if (kind === "suggest") {
+        text = JSON.stringify({ handles: ["salmiya.sweets", "private_cakeclub", "@hawalli.bakery"] });
       } else if (kind === "report") {
         const system = body.systemInstruction?.parts[0]?.text ?? "";
         const invent = Boolean(state.inventNumbersFor) && system.includes(state.inventNumbersFor);

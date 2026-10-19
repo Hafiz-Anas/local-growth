@@ -10,6 +10,7 @@ import { getStorageService } from "@/lib/services/storage";
 import { captionStyleSchema, purposePatternSchema, styleNotesSchema } from "@/lib/validation/api";
 import type { BrandBasicsDto, BrandContextDto, BrandContextPatch, BrandPostDto, BrandProfileDto, InstagramLanguage, PostPurpose } from "@/types";
 import { logActivity } from "./activity";
+import { FOCUS_SELECT, toBusinessFocus } from "./business-focus";
 import { ApiError, notFound } from "./http";
 import { getInstagramAccount } from "./instagram-account";
 
@@ -237,6 +238,7 @@ export async function buildBrandContext(businessId: string, actorId: string): Pr
   const business = await db.business.findUnique({
     where: { id: businessId },
     select: {
+      ...FOCUS_SELECT,
       name: true,
       businessType: true,
       businessTypeOther: true,
@@ -308,7 +310,7 @@ export async function buildBrandContext(businessId: string, actorId: string): Pr
       wordsToUse: voice.brandWords,
       wordsToAvoid: voice.wordsToAvoid,
       competitorHandles: business.competitors.map((c) => c.handle),
-      focus: { niche: business.niche, aim: business.aim, goals: business.goals, timeline: business.timeline, exampleCaption: business.exampleCaption },
+      focus: toBusinessFocus(business, { withProducts: false }),
       recentCaptions,
     });
     const row = await db.brandContext.update({

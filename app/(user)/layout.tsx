@@ -7,14 +7,17 @@ import { db } from "@/lib/db";
 import { filterNav } from "@/lib/permissions";
 import { getClientView, getUiPreferences } from "@/lib/server/client-view";
 import { verificationBannerEnabled } from "@/lib/server/email-verification";
+import { needsInstagramConnection } from "@/lib/server/onboarding";
 import { ACCOUNT_META } from "@/lib/api/client";
 import { initials, toneFor } from "@/lib/utils";
 
 export default async function UserLayout({ children }: LayoutProps<"/">) {
   const { session, clientId, isPreview, permissions } = await getActiveClientContext();
 
-  // Until onboarding is finished the wizard is the only screen — unless the owner chose "Finish later"
-  // (the dashboard then links back to it). Admins previewing see the app as is.
+  // Sign-up isn't done until Instagram is connected: back to that screen. Then, until onboarding is
+  // finished, the wizard is the only screen — unless the owner chose "Finish later" (the dashboard then
+  // links back to it). Admins previewing see the app as is.
+  if (!isPreview && (await needsInstagramConnection(clientId))) redirect("/signup/instagram");
   const [business, user] = await Promise.all([
     db.business.findUnique({ where: { id: clientId }, select: { onboardingStatus: true, onboardingDeferredAt: true } }),
     isPreview ? null : db.user.findUnique({ where: { id: session.userId }, select: { emailVerifiedAt: true } }),

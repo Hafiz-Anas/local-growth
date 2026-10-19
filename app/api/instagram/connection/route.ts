@@ -5,8 +5,8 @@ import { isOwnOtherAccount } from "@/lib/server/accounts";
 import { logActivity } from "@/lib/server/activity";
 import { requireBusiness } from "@/lib/server/guards";
 import { ApiError, handler, ok, readJson } from "@/lib/server/http";
-import { getConnectionDto } from "@/lib/server/instagram-account";
-import { recordError } from "@/lib/server/onboarding";
+import { getConnectionDto, getInstagramAccount } from "@/lib/server/instagram-account";
+import { adoptInstagramName, recordError } from "@/lib/server/onboarding";
 import { disconnectMeta } from "@/lib/server/meta-connect";
 import { getInstagramService } from "@/lib/services/instagram";
 import { connectFlow } from "@/lib/services/meta/config";
@@ -82,12 +82,14 @@ export const POST = handler(async (request) => {
     lastSyncAt: now,
   };
   await db.$transaction([
-    // A newly added account has no name yet: it starts as its handle (editable in the next step).
-    ...(handle !== business.instagramHandle || !business.name.trim()
-      ? [db.business.update({ where: { id: businessId }, data: { instagramHandle: handle, ...(!business.name.trim() && { name: handle }) } })]
-      : []),
+    ...(handle !== business.instagramHandle ? [db.business.update({ where: { id: businessId }, data: { instagramHandle: handle } })] : []),
     db.instagramConnection.upsert({ where: { businessId }, update: data, create: { businessId, ...data } }),
   ]);
+  // A new sign-up (or added account) is named after the Instagram account (editable in Settings).
+  if (!business.name.trim()) {
+    const profile = await getInstagramService().getProfile(await getInstagramAccount(businessId)).catch(() => null);
+    await adoptInstagramName(businessId, handle, profile?.name);
+  }
   await logActivity({ businessId, userId: session.userId, action: "instagram.connected", details: { username: account.username } });
   return ok(await getConnectionDto(businessId));
 });

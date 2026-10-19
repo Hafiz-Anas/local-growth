@@ -77,27 +77,27 @@ npm run typecheck                 # next typegen + tsc --noEmit
 | User | user@mathanetbaity.dev | User@123 | Mathanet Baity (@mathanet_baity) | Pro | Connected |
 | User | cafe@localgrowth.dev | User@123 | Dalla & Bean (@dallabean.kw) | Growth (+ trending audio, heatmap) | Needs attention (token expires in 3 days) |
 | User | boutique@localgrowth.dev | User@123 | Noor Boutique (@noorboutique.kw) | Starter (− top post) | Disconnected |
-| User | bakery@localgrowth.dev | User@123 | Fereej Bakery (self sign-up, onboarding stopped at step 3) | Starter | Skipped |
+| User | bakery@localgrowth.dev | User@123 | Fereej Bakery (self sign-up, onboarding stopped at step 3, Goals) | Starter | Connected (mock) |
 
 The login page lists these accounts while `DEMO_ACCOUNTS_ENABLED="true"`. Set it to `"false"` in production.
 
 ## Self-onboarding
 
-Anyone can create an account at `/signup` (name, email, password, business name). The business starts on the admin-configured **default plan for self sign-ups** (*Admin → System*) and goes straight to the full-screen wizard at `/onboarding`:
+Sign-up is two short screens. `/signup` asks only for **email and password**; the next screen, `/signup/instagram`, **connects Instagram**, and the business is named after that account (editable in *Settings → Business*). Until Instagram is connected, every page leads back to that screen. Password resets are by email only. The business starts on the admin-configured **default plan for self sign-ups** (*Admin → System*), then the full-screen wizard at `/onboarding` takes about two minutes. Every step has **Skip** and **Finish later**:
 
-1. **Your business** — type, location, Instagram languages, what they sell, products, audience
-2. **Connect Instagram** — recommended, can be skipped (the dashboard then shows a reminder)
-3. **Competitors** — at least 5 handles that `InstagramService.lookupBusinessAccount` reports as *Ready*
-4. **Your posts** — exactly 5, picked from Instagram or uploaded (JPG/PNG/WebP ≤ 8 MB, MP4 ≤ 50 MB), each with a purpose
-5. **Brand basics** — colours suggested from the post images (server-side, `sharp`), logo, tone, words to use/avoid
-6. **Review & build** — `AIService.buildBrandContext` creates a versioned `BrandContext`, which the user edits and confirms
+1. **Your business** — the AI pre-fills the business type, tone, hashtags and main products / menu categories from the Instagram bio and recent posts; the owner confirms or edits (empty fields if the AI is unavailable)
+2. **Your style** — up to 5 best posts from the Instagram grid and/or uploaded photos; in the background the Gemini text model reads them into a text style guide (colours, angle, lighting, closeness, background and props, mood) and the owner sees one editable line. Skipped → the most recent posts are used later
+3. **Your goals** — what they want more of (sales, followers, visits, messages, each with an optional number) and how posts should feel (tempting, intriguing, homely, premium, fun, or their own word)
+4. **Your location** — Kuwait governorate and area (English/Arabic list) and delivery only / shop / both
+5. **Your competitors** — optional; the AI suggests similar local accounts (each checked with Instagram first) and the owner can add their own
 
-The current step is saved on the business, so logging out and back in resumes it; the (user) layout sends anyone with onboarding in progress back to the wizard. Afterwards the brand profile lives in *Settings → Brand profile* and the Post Generator writes with it. Admins can send an existing client through the wizard with *Send onboarding invite* on the client page.
+A short **"You're all set"** screen leads to Home. The current step is saved on the business, so logging out and back in resumes it; the (user) layout sends anyone with onboarding in progress back to the wizard unless they chose *Finish later* (the dashboard then links back). The answers reach every AI call (captions, replies, the assistant, recommendations) and can be changed in *Settings → Business* and *Settings → Goals*. Clients who finished the older wizard see a one-time dashboard prompt to answer the new steps (or skip them). Admins can send an existing client through the wizard with *Send onboarding invite* on the client page.
 
 **Testing helpers (mock services):**
 
 - Competitor handles starting with `private_` → Private, `personal_` → Not a business account, `missing_` → Not found; your own handle → Your own account; anything else is Ready.
 - A business description containing `[ai-fail]` makes "Build my brand profile" fail (to test the error path).
+- On the sign-up connect screen (mock flow), type any handle; the business is named after it.
 - Verification and invite emails are printed in the `npm run dev` terminal (`[email:console] Verify your email`).
 - Sign-up is rate-limited to 5 attempts per IP per 15 minutes (in memory — restarting the dev server resets it).
 
@@ -174,7 +174,7 @@ Every route returns `{ ok: true, data }` or `{ ok: false, error: { code, message
 
 - **Account:** `GET /api/me`, `PATCH /api/me/preferences`, `PATCH /api/me/notifications`, `PATCH /api/me/password`, `POST /api/me/avatar`
 - **Client screens:** `/api/dashboard`, `/api/competitors` (list, add) and `/api/competitors/:id` (get, edit, remove), `/api/competitors/trends`, `/api/post-generator/options`, `/api/post-drafts` (+ `generate`, `:id`, `:id/regenerate`, `:id/queue`, `:id/reject`), `/api/scheduled-posts[/:id]`, `/api/experiment` (+ `apply-window`), `/api/engagement` (+ `settings`, `rules[/:id]`), `/api/reply-drafts` (+ `:id`, `:id/approve`, `:id/dismiss`), `/api/brand-voice`, `/api/instagram/connection`
-- **Onboarding & brand:** `GET /api/onboarding`, `PUT /api/onboarding/business`, `POST /api/onboarding/progress`, `POST /api/onboarding/competitors` (+ `DELETE :id`), `POST /api/onboarding/events`, `POST /api/onboarding/feedback`, `POST /api/onboarding/complete`, `GET /api/brand`, `/api/brand/posts` (+ `:id`, `:id/media`), `PUT /api/brand/basics`, `GET /api/brand/colors`, `/api/brand/logo`, `/api/brand/context` (GET, POST = build/rebuild, PATCH = edit), `GET /api/instagram/media`, `POST /api/me/verify-email`
+- **Onboarding & brand:** `GET /api/onboarding`, `POST /api/onboarding/prefill`, `PUT /api/onboarding/business`, `PUT /api/onboarding/style` (+ `POST style/photos`), `PUT /api/onboarding/goals`, `PUT /api/onboarding/location`, `GET/POST /api/onboarding/competitors/suggestions`, `POST/DELETE /api/onboarding/new-steps`, `POST /api/onboarding/defer`, `POST /api/onboarding/progress`, `POST /api/onboarding/competitors` (+ `DELETE :id`), `POST /api/onboarding/events`, `POST /api/onboarding/feedback`, `POST /api/onboarding/complete`, `GET /api/brand`, `GET/PUT /api/brand/business`, `GET/PATCH /api/brand/style`, `GET/PUT /api/brand/goals`, `/api/brand/posts` (+ `:id`, `:id/media`), `PUT /api/brand/basics`, `GET /api/brand/colors`, `/api/brand/logo`, `/api/brand/context` (GET, POST = build/rebuild, PATCH = edit), `GET /api/instagram/media`, `POST /api/me/verify-email`
 - **Admin:** `/api/admin/overview`, `/api/admin/businesses[/:id]` (+ `permissions`, `permissions/preset`, `brand`, `onboarding-invite`), `/api/admin/users[/:id]` (+ `reset-password`, `suspend`, `reactivate`), `/api/admin/activity`, `/api/admin/preview/:businessId`, `/api/admin/system`, `/api/admin/onboarding`, `/api/admin/settings`
 - **Auth:** `/api/auth/*` (Auth.js), `/api/password-reset/request`, `/api/password-reset/confirm`
 

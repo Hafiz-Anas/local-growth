@@ -2,7 +2,7 @@
 
 import { createContext, useContext, type ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { OnboardingStepId } from "@/config/onboarding";
+import { ONBOARDING_STEPS, type OnboardingStepId } from "@/config/onboarding";
 import { apiFetch, type ApiClientError } from "@/lib/api/client";
 import { errorMessage } from "@/lib/api/errors";
 import { qk } from "@/lib/api/queries";
@@ -17,16 +17,20 @@ interface WizardValue {
   /** Saves the move on the server (resume point + events) and shows the new step. */
   go: (step: OnboardingStepId, direction: Direction, details?: Record<string, unknown>) => Promise<void>;
   moving: boolean;
+  /** "Skip": on to the next step without saving this one. */
+  skip: (from: OnboardingStepId) => Promise<void>;
   /** Puts a fresh server state into the cache (after a save that returns it). */
   setState: (state: OnboardingStateDto) => void;
+  /** Onboarding was completed: the wizard shows "You're all set". */
+  onFinished: () => void;
 }
 
 const WizardContext = createContext<WizardValue | null>(null);
 
-/** Server reasons a forward move was refused (lib/server/onboarding.ts → blockerFor). */
-const BLOCKERS = new Set(["business_name_missing", "instagram_required", "out_of_order"]);
+/** Server reasons a move was refused (lib/server/onboarding.ts → moveToStep). */
+const BLOCKERS = new Set(["out_of_order"]);
 
-export function WizardProvider({ state, children }: { state: OnboardingStateDto; children: ReactNode }) {
+export function WizardProvider({ state, onFinished, children }: { state: OnboardingStateDto; onFinished: () => void; children: ReactNode }) {
   const { t } = useI18n();
   const queryClient = useQueryClient();
   const setState = (next: OnboardingStateDto) => queryClient.setQueryData(qk.onboarding, next);
@@ -52,7 +56,12 @@ export function WizardProvider({ state, children }: { state: OnboardingStateDto;
       await move.mutateAsync({ step, direction, details }).catch(() => undefined);
     },
     moving: move.isPending,
+    skip: async (from) => {
+      const next = ONBOARDING_STEPS[ONBOARDING_STEPS.indexOf(from) + 1];
+      if (next) await move.mutateAsync({ step: next, direction: "forward", details: { skipped: true } }).catch(() => undefined);
+    },
     setState,
+    onFinished,
   };
   return <WizardContext.Provider value={value}>{children}</WizardContext.Provider>;
 }

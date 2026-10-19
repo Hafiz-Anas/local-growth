@@ -78,7 +78,7 @@ export async function receivePostUpload(request: Request, businessId: string, on
   try {
     upload = await readUpload(request, { imageMax: UPLOAD_LIMITS.image, videoMax: UPLOAD_LIMITS.video, labels: { image: "8 MB", video: "50 MB" } });
   } catch (error) {
-    if (onboarding) await recordError(businessId, "brand", { kind: "upload", code: (error as { code?: string }).code ?? "unknown" });
+    if (onboarding) await recordError(businessId, "business", { kind: "upload", code: (error as { code?: string }).code ?? "unknown" });
     throw error;
   }
   const stored = await getStorageService().save({ data: upload.data, contentType: CONTENT_TYPES[upload.extension], prefix: "brand-posts", extension: upload.extension });

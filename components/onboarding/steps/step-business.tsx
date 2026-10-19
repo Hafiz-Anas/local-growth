@@ -1,25 +1,23 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Sparkles } from "lucide-react";
 import { ChipSelect } from "@/components/shared/chip-select";
 import { TagInput } from "@/components/shared/tag-input";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { BUSINESS_TYPES, FEW_POSTS, TONE_PRESETS, tonePresetOf, type BusinessType, type TonePreset } from "@/config/onboarding";
 import { apiFetch, type ApiClientError } from "@/lib/api/client";
 import { errorMessage } from "@/lib/api/errors";
+import { qk } from "@/lib/api/queries";
 import { useI18n } from "@/lib/i18n/provider";
 import { notify } from "@/store/ui-store";
 import type { OnboardingStateDto } from "@/types";
 import { StepFrame } from "../step-frame";
 import { useWizard } from "../wizard-context";
 
-interface BrandForm {
-  businessName: string;
+interface BusinessForm {
   businessType: BusinessType | null;
-  niche: string;
   toneLevel: number;
   hashtags: string[];
   products: string[];
@@ -29,22 +27,24 @@ interface BrandForm {
 const hashtag = (v: string) => (v ? `#${v.replace(/^#+/, "").replace(/\s+/g, "")}` : "");
 
 /**
- * Step 2 — Confirm your brand. The AI reads the Instagram bio and recent posts and fills in the
- * niche, type, tone and hashtags; the owner just checks them. The fields are usable while it
- * works, and if the AI is unavailable they simply stay empty. New accounts with few posts get
- * an optional "add an example caption". Only the business name is required.
+ * Step 1 — Your business. The AI reads the Instagram bio and recent posts and fills in the type,
+ * tone, hashtags and the main products or menu categories; the owner confirms or edits. The fields
+ * work while it reads, and if the AI is unavailable they simply stay empty. New accounts with few
+ * posts get an optional "add an example caption". Everything can be skipped.
  */
-export function StepBrand() {
+export function StepBusiness() {
   const { t, locale } = useI18n();
-  const { state, go, moving, setState } = useWizard();
+  const { state, go, skip, moving, setState } = useWizard();
   const prefill = state.prefill;
-  const [edits, setEdits] = useState<Partial<BrandForm>>({});
+  const [edits, setEdits] = useState<Partial<BusinessForm>>({});
 
-  // Ask once for the suggestions; the step works without them.
+  // Ask once for the suggestions; the step works without them. Only the suggestions are taken from
+  // the answer: the owner may have skipped ahead meanwhile, and the rest of it can be older.
+  const queryClient = useQueryClient();
   const prefillRun = useMutation<OnboardingStateDto, ApiClientError>({
     meta: { handlesErrors: true },
     mutationFn: () => apiFetch("/api/onboarding/prefill", { method: "POST", body: { locale } }),
-    onSuccess: setState,
+    onSuccess: (next) => queryClient.setQueryData<OnboardingStateDto>(qk.onboarding, (current) => current && { ...current, prefill: next.prefill }),
   });
   const asked = useRef(false);
   useEffect(() => {
@@ -56,30 +56,25 @@ export function StepBrand() {
 
   // Saved values win (coming back to this step), then the suggestions, then the owner's edits on top.
   const saved = state.business;
-  const confirmedBefore = saved.niche !== null || state.hashtags.length > 0;
-  const form: BrandForm = {
-    businessName: saved.name,
+  const confirmedBefore = saved.businessType !== null || state.hashtags.length > 0 || saved.products.length > 0;
+  const suggestedProducts = [...new Set([...(prefill?.categories ?? []), ...(prefill?.products ?? [])])].slice(0, 8);
+  const form: BusinessForm = {
     businessType: saved.businessType ?? prefill?.businessType ?? null,
-    niche: saved.niche ?? prefill?.niche ?? "",
     toneLevel: confirmedBefore ? state.brand.toneLevel : (prefill?.toneLevel ?? state.brand.toneLevel),
     hashtags: state.hashtags.length ? state.hashtags : (prefill?.hashtags ?? []),
-    products: saved.products.length ? saved.products : (prefill?.products ?? []),
+    products: saved.products.length ? saved.products : suggestedProducts,
     exampleCaption: saved.exampleCaption ?? "",
     ...edits,
   };
-  const set = <K extends keyof BrandForm>(key: K, value: BrandForm[K]) => setEdits((e) => ({ ...e, [key]: value }));
+  const set = <K extends keyof BusinessForm>(key: K, value: BusinessForm[K]) => setEdits((e) => ({ ...e, [key]: value }));
   const fewPosts = state.instagram.status === "disconnected" || (prefill !== null && prefill.postsWithCaptions < FEW_POSTS);
 
-  const save = useMutation<OnboardingStateDto, ApiClientError, BrandForm>({
+  const save = useMutation<OnboardingStateDto, ApiClientError, BusinessForm>({
     meta: { handlesErrors: true },
-    mutationFn: (body) =>
-      apiFetch("/api/onboarding/brand", {
-        method: "PUT",
-        body: { ...body, niche: body.niche.trim() || null, exampleCaption: body.exampleCaption.trim() || null },
-      }),
+    mutationFn: (body) => apiFetch("/api/onboarding/business", { method: "PUT", body: { ...body, exampleCaption: body.exampleCaption.trim() || null } }),
     onSuccess: async (next) => {
       setState(next);
-      await go("goals", "forward");
+      await go("style", "forward");
     },
     onError: (e) => notify.error(errorMessage(e, t)),
   });
@@ -88,12 +83,11 @@ export function StepBrand() {
 
   return (
     <StepFrame
-      step="brand"
-      title={t("onboarding.steps.brand.title")}
-      helper={prefill?.aiUsed ? t("onboarding.steps.brand.helper") : t("onboarding.steps.brand.helperManual")}
-      onBack={() => go("instagram", "back")}
-      primary={{ label: t("onboarding.continue"), onClick: () => save.mutate(form), disabled: !form.businessName.trim(), busy: moving || save.isPending }}
-      blockedNote={!form.businessName.trim() ? t("onboarding.brand.nameNeeded") : null}
+      step="business"
+      title={t("onboarding.steps.business.title")}
+      helper={prefill?.aiUsed ? t("onboarding.steps.business.helper") : t("onboarding.steps.business.helperManual")}
+      onSkip={() => skip("business")}
+      primary={{ label: t("onboarding.continue"), onClick: () => save.mutate(form), busy: moving || save.isPending }}
       reportContext={{ prefilled: Boolean(prefill), aiUsed: prefill?.aiUsed ?? null, posts: prefill?.postsWithCaptions ?? null }}
     >
       <p className="mb-5 flex items-center gap-2 rounded-card bg-hover px-3 py-2 text-caption" role="status" data-testid="prefill-status">
@@ -101,21 +95,7 @@ export function StepBrand() {
         {filling ? t("onboarding.brand.filling") : prefill?.aiUsed ? t("onboarding.brand.filled") : t("onboarding.brand.notFilled")}
       </p>
 
-      <div className="space-y-5">
-        <div>
-          <label htmlFor="ob-name" className="mb-1.5 block text-body font-semibold">
-            {t("onboarding.brand.name")}
-          </label>
-          <Input id="ob-name" value={form.businessName} onChange={(e) => set("businessName", e.target.value)} maxLength={120} />
-        </div>
-
-        <div>
-          <label htmlFor="ob-niche" className="mb-1.5 block text-body font-semibold">
-            {t("onboarding.brand.niche")}
-          </label>
-          <Input id="ob-niche" value={form.niche} onChange={(e) => set("niche", e.target.value)} maxLength={80} placeholder={t("onboarding.brand.nichePlaceholder")} dir="auto" />
-        </div>
-
+      <div className="space-y-6">
         <ChipSelect
           size="sm"
           label={t("onboarding.brand.type")}
@@ -125,6 +105,14 @@ export function StepBrand() {
         />
 
         <ChipSelect size="sm" label={t("onboarding.brand.tone")} hint={t("onboarding.brand.toneHint")} value={tonePresetOf(form.toneLevel)} onChange={(v) => set("toneLevel", TONE_PRESETS[v])} options={tones} />
+
+        <div>
+          <p className="mb-1 text-body font-semibold">
+            {t("onboarding.brand.products")}
+          </p>
+          <p className="mb-2 text-caption text-muted">{t("onboarding.brand.productsHint")}</p>
+          <TagInput values={form.products} onChange={(v) => set("products", v)} placeholder={t("onboarding.brand.productsPlaceholder")} addLabel={t("common.add")} />
+        </div>
 
         <div>
           <p className="mb-1 text-body font-semibold">{t("onboarding.brand.hashtags")}</p>
@@ -147,14 +135,6 @@ export function StepBrand() {
             />
           </section>
         )}
-
-        <details className="rounded-panel border border-border p-4">
-          <summary className="cursor-pointer text-body font-semibold">{t("onboarding.brand.more")}</summary>
-          <div className="mt-3">
-            <p className="mb-2 text-caption text-muted">{t("onboarding.brand.productsHint")}</p>
-            <TagInput values={form.products} onChange={(v) => set("products", v)} placeholder={t("onboarding.brand.productsPlaceholder")} addLabel={t("common.add")} />
-          </div>
-        </details>
       </div>
     </StepFrame>
   );

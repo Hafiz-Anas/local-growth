@@ -173,6 +173,12 @@ enum PostPurpose {
   OTHER
 }
 
+enum StyleGuideStatus {
+  BUILDING
+  READY
+  FAILED
+}
+
 enum BrandContextStatus {
   BUILDING
   READY
@@ -304,7 +310,7 @@ model Business {
   brandColors       String[]
   logoUrl           String?
   onboardingStatus  OnboardingStatus @default(COMPLETED)
-  /// 1–7: instagram, business, competitors, posts, brand, review, result (config/onboarding.ts).
+  /// 1–5: business, style, goals, location, competitors (config/onboarding.ts ONBOARDING_STEPS).
   onboardingStep    Int              @default(1)
   onboardingInvitedAt DateTime?
   /// Set by "Finish later": the app opens while onboarding stays IN_PROGRESS (the dashboard links back).
@@ -325,6 +331,23 @@ model Business {
   exampleCaption String?
   /// Existing businesses get a one-time prompt to set niche and goals; set when saved or dismissed.
   goalsPromptDoneAt DateTime?
+
+  // Onboarding "Your goals" / "Your location" (config/onboarding.ts, config/kuwait.ts) ----------
+  /// What they want more of: [{ key: "sales" | "followers" | "visits" | "messages", number?: int }].
+  targets        Json?
+  /// How posts should feel (FEELINGS), several allowed; `feelingOther` is their own word.
+  feelings       String[]  @default([])
+  feelingOther   String?
+  /// Kuwait governorate and area keys (config/kuwait.ts).
+  governorate    String?
+  area           String?
+  /// delivery | shop | both
+  serviceMode    String?
+  /// Similar local accounts the AI suggested and Instagram confirmed (competitors step), kept so it runs once.
+  competitorSuggestions Json?
+  /// Businesses that finished onboarding before the five-step wizard get a one-time prompt for the new
+  /// steps; set when they start it, skip it, or finish onboarding.
+  setupPromptDoneAt DateTime?
   source            BusinessSource   @default(ADMIN_CREATED)
 
   /// Users whose active account this is (User.businessId). Who belongs to it: `members`.
@@ -361,6 +384,7 @@ model Business {
   postInsights        PostInsight[]
   postMonitors        PostMonitor[]
   statisticsSummaries StatisticsSummary[]
+  styleGuide          StyleGuide?
 }
 
 /// A login's access to one Instagram account (Business). One user can have several — the
@@ -719,6 +743,35 @@ model MonitorSnapshot {
   monitor PostMonitor @relation(fields: [monitorId], references: [id], onDelete: Cascade)
 
   @@index([monitorId, takenAt])
+}
+
+/// Photo style guide (onboarding "Your style"): what the business's best photos look like, read by the
+/// Gemini text model from up to 5 images (picked posts / uploads, or the most recent posts when none
+/// were picked). Text only: the images are downloaded at the time of the analysis, never kept here.
+model StyleGuide {
+  id              String           @id @default(cuid())
+  businessId      String           @unique
+  /// The owner's picks: [{ source: "instagram", igMediaId } | { source: "upload", url }], up to 5. Empty = recent posts.
+  photos          Json             @default("[]")
+  status          StyleGuideStatus @default(BUILDING)
+  /// "picked" or "recent": which images the guide was read from.
+  basis           String?
+  palette         String?
+  angle           String?
+  lighting        String?
+  closeness       String?
+  background      String?
+  mood            String?
+  /// The one line shown to the owner (editable), e.g. "Warm colors, close-up, top-down angle".
+  summary         String?
+  summaryEditedAt DateTime?
+  /// TextFailureReason (or "no_images") when the last analysis failed.
+  failureReason   String?
+  analyzedAt      DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 }
 
 /// The AI's short summary of a Statistics period (EN + AR), per range ("7d" | "30d" | "90d" | "1y"),

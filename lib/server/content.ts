@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { getAIService } from "@/lib/services/ai";
 import { getContentCatalog } from "@/lib/services/catalog";
 import { brandContextForCaptions, catalogProfile } from "./brand";
+import { FOCUS_SELECT, toBusinessFocus } from "./business-focus";
 import { ApiError, notFound } from "./http";
 
 /** Shared by the post-draft routes: a draft of the caller's business, or 404. */
@@ -27,7 +28,7 @@ export async function generateCaptions(
 ) {
   const business = await db.business.findUniqueOrThrow({
     where: { id: businessId },
-    select: { name: true, nameAr: true, instagramHandle: true, languages: true, niche: true, aim: true, goals: true, timeline: true, exampleCaption: true, brandVoice: { select: { toneLevel: true, brandWords: true, defaultHashtags: true } } },
+    select: { ...FOCUS_SELECT, name: true, nameAr: true, instagramHandle: true, languages: true, brandVoice: { select: { toneLevel: true, brandWords: true, defaultHashtags: true } } },
   });
   const [profile, brandContext] = await Promise.all([catalogProfile(businessId), brandContextForCaptions(businessId)]);
   const catalog = getContentCatalog(businessId, business.name, profile);
@@ -51,6 +52,6 @@ export async function generateCaptions(
     },
     brandContext,
     profile,
-    focus: { niche: business.niche, aim: business.aim, goals: business.goals, timeline: business.timeline, exampleCaption: business.exampleCaption },
+    focus: toBusinessFocus(business),
   });
 }

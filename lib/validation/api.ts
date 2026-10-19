@@ -5,13 +5,20 @@ import {
   BUSINESS_GOALS,
   BUSINESS_TYPES,
   EVENT_STEPS,
+  FEELINGS,
   GOAL_TIMELINES,
   HEX_COLOR,
   INSTAGRAM_LANGUAGES,
   MAX_BRAND_COLORS,
+  MAX_TARGET_NUMBER,
   ONBOARDING_STEPS,
   POST_PURPOSES,
+  SERVICE_MODES,
+  STYLE_PHOTO_MAX,
+  TARGETS,
 } from "@/config/onboarding";
+import { validLocation } from "@/lib/onboarding-answers";
+import { STYLE_SUMMARY_MAX } from "@/lib/services/text/style";
 import { DM_REPLY_MAX, REGENERATE_TONES } from "@/lib/replies";
 import { MAX_COMPETITORS_LIMIT, MAX_INSTAGRAM_ACCOUNTS_LIMIT, MAX_MONITORED_POSTS_LIMIT } from "@/config/plans";
 import { MONITOR_DURATIONS } from "@/lib/analysis/monitoring";
@@ -424,11 +431,10 @@ export const brandContextPatchSchema = z
   .strict()
   .refine((v) => Object.keys(v).length > 0, "Nothing to update.");
 
+/** Sign-up asks only for email and password; the business name comes from Instagram (connected next). */
 export const signupSchema = z.object({
-  name: text(120),
   email: emailSchema,
   password: newPasswordSchema,
-  businessName: text(120),
 });
 
 export const activityQuery = z.object({
@@ -450,16 +456,56 @@ export const recommendationStatusSchema = z.object({ status: z.enum(["new", "acc
 
 const hashtagItem = z.string().trim().min(2).max(60).transform((v) => `#${v.replace(/^#+/, "")}`);
 
-/** PUT /api/onboarding/brand — "Confirm your brand" (everything optional but the name). */
-export const onboardingBrandSchema = z.object({
-  businessName: text(120),
+/** PUT /api/onboarding/business — "Your business": type, tone, hashtags, products / menu categories (all optional). */
+export const onboardingBusinessSchema = z.object({
   businessType: z.enum(BUSINESS_TYPES).nullable(),
-  niche: optionalText(80),
   toneLevel: z.number().int().min(0).max(100),
   hashtags: z.array(hashtagItem).max(12),
   products: z.array(z.string().trim().min(1).max(60)).max(10),
-  exampleCaption: optionalText(2200),
+  exampleCaption: optionalText(2200).optional(),
 });
+
+/** PUT /api/onboarding/style — the photos picked for "Your style" (none = use the recent posts). */
+export const stylePhotosSchema = z.object({
+  photos: z
+    .array(
+      z.discriminatedUnion("source", [
+        z.object({ source: z.literal("instagram"), igMediaId: z.string().trim().min(1).max(64).regex(/^[\w-]+$/) }),
+        z.object({ source: z.literal("upload"), url: z.string().trim().min(1).max(300) }),
+      ]),
+    )
+    .max(STYLE_PHOTO_MAX),
+});
+
+/** PATCH /api/brand/style — the owner's own one-line style summary ("" clears it). */
+export const styleSummarySchema = z.object({ summary: z.string().trim().max(STYLE_SUMMARY_MAX) });
+
+const targetsFeelingsFields = {
+  targets: z
+    .array(z.object({ key: z.enum(TARGETS), number: z.number().int().min(1).max(MAX_TARGET_NUMBER).nullish().transform((v) => v ?? null) }))
+    .max(TARGETS.length)
+    .refine((list) => new Set(list.map((t) => t.key)).size === list.length, "Each target once."),
+  feelings: z.array(z.enum(FEELINGS)).max(FEELINGS.length),
+  feelingOther: optionalText(60),
+};
+
+/** PUT /api/onboarding/goals — "Your goals": targets (optional number each) and how posts should feel. */
+export const onboardingGoalsSchema = z.object(targetsFeelingsFields);
+
+const locationFields = z.object({
+  governorate: z.string().trim().max(40).nullable(),
+  area: z.string().trim().max(60).nullable(),
+  serviceMode: z.enum(SERVICE_MODES).nullable(),
+});
+const areaInGovernorate = { message: "Pick an area in that governorate.", path: ["area"] };
+
+/** "Your location": Kuwait governorate and area keys (config/kuwait.ts), and how customers are served. */
+export const locationSchema = locationFields.refine((v) => validLocation(v.governorate, v.area), areaInGovernorate);
+
+/** PUT /api/brand/business — Settings → Business: the name (from Instagram at sign-up) and the location. */
+export const businessDetailsSchema = locationFields
+  .extend({ name: text(120), products: z.array(z.string().trim().min(1).max(60)).max(10).optional() })
+  .refine((v) => validLocation(v.governorate, v.area), areaInGovernorate);
 
 /** Aim, goals and timeline (onboarding "Goals", Settings → Goals, the one-time prompt). */
 export const goalsSchema = z.object({
@@ -468,6 +514,10 @@ export const goalsSchema = z.object({
   timeline: z.enum(GOAL_TIMELINES),
   /** Settings and the prompt also edit the niche. */
   niche: optionalText(80).optional(),
+  /** Settings also edits onboarding's targets and feeling. */
+  targets: targetsFeelingsFields.targets.optional(),
+  feelings: targetsFeelingsFields.feelings.optional(),
+  feelingOther: targetsFeelingsFields.feelingOther.optional(),
 });
 
 /** POST /api/onboarding/prefill — the language the niche is suggested in. */

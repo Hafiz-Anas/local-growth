@@ -5,6 +5,8 @@ import { getContentCatalog, type CatalogProfile } from "./catalog";
 import { cleanAssistantAnswer } from "./text/assistant";
 import type { BusinessFocus } from "./text/focus";
 import { parsePrefill, type PrefillSuggestion } from "./text/prefill";
+import { parseStyleGuide, type StyleGuideText } from "./text/style";
+import { parseSuggestedHandles } from "./text/suggest";
 import { parseReportSummary } from "./text/report";
 import { parseStrategy, type StrategyRecommendation } from "./text/strategy";
 import { TextGenerationError, sanitizeTextError, type TextFailureReason } from "./text/errors";
@@ -25,12 +27,16 @@ import {
   monitorSummaryPrompt,
   statisticsSummaryPrompt,
   brandPrefillPrompt,
+  styleGuidePrompt,
+  suggestCompetitorsPrompt,
   captionPrompt,
   replyPrompt,
   reportSummaryPrompt,
   strategyPrompt,
   type AssistantPromptInput,
   type BrandPrefillPromptInput,
+  type StyleGuidePromptInput,
+  type SuggestCompetitorsPromptInput,
   type ReportSummaryPromptInput,
   type StrategyPromptInput,
   type TextPrompt,
@@ -100,6 +106,8 @@ export interface ReplyRequest {
   brandVoice: BrandVoiceInput;
   /** What the business does (Business.niche), so replies sound like it. */
   niche?: string | null;
+  /** Products, targets, feeling, location, photo style (lib/server/business-focus.ts). */
+  focus?: BusinessFocus;
   /** A public reply under a comment (default) or a private direct-message reply. */
   channel?: "comment" | "dm";
   /** Recent drafts the business edited before sending, anonymised (lib/server/replies.ts → replyStyleExamples). */
@@ -174,6 +182,10 @@ export interface AIService {
   weeklySummary(request: ReportSummaryRequest): Promise<ReportSummaryAnswer>;
   /** Onboarding: niche, tone, hashtags and products suggested from the Instagram bio and posts. A failure says why; the wizard then leaves those fields empty. */
   brandPrefill(request: BrandPrefillRequest): Promise<BrandPrefillAnswer>;
+  /** Onboarding "Your style": a text style guide from up to 5 photos (sent as images). A failure says why; the summary then stays empty and editable. */
+  styleGuide(request: { businessId: string; prompt: StyleGuidePromptInput }): Promise<{ ok: true; guide: StyleGuideText } | { ok: false; reason: TextFailureReason }>;
+  /** Onboarding competitors: similar local accounts (usernames only, checked with Instagram afterwards). A failure says why; the step then has no suggestions. */
+  suggestCompetitors(request: { businessId: string; prompt: SuggestCompetitorsPromptInput }): Promise<{ ok: true; handles: string[] } | { ok: false; reason: TextFailureReason }>;
   /** Competitor tactics vs the business (EN + AR) from computed numbers. A failure says why; the page then shows the numbers only. */
   competitorInsight(request: AnalysisTextRequest): Promise<{ ok: true; insight: CompetitorInsight } | { ok: false; reason: TextFailureReason }>;
   /** Marketing method per post (id → method). A failure says why; the rule-based guess stays. */
@@ -468,6 +480,16 @@ export class MockAIService implements AIService {
     return { ok: false, reason: "not_configured" };
   }
 
+  /** MOCK: no model to look at the photos; the owner can write the style line themselves. */
+  async styleGuide(): Promise<{ ok: false; reason: TextFailureReason }> {
+    return { ok: false, reason: "not_configured" };
+  }
+
+  /** MOCK: no suggestions (never made-up accounts); the owner adds their own. */
+  async suggestCompetitors(): Promise<{ ok: false; reason: TextFailureReason }> {
+    return { ok: false, reason: "not_configured" };
+  }
+
   /** MOCK: no model, so no explanation (the numbers and charts still show). */
   async competitorInsight(): Promise<{ ok: false; reason: TextFailureReason }> {
     return { ok: false, reason: "not_configured" };
@@ -493,7 +515,7 @@ export class MockAIService implements AIService {
   }
 }
 
-type AICall = "ai.captions" | "ai.reply.comment" | "ai.reply.dm" | "ai.reply.rewrite" | "ai.competitor" | "ai.classify" | "ai.post" | "ai.monitor" | "ai.statistics" | "ai.brand_context" | "ai.assistant" | "ai.strategy" | "ai.report" | "ai.prefill";
+type AICall = "ai.captions" | "ai.reply.comment" | "ai.reply.dm" | "ai.reply.rewrite" | "ai.competitor" | "ai.classify" | "ai.post" | "ai.monitor" | "ai.statistics" | "ai.brand_context" | "ai.assistant" | "ai.strategy" | "ai.report" | "ai.prefill" | "ai.style" | "ai.suggest";
 
 /**
  * Gemini text model (prompts in ./text/prompts.ts). Never fails: when the
@@ -521,7 +543,7 @@ export class GeminiAIService implements AIService {
         ? { text: call === "ai.report" ? "published the report with numbers only" : "showed the numbers only", fallback: "numbers_only" }
         : call === "ai.classify"
           ? { text: "kept the rule-based post types", fallback: "rules" }
-        : call === "ai.assistant" || call === "ai.strategy" || call === "ai.prefill" || call === "ai.reply.rewrite"
+        : call === "ai.assistant" || call === "ai.strategy" || call === "ai.prefill" || call === "ai.reply.rewrite" || call === "ai.style" || call === "ai.suggest"
           ? { text: "told the user the AI is unavailable", fallback: "unavailable" }
           : { text: "used the template text instead", fallback: "template" };
     const gate = (this.gate ??= new TextRequestGate(config?.rpm ?? DEFAULT_GEMINI_TEXT_RPM, config?.rpd ?? DEFAULT_GEMINI_TEXT_RPD));
@@ -624,6 +646,7 @@ export class GeminiAIService implements AIService {
           toneLevel: request.brandVoice.toneLevel,
           brandWords: request.brandVoice.brandWords,
           niche: request.niche ?? null,
+          focus: request.focus,
           examples: request.examples,
         }),
       (answer) => ({ text: cleanReply(answer), language }),
@@ -648,6 +671,7 @@ export class GeminiAIService implements AIService {
           toneLevel: request.brandVoice.toneLevel,
           brandWords: request.brandVoice.brandWords,
           niche: request.niche ?? null,
+          focus: request.focus,
           examples: request.examples,
           previous: request.previous,
           tone: request.tone ?? null,
@@ -758,6 +782,27 @@ export class GeminiAIService implements AIService {
       request.businessId,
       () => reportSummaryPrompt(request.prompt),
       (answer) => ({ ok: true, ...parseReportSummary(answer, request.prompt.numbers) }),
+      (reason) => ({ ok: false, reason }),
+    );
+  }
+
+  async styleGuide(request: { businessId: string; prompt: StyleGuidePromptInput }) {
+    return this.run<{ ok: true; guide: StyleGuideText } | { ok: false; reason: TextFailureReason }>(
+      "ai.style",
+      request.businessId,
+      () => styleGuidePrompt(request.prompt),
+      (answer) => ({ ok: true, guide: parseStyleGuide(answer) }),
+      (reason) => ({ ok: false, reason }),
+    );
+  }
+
+  async suggestCompetitors(request: { businessId: string; prompt: SuggestCompetitorsPromptInput }) {
+    const exclude = [...request.prompt.exclude, ...(request.prompt.username ? [request.prompt.username] : [])];
+    return this.run<{ ok: true; handles: string[] } | { ok: false; reason: TextFailureReason }>(
+      "ai.suggest",
+      request.businessId,
+      () => suggestCompetitorsPrompt(request.prompt),
+      (answer) => ({ ok: true, handles: parseSuggestedHandles(answer, exclude) }),
       (reason) => ({ ok: false, reason }),
     );
   }

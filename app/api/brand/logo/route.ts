@@ -16,7 +16,7 @@ export const POST = handler(async (request) => {
   try {
     upload = await readUpload(request, { imageMax: UPLOAD_LIMITS.logo, labels: { image: "2 MB" } });
   } catch (error) {
-    if (await isOnboarding(businessId)) await recordError(businessId, "brand", { kind: "logo_upload", code: (error as { code?: string }).code ?? "unknown" });
+    if (await isOnboarding(businessId)) await recordError(businessId, "business", { kind: "logo_upload", code: (error as { code?: string }).code ?? "unknown" });
     throw error;
   }
   const storage = getStorageService();

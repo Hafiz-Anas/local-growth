@@ -16,6 +16,7 @@ import {
 } from "@/lib/services/text/assistant";
 import type { AssistantConversationDto, AssistantMessageDto, AssistantOverviewDto, AssistantReplyDto, AssistantThreadDto, Permissions } from "@/types";
 import { currentBrandContext, postingLanguages } from "./brand";
+import { FOCUS_SELECT, toBusinessFocus } from "./business-focus";
 import { competitorAnalysis } from "./competitor-analysis";
 import { listCompetitors } from "./data";
 import { ApiError, notFound } from "./http";
@@ -96,6 +97,7 @@ export async function gatherAssistantFacts(businessId: string, mode: FactsScope,
   const business = await db.business.findUniqueOrThrow({
     where: { id: businessId },
     select: {
+      ...FOCUS_SELECT,
       name: true,
       nameAr: true,
       businessType: true,
@@ -141,7 +143,7 @@ export async function gatherAssistantFacts(businessId: string, mode: FactsScope,
       description: business.description,
       products: business.products,
       targetAudience: business.targetAudience,
-      focus: { niche: business.niche, aim: business.aim, goals: business.goals, timeline: business.timeline, exampleCaption: business.exampleCaption },
+      focus: toBusinessFocus(business, { withProducts: false }),
       languages: postingLanguages(business.languages),
       timezone: business.timezone,
     },

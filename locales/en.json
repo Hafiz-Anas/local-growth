@@ -883,6 +883,13 @@
       "changed": "Password changed. Other devices have been logged out.",
       "wrongCurrent": "Your current password is incorrect.",
       "same": "Choose a password different from your current one."
+    },
+    "business": {
+      "title": "Business",
+      "hint": "Your business name, products and location. The AI uses them in every post and reply.",
+      "name": "Business name",
+      "nameHint": "Taken from your Instagram account. Change it here.",
+      "saved": "Business details saved"
     }
   },
   "admin": {
@@ -1300,7 +1307,18 @@
       "rate_limited": "Too many sign-up attempts from this network. Please wait 15 minutes and try again.",
       "generic": "Something went wrong creating your account. Please try again."
     },
-    "haveAccount": "Have an account?"
+    "haveAccount": "Have an account?",
+    "stepOf": "Step {n} of {total}",
+    "steps": {
+      "account": "Your account",
+      "instagram": "Connect Instagram"
+    },
+    "connect": {
+      "title": "Connect your Instagram",
+      "titleAdded": "Connect the new Instagram account",
+      "helper": "We use it to name your business and learn your style from your posts.",
+      "why": "Only Instagram Business or Creator accounts can be connected. We never post without your OK."
+    }
   },
   "verifyEmail": {
     "verified": {
@@ -1364,8 +1382,9 @@
     "steps": {
       "business": {
         "short": "Your business",
-        "title": "Tell us about your business",
-        "helper": "This helps us write posts and replies that sound like you."
+        "title": "Confirm your business",
+        "helper": "We filled this in from your Instagram bio and posts. Check it, change anything, and continue.",
+        "helperManual": "Add a few details, or skip. You can change everything later in Settings."
       },
       "instagram": {
         "short": "Instagram",
@@ -1375,7 +1394,7 @@
       "competitors": {
         "short": "Competitors",
         "title": "Competitors (optional)",
-        "helper": "Add a few accounts you compete with to compare yourself with them — or add them later."
+        "helper": "Optional. We found similar local accounts. Add any, or your own."
       },
       "posts": {
         "short": "Your posts",
@@ -1401,7 +1420,17 @@
       "goals": {
         "short": "Goals",
         "title": "What do you want from Instagram?",
-        "helper": "Tap what fits — the defaults are fine. You can change them later in Settings."
+        "helper": "Tap what fits. All optional, and you can change it later in Settings."
+      },
+      "style": {
+        "short": "Your style",
+        "title": "Show us your best photos",
+        "helper": "Pick up to 5 posts or upload photos. We'll learn your look so new posts match it."
+      },
+      "location": {
+        "short": "Location",
+        "title": "Where are you?",
+        "helper": "Your area in Kuwait, and how customers get your products."
       }
     },
     "blockers": {
@@ -1492,7 +1521,12 @@
         "own_account": "This is your own account — add a competitor instead."
       },
       "addLater": "Add later",
-      "tracked": "{count} ready to compare"
+      "tracked": "{count} ready to compare",
+      "suggestionsTitle": "Similar local accounts",
+      "suggestionsLoading": "Looking for similar accounts…",
+      "suggestionsNone": "No suggestions right now. Add accounts you know above.",
+      "suggestionsUnavailable": "Suggestions aren't available right now. Add accounts you know above.",
+      "addSuggestion": "Add @{handle}"
     },
     "posts": {
       "needMore": "Add {count} more post(s).",
@@ -1540,7 +1574,8 @@
       "exampleCaptionPlaceholder": "Write a caption the way you'd post it…",
       "more": "More details (optional)",
       "productsHint": "Products or services to feature in posts.",
-      "productsPlaceholder": "Add a product"
+      "productsPlaceholder": "Add a product",
+      "products": "Main products or menu categories"
     },
     "review": {
       "build": "Build my brand profile",
@@ -1567,7 +1602,73 @@
     },
     "finishLater": "Finish later",
     "finish": "Finish",
-    "minutesLeft": "about {minutes} min left"
+    "minutesLeft": "about {minutes} min left",
+    "skip": "Skip",
+    "style": {
+      "count": "{n} of {max} picked",
+      "fromPhone": "From your phone",
+      "upload": "Upload photos",
+      "uploadHint": "JPG, PNG or WebP, up to 8 MB each.",
+      "uploading": "Uploading your photos…",
+      "uploadedPhoto": "Uploaded photo",
+      "removePhoto": "Remove photo",
+      "badFile": "That file can't be used. Upload a JPG, PNG or WebP photo up to 8 MB.",
+      "fromInstagram": "From your Instagram",
+      "noPosts": "We couldn't load your posts. Upload photos instead, or skip.",
+      "pickPost": "Pick post: {caption}",
+      "summaryLabel": "Your photo style",
+      "summaryHint": "One line the AI follows for your posts. Change it if it's not quite right.",
+      "summaryPlaceholder": "Warm colors, close-up, top-down angle",
+      "reading": "Reading your photos…",
+      "failed": "We couldn't read your photos this time. Write your style in a few words.",
+      "saved": "Photo style saved"
+    },
+    "goals": {
+      "targets": "What do you want more of?",
+      "targetsHint": "Pick any. Add a number if you have one in mind.",
+      "targetOptions": {
+        "sales": "Sales",
+        "followers": "Followers",
+        "visits": "Visits",
+        "messages": "Messages"
+      },
+      "numberLabel": "{target}: how many more? (optional)",
+      "numberPlaceholder": "e.g. 500",
+      "feeling": "How should your posts feel?",
+      "feelingHint": "Pick any.",
+      "feelings": {
+        "tempting": "Tempting",
+        "intriguing": "Intriguing",
+        "homely": "Homely",
+        "premium": "Premium",
+        "fun": "Fun"
+      },
+      "other": "Other",
+      "otherLabel": "Your own word",
+      "otherPlaceholder": "e.g. cosy"
+    },
+    "location": {
+      "governorate": "Governorate",
+      "area": "Area",
+      "pickArea": "Pick your area",
+      "pickGovernorateFirst": "Pick a governorate first",
+      "serviceMode": "How do customers get your products?",
+      "modes": {
+        "delivery": "Delivery only",
+        "shop": "Shop",
+        "both": "Both"
+      }
+    },
+    "allSet": {
+      "title": "You're all set",
+      "body": "Your assistant knows your business now.",
+      "points": {
+        "captions": "Captions and replies will follow your style and goals.",
+        "replies": "Your dashboard shows what to do next.",
+        "settings": "Change any answer later in Settings."
+      },
+      "home": "Go to Home"
+    }
   },
   "goals": {
     "title": "Goals",
@@ -1606,7 +1707,10 @@
     "finishAction": "Continue setup",
     "goalsTitle": "Set your goals (30 seconds)",
     "goalsBody": "Tell us your niche and what you want from Instagram, so the AI works towards it.",
-    "notNow": "Not now"
+    "notNow": "Not now",
+    "newStepsTitle": "Help your AI know you better",
+    "newStepsBody": "A few new quick questions: your best photos, your goals and your location. About 2 minutes.",
+    "newStepsAction": "Answer now"
   },
   "brand": {
     "tone": {
@@ -1730,7 +1834,10 @@
       "brand": "Brand basics",
       "review": "Review",
       "result": "Brand profile",
-      "completed": "Finished"
+      "completed": "Finished",
+      "style": "Your style",
+      "goals": "Goals",
+      "location": "Location"
     },
     "eventSteps": {
       "signup": "Sign-up",
@@ -1741,7 +1848,9 @@
       "brand": "Your brand",
       "review": "Review",
       "result": "Brand profile",
-      "goals": "Goals"
+      "goals": "Goals",
+      "style": "Your style",
+      "location": "Location"
     },
     "businesses": "Businesses",
     "emptyTitle": "No sign-ups yet",

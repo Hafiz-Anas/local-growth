@@ -1,5 +1,6 @@
 import "server-only";
 import { hashPassword } from "@/lib/auth/password";
+import { nameFromEmail } from "@/lib/display-names";
 import { db } from "@/lib/db";
 import { Prisma, type Plan } from "@/lib/generated/prisma/client";
 import { EmailSendError } from "@/lib/services/email";
@@ -10,10 +11,8 @@ import { presetRows } from "./permissions";
 import { getSelfSignupPlan } from "./settings";
 
 export interface SignupInput {
-  name: string;
   email: string;
   password: string;
-  businessName: string;
   /** Language the sign-up page was shown in; saved so the app stays in it. */
   language: "en" | "ar";
 }
@@ -21,11 +20,12 @@ export interface SignupInput {
 export class EmailTakenError extends Error {}
 
 /**
- * Public sign-up: a USER and their Business (self sign-up, onboarding in
- * progress) on the admin-configured default plan, with that plan's preset
- * permissions. Sends the verification link; the user can onboard before
- * clicking it (`emailSent` is false when that email failed). Throws
- * EmailTakenError for an address that already has an account.
+ * Public sign-up: a USER and their Business (self sign-up, onboarding in progress) on the
+ * admin-configured default plan, with that plan's preset permissions. Only email and password are
+ * asked: the business stays unnamed until Instagram is connected (the next sign-up screen names it
+ * after the account), and the person's name starts as their email's local part. Sends the
+ * verification link; the user can carry on before clicking it (`emailSent` is false when that email
+ * failed). Throws EmailTakenError for an address that already has an account.
  */
 export async function createSelfSignup(input: SignupInput, baseUrl: string): Promise<{ userId: string; businessId: string; emailSent: boolean }> {
   if (await db.user.findUnique({ where: { email: input.email }, select: { id: true } })) throw new EmailTakenError();
@@ -37,7 +37,7 @@ export async function createSelfSignup(input: SignupInput, baseUrl: string): Pro
     created = await db.$transaction(async (tx) => {
       const business = await tx.business.create({
         data: {
-          name: input.businessName,
+          name: "",
           location: "",
           plan: plan.toUpperCase() as Plan,
           source: "SELF_SIGNUP",
@@ -51,7 +51,7 @@ export async function createSelfSignup(input: SignupInput, baseUrl: string): Pro
       const user = await tx.user.create({
         data: {
           email: input.email,
-          name: input.name,
+          name: nameFromEmail(input.email),
           passwordHash,
           role: "USER",
           businessId: business.id,
@@ -60,7 +60,7 @@ export async function createSelfSignup(input: SignupInput, baseUrl: string): Pro
         },
         select: { id: true },
       });
-      await logActivity({ businessId: business.id, userId: user.id, action: "business.self_signup", details: { name: input.businessName, plan } }, tx);
+      await logActivity({ businessId: business.id, userId: user.id, action: "business.self_signup", details: { plan } }, tx);
       await recordEvent(business.id, "signup", "completed", { details: { plan } }, tx);
       return { userId: user.id, businessId: business.id };
     });

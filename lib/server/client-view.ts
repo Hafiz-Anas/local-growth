@@ -36,6 +36,7 @@ export async function getClientView(businessId: string): Promise<Client | null> 
       onboardingStep: true,
       aim: true,
       goalsPromptDoneAt: true,
+      setupPromptDoneAt: true,
       members: { where: { user: { role: "USER" } }, select: { user: { select: { id: true, email: true } } }, orderBy: { createdAt: "asc" }, take: 1 },
       instagramConnection: { select: { status: true, tokenExpiresAt: true, connectedAt: true, provider: true, missingPermissions: true } },
       brandVoice: { select: { whatsappNumber: true } },
@@ -86,7 +87,9 @@ export async function getClientView(businessId: string): Promise<Client | null> 
     instagramIssue,
     setup: {
       onboardingStepsLeft: row.onboardingStatus === "IN_PROGRESS" ? Math.max(1, ONBOARDING_STEPS.length - row.onboardingStep + 1) : null,
-      goalsPromptDue: row.onboardingStatus === "COMPLETED" && !row.aim && !row.goalsPromptDoneAt,
+      // Finished before the five-step wizard: one prompt for the new steps (it covers goals too).
+      newStepsPromptDue: row.onboardingStatus === "COMPLETED" && !row.setupPromptDoneAt,
+      goalsPromptDue: row.onboardingStatus === "COMPLETED" && Boolean(row.setupPromptDoneAt) && !row.aim && !row.goalsPromptDoneAt,
     },
   };
 }

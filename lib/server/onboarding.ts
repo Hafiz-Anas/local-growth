@@ -14,6 +14,8 @@ import {
 } from "@/config/onboarding";
 import { db } from "@/lib/db";
 import type { CompetitorValidation as DbCompetitorValidation, OnboardingEventType as DbEventType, Prisma } from "@/lib/generated/prisma/client";
+import { displayNameFromHandle } from "@/lib/display-names";
+import { aimFromTargets, readTargets } from "@/lib/onboarding-answers";
 import { EmailSendError, emailLocale, getEmailService } from "@/lib/services/email";
 import { getInstagramService } from "@/lib/services/instagram";
 import type {
@@ -21,11 +23,13 @@ import type {
   AdminOnboardingDto,
   BusinessType,
   CompetitorValidation,
+  Feeling,
   OnboardingCompetitorDto,
   OnboardingEventType,
   OnboardingPrefillDto,
   OnboardingStateDto,
   PlanId,
+  ServiceMode,
 } from "@/types";
 import { logActivity } from "./activity";
 import { buildBrandContext, currentBrandContext, getBrandBasics, listBrandPosts } from "./brand";
@@ -37,12 +41,12 @@ import { INTEGRATION_EVENT_SELECT, toIntegrationEvent } from "./integration-log"
 import { getRequireInstagramConnection } from "./settings";
 import { getConnectionDto, getInstagramAccount } from "./instagram-account";
 import { instagramApiError, lookupFailureReason } from "./instagram-errors";
+import { ensureStyleGuide, getStyleGuide } from "./style-guide";
 
 /**
- * Self-onboarding: wizard state, step rules and the event trail admins use to
- * find where people get stuck. Every step start/finish, back-navigation,
- * validation error, failed upload and failed competitor lookup is recorded
- * as an OnboardingEvent.
+ * Self-onboarding: the Instagram gate after sign-up, wizard state, step rules and the event trail
+ * admins use to find where people get stuck. Every step start/finish/skip, back-navigation,
+ * validation error, failed upload and failed competitor lookup is recorded as an OnboardingEvent.
  */
 
 const lower = <T extends string>(value: T) => value.toLowerCase() as Lowercase<T>;
@@ -62,6 +66,32 @@ export async function requireOnboarding(): Promise<OnboardingContext> {
   if (!business) throw notFound("Business");
   if (business.onboardingStatus !== "IN_PROGRESS") throw new ApiError(409, "conflict", "Onboarding is already complete.", [{ path: "onboarding", message: "completed" }]);
   return { ...context, step: stepId(business.onboardingStep) };
+}
+
+// Instagram gate ---------------------------------------------------------------
+
+/**
+ * Sign-up connects Instagram: a self sign-up (or a newly added account) that never connected one is
+ * sent back to /signup/instagram until it does — so is any business still in onboarding while admins
+ * require a connection (System setting). A later disconnect in Settings doesn't bring the gate back.
+ */
+export async function needsInstagramConnection(businessId: string): Promise<boolean> {
+  const business = await db.business.findUnique({
+    where: { id: businessId },
+    select: { source: true, onboardingStatus: true, instagramConnection: { select: { id: true } } },
+  });
+  if (!business || business.instagramConnection) return false;
+  if (business.source !== "ADMIN_CREATED") return true;
+  return business.onboardingStatus === "IN_PROGRESS" && (await getRequireInstagramConnection());
+}
+
+/**
+ * The business name comes from Instagram: a business without one (new sign-up, added account) takes
+ * the account's display name, or a readable form of the username. Editable in Settings.
+ */
+export async function adoptInstagramName(businessId: string, username: string, displayName: string | null | undefined) {
+  const name = displayName?.replace(/\s+/g, " ").trim().slice(0, 120) || displayNameFromHandle(username) || username;
+  await db.business.updateMany({ where: { id: businessId, name: "" }, data: { name } });
 }
 
 // Events -----------------------------------------------------------------------
@@ -139,7 +169,7 @@ async function listOnboardingCompetitors(businessId: string): Promise<Onboarding
 }
 
 export async function getOnboardingState(businessId: string, userId: string): Promise<OnboardingStateDto> {
-  const [business, user, competitors, posts, brand, voice, instagram, instagramRequired] = await Promise.all([
+  const [business, user, competitors, posts, brand, voice, instagram, style] = await Promise.all([
     db.business.findUnique({
       where: { id: businessId },
       select: {
@@ -155,6 +185,12 @@ export async function getOnboardingState(businessId: string, userId: string): Pr
         goals: true,
         timeline: true,
         exampleCaption: true,
+        targets: true,
+        feelings: true,
+        feelingOther: true,
+        governorate: true,
+        area: true,
+        serviceMode: true,
         onboardingPrefill: true,
         instagramHandle: true,
         onboardingStatus: true,
@@ -167,7 +203,7 @@ export async function getOnboardingState(businessId: string, userId: string): Pr
     getBrandBasics(businessId),
     db.brandVoice.findUnique({ where: { businessId }, select: { defaultHashtags: true } }),
     getConnectionDto(businessId),
-    getRequireInstagramConnection(),
+    getStyleGuide(businessId),
   ]);
   if (!business || !user) throw notFound("Business");
   return {
@@ -188,38 +224,24 @@ export async function getOnboardingState(businessId: string, userId: string): Pr
       goals: business.goals,
       timeline: business.timeline,
       exampleCaption: business.exampleCaption,
+      targets: readTargets(business.targets),
+      feelings: business.feelings as Feeling[],
+      feelingOther: business.feelingOther,
+      governorate: business.governorate,
+      area: business.area,
+      serviceMode: business.serviceMode as ServiceMode | null,
     },
-    instagram: { ...instagram, handle: business.instagramHandle, required: instagramRequired },
+    instagram: { ...instagram, handle: business.instagramHandle },
     competitors,
     posts,
     brand,
     hashtags: voice?.defaultHashtags ?? [],
     prefill: readPrefill(business.onboardingPrefill),
+    style,
   };
 }
 
 // Step rules ---------------------------------------------------------------------
-
-async function hasWorkingConnection(businessId: string): Promise<boolean> {
-  return (await db.instagramConnection.count({ where: { businessId, status: "CONNECTED" } })) > 0;
-}
-
-/**
- * Why a step can't be left yet (null when it can). Only the business name is needed (it's
- * asked at sign-up); everything else has a default or is optional, and nothing waits for the AI.
- */
-async function blockerFor(businessId: string, step: OnboardingStepId): Promise<string | null> {
-  switch (step) {
-    case "instagram":
-      return (await getRequireInstagramConnection()) && !(await hasWorkingConnection(businessId)) ? "instagram_required" : null;
-    case "brand": {
-      const b = await db.business.findUnique({ where: { id: businessId }, select: { name: true } });
-      return b?.name.trim() ? null : "business_name_missing";
-    }
-    default:
-      return null;
-  }
-}
 
 /** The stored pre-fill (Business.onboardingPrefill), or null before the brand step asked for it. */
 function readPrefill(stored: Prisma.JsonValue | null): OnboardingPrefillDto | null {
@@ -243,13 +265,9 @@ export async function moveToStep(
   const fromN = stepNumber(from);
   const toN = stepNumber(to);
 
+  // Every step can be skipped (details.skipped), so a forward move only has to be to the next step.
   if (direction === "forward") {
     if (toN !== fromN + 1) throw new ApiError(400, "validation_error", "Finish the current step first.", [{ path: "step", message: "out_of_order" }]);
-    const blocker = await blockerFor(businessId, from);
-    if (blocker) {
-      await recordError(businessId, from, { reason: blocker });
-      throw new ApiError(400, "validation_error", "This step isn't complete yet.", [{ path: "step", message: blocker }]);
-    }
   } else if (toN >= fromN) {
     throw new ApiError(400, "validation_error", "You can only go back to an earlier step.", [{ path: "step", message: "out_of_order" }]);
   }
@@ -262,24 +280,21 @@ export async function moveToStep(
     await recordEvent(businessId, to, "started", {}, tx);
     await tx.business.update({ where: { id: businessId }, data: { onboardingStep: toN } });
   });
-  if (direction === "forward" && from === "instagram" && details?.skipped) {
-    await logActivity({ businessId, userId: session.userId, action: "onboarding.instagram_skipped" });
+  if (direction === "forward" && details?.skipped) {
+    await logActivity({ businessId, userId: session.userId, action: "onboarding.step_skipped", details: { step: from } });
   }
   return to;
 }
 
 /**
- * "Finish" (from the last step, or "Skip" on it): onboarding is done. Goals the owner didn't
- * touch get their defaults; the brand profile is built after the response, so finishing never
- * waits for the AI (an unavailable AI leaves the template profile, editable in Settings).
+ * "Finish" (from the last step, or "Skip" on it): onboarding is done. Goals the owner didn't touch
+ * get their defaults (the main aim follows the first target picked); the brand profile and — when
+ * "Your style" was skipped — the style guide from the recent posts are built after the response,
+ * so finishing never waits for the AI.
  */
 export async function completeOnboarding(context: OnboardingContext) {
   const { businessId, session } = context;
-  if ((await getRequireInstagramConnection()) && !(await hasWorkingConnection(businessId))) {
-    await recordError(businessId, context.step, { reason: "instagram_required" });
-    throw new ApiError(400, "validation_error", "Connect Instagram to finish.", [{ path: "step", message: "instagram_required" }]);
-  }
-  const business = await db.business.findUniqueOrThrow({ where: { id: businessId }, select: { aim: true, goals: true, timeline: true } });
+  const business = await db.business.findUniqueOrThrow({ where: { id: businessId }, select: { aim: true, goals: true, timeline: true, targets: true } });
   await db.$transaction(async (tx) => {
     const durationMs = await visitDuration(businessId, context.step, tx);
     await recordEvent(businessId, context.step, "completed", { durationMs, details: { finished: true } }, tx);
@@ -289,11 +304,12 @@ export async function completeOnboarding(context: OnboardingContext) {
         onboardingStatus: "COMPLETED",
         onboardingStep: ONBOARDING_STEPS.length,
         onboardingDeferredAt: null,
-        aim: business.aim ?? DEFAULT_AIM,
+        aim: business.aim ?? aimFromTargets(readTargets(business.targets)) ?? DEFAULT_AIM,
         goals: business.goals.length ? business.goals : DEFAULT_GOALS,
         timeline: business.timeline ?? DEFAULT_TIMELINE,
-        // Their goals are set: no "set your goals" prompt later.
+        // Their goals and the new steps are done: no one-time prompts later.
         goalsPromptDoneAt: new Date(),
+        setupPromptDoneAt: new Date(),
       },
     });
     await logActivity({ businessId, userId: session.userId, action: "onboarding.completed" }, tx);
@@ -301,6 +317,27 @@ export async function completeOnboarding(context: OnboardingContext) {
   if (!(await currentBrandContext(businessId))) {
     after(() => buildBrandContext(businessId, session.userId).then(() => undefined).catch((e) => console.error("[onboarding] brand profile build failed", (e as Error).message)));
   }
+  await ensureStyleGuide(businessId);
+}
+
+/**
+ * Businesses that finished the older wizard: "Complete the new steps" on the dashboard reopens the
+ * wizard at its first step (the app stays open, like after "Finish later"); "Skip" dismisses it for good.
+ */
+export async function startNewSteps(businessId: string, userId: string) {
+  const business = await db.business.findUniqueOrThrow({ where: { id: businessId }, select: { onboardingStatus: true } });
+  if (business.onboardingStatus === "IN_PROGRESS") return;
+  await db.$transaction(async (tx) => {
+    await tx.business.update({
+      where: { id: businessId },
+      data: { onboardingStatus: "IN_PROGRESS", onboardingStep: 1, onboardingDeferredAt: new Date(), setupPromptDoneAt: new Date() },
+    });
+    await logActivity({ businessId, userId, action: "onboarding.new_steps_started" }, tx);
+  });
+}
+
+export async function skipNewSteps(businessId: string) {
+  await db.business.update({ where: { id: businessId }, data: { setupPromptDoneAt: new Date() } });
 }
 
 /** "Finish later": the app opens; the wizard keeps its place and the dashboard links back to it. */
@@ -429,7 +466,8 @@ export async function getAdminOnboarding(): Promise<AdminOnboardingDto> {
     },
   });
 
-  const asEventStep = (step: string): EventStepId => ((EVENT_STEPS as readonly string[]).includes(step) ? (step as EventStepId) : "brand");
+  // Older wizards' steps ("brand", "posts"…) count as "Your business".
+  const asEventStep = (step: string): EventStepId => ((EVENT_STEPS as readonly string[]).includes(step) ? (step as EventStepId) : "business");
 
   const businesses: AdminOnboardingBusinessDto[] = rows.map((b) => {
     const events = b.onboardingEvents;

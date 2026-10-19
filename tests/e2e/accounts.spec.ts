@@ -108,9 +108,10 @@ test("“Add account” sets up only the new account; the same Instagram can't b
   await page.goto("/dashboard");
   await openSwitcher(page);
   await page.getByTestId("account-add").click();
-  await page.waitForURL("**/onboarding");
+  // The new account connects Instagram first (sign-up's connect screen), then gets the wizard.
+  await page.waitForURL("**/signup/instagram");
 
-  // The wizard shows the switcher (a way back to the other account).
+  // The connect screen shows the switcher (a way back to the other account).
   await expect(switcher(page)).toContainText("New Instagram account");
 
   await page.locator("#ob-handle").fill(FIRST.handle);
@@ -119,7 +120,8 @@ test("“Add account” sets up only the new account; the same Instagram can't b
 
   await page.locator("#ob-handle").fill(SECOND_HANDLE);
   await page.getByRole("button", { name: "Connect Instagram", exact: true }).click();
-  await expect(page.locator("#ob-handle")).toHaveCount(0);
+  await page.waitForURL("**/onboarding");
+  await expect(switcher(page)).toBeVisible();
 
   await page.getByRole("button", { name: "Finish later" }).click();
   await page.waitForURL("**/dashboard");

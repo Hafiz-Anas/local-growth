@@ -9,7 +9,8 @@ import { ReportProblem } from "./report-problem";
 
 /**
  * One wizard step: title, short helper, the step's content, "Report a
- * problem", and a footer pinned to the bottom with Back / Continue. When
+ * problem", and a footer pinned to the bottom with Back / Skip / Continue
+ * (every step can be skipped; "Finish later" is in the header). When
  * Continue is disabled, `blockedNote` says why.
  */
 export function StepFrame({
@@ -18,6 +19,7 @@ export function StepFrame({
   helper,
   children,
   onBack,
+  onSkip,
   primary,
   secondary,
   blockedNote,
@@ -28,6 +30,8 @@ export function StepFrame({
   helper?: ReactNode;
   children: ReactNode;
   onBack?: () => void;
+  /** "Skip": move on without saving this step. */
+  onSkip?: () => void;
   primary: { label: string; onClick: () => void; disabled?: boolean; busy?: boolean; icon?: ReactNode };
   /** Extra action next to Continue, e.g. "Skip for now". */
   secondary?: ReactNode;
@@ -62,6 +66,11 @@ export function StepFrame({
           </p>
           <div className="ms-auto flex items-center gap-2 sm:ms-0">
             {secondary}
+            {onSkip && (
+              <Button variant="ghost" size="md" onClick={onSkip} disabled={primary.busy} data-testid="skip-step">
+                {t("onboarding.skip")}
+              </Button>
+            )}
             <Button size="md" onClick={primary.onClick} disabled={primary.disabled || primary.busy} aria-busy={primary.busy}>
               {primary.busy ? <Loader2 className="size-4 animate-spin" /> : primary.icon}
               {primary.label}

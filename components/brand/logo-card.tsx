@@ -15,7 +15,7 @@ import type { OnboardingStateDto } from "@/types";
 
 const LOGO_TYPES = ["image/jpeg", "image/png", "image/webp"];
 /** Optional logo; uploaded straight away (JPG, PNG or WebP up to 2 MB). Shared look with Settings. */
-export function LogoCard({ logoUrl, readOnly = false, eventStep = "brand" }: { logoUrl: string | null; readOnly?: boolean; eventStep?: "brand" | null }) {
+export function LogoCard({ logoUrl, readOnly = false, eventStep = "business" }: { logoUrl: string | null; readOnly?: boolean; eventStep?: "business" | null }) {
   const { t } = useI18n();
   const queryClient = useQueryClient();
   const input = useRef<HTMLInputElement>(null);

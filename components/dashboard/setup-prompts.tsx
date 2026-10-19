@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Target, X } from "lucide-react";
+import { ArrowRight, Sparkles, Target, X } from "lucide-react";
 import { useActiveClient } from "@/components/providers/active-client-provider";
 import { GoalsFields, type GoalsValue } from "@/components/settings/goals-fields";
 import { Button } from "@/components/ui/button";
@@ -14,14 +14,16 @@ import { useAction } from "@/lib/api/queries";
 import { useI18n } from "@/lib/i18n/provider";
 
 /**
- * Dashboard set-up prompts: "Finish setting up" after "Finish later" in onboarding, and a
- * one-time card for existing businesses to set their niche and goals (saved or dismissed, it
- * doesn't come back; Settings → Goals always has it).
+ * Dashboard set-up prompts: "Finish setting up" after "Finish later" in onboarding, a one-time card
+ * for businesses that finished the older wizard to complete the new steps (style, goals, location…;
+ * started or skipped, it doesn't come back), and a one-time card for existing businesses to set their
+ * niche and goals (saved or dismissed, it doesn't come back; Settings → Goals always has it).
  */
 export function SetupPrompts() {
   const { client, isPreview } = useActiveClient();
   if (isPreview || !client.setup) return null;
   if (client.setup.onboardingStepsLeft !== null) return <FinishSetup stepsLeft={client.setup.onboardingStepsLeft} />;
+  if (client.setup.newStepsPromptDue) return <NewStepsPrompt />;
   if (client.setup.goalsPromptDue) return <GoalsPrompt />;
   return null;
 }
@@ -40,6 +42,45 @@ function FinishSetup({ stepsLeft }: { stepsLeft: number }) {
           <ArrowRight className="size-4 rtl:-scale-x-100" aria-hidden="true" />
         </Link>
       </Button>
+    </section>
+  );
+}
+
+function NewStepsPrompt() {
+  const { t } = useI18n();
+  const router = useRouter();
+  const start = useAction({
+    mutationFn: () => apiFetch("/api/onboarding/new-steps", { method: "POST" }),
+    onSuccess: () => {
+      router.push("/onboarding");
+      router.refresh();
+    },
+  });
+  const skip = useAction({
+    mutationFn: () => apiFetch("/api/onboarding/new-steps", { method: "DELETE" }),
+    onSuccess: () => router.refresh(),
+  });
+  const busy = start.isPending || skip.isPending;
+  return (
+    <section className="mb-8 rounded-panel border border-border p-4" aria-labelledby="new-steps-title" data-testid="new-steps-prompt">
+      <div className="flex items-start gap-2">
+        <Sparkles className="mt-0.5 size-5 shrink-0" aria-hidden="true" />
+        <div className="min-w-0 flex-1">
+          <h2 id="new-steps-title" className="text-title font-bold">
+            {t("setup.newStepsTitle")}
+          </h2>
+          <p className="text-caption text-muted">{t("setup.newStepsBody")}</p>
+        </div>
+      </div>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Button onClick={() => start.mutate()} disabled={busy}>
+          {t("setup.newStepsAction")}
+          <ArrowRight className="size-4 rtl:-scale-x-100" aria-hidden="true" />
+        </Button>
+        <Button variant="ghost" onClick={() => skip.mutate()} disabled={busy}>
+          {t("onboarding.skip")}
+        </Button>
+      </div>
     </section>
   );
 }

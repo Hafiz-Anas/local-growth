@@ -5,20 +5,19 @@
  */
 
 /**
- * Wizard steps in order (light by design: connect, confirm what the AI filled in, tap a few
- * choices, optionally add competitors). `Business.onboardingStep` is the 1-based index into
- * this list — reordering needs a data migration (20261014180000_simpler_onboarding remapped
- * the old 7-step wizard). Only "brand" asks for anything (the business name); the rest have
- * defaults or are optional, and nothing waits for the AI.
+ * Wizard steps in order. Instagram is connected during sign-up, before the wizard (the layouts send
+ * a business that never connected back to /signup/instagram). Every step can be skipped and nothing
+ * waits for the AI. `Business.onboardingStep` is the 1-based index into this list — reordering needs
+ * a data migration (20261019090000_onboarding_style_location remapped the 4-step wizard).
  */
-export const ONBOARDING_STEPS = ["instagram", "brand", "goals", "competitors"] as const;
+export const ONBOARDING_STEPS = ["business", "style", "goals", "location", "competitors"] as const;
 export type OnboardingStepId = (typeof ONBOARDING_STEPS)[number];
 
 /** Steps shown in the progress bar. */
 export const PROGRESS_STEPS = ONBOARDING_STEPS;
 
-/** Event steps also include the sign-up form, which happens before the wizard. */
-export const EVENT_STEPS = ["signup", ...ONBOARDING_STEPS] as const;
+/** Event steps also include sign-up and its Instagram connection, which happen before the wizard. */
+export const EVENT_STEPS = ["signup", "instagram", ...ONBOARDING_STEPS] as const;
 export type EventStepId = (typeof EVENT_STEPS)[number];
 
 export const stepNumber = (id: OnboardingStepId) => ONBOARDING_STEPS.indexOf(id) + 1;
@@ -37,6 +36,9 @@ export const DEFAULT_INSTAGRAM_LANGUAGES: InstagramLanguage[] = ["ar", "en"];
 
 /** Handles (ready or not) a business can list during onboarding (competitors are optional). */
 export const MAX_ONBOARDING_COMPETITORS = 15;
+
+/** Photos the "Your style" step reads (picked posts and uploads together). */
+export const STYLE_PHOTO_MAX = 5;
 
 /** Posts collected in onboarding; the brand profile in Settings allows more. */
 export const ONBOARDING_POST_SLOTS = 5;
@@ -76,3 +78,30 @@ export const tonePresetOf = (toneLevel: number): TonePreset => (toneLevel < 34 ?
 
 /** Below this many posts with a caption, onboarding offers the optional "pick a tone / add an example caption" fallback. */
 export const FEW_POSTS = 3;
+
+// ─── Your goals: what they want more of, and how posts should feel ──────────
+
+export const TARGETS = ["sales", "followers", "visits", "messages"] as const;
+export type TargetKey = (typeof TARGETS)[number];
+/** A target with the optional number the owner aims for (e.g. 500 more followers). */
+export interface Target {
+  key: TargetKey;
+  number?: number | null;
+}
+export const MAX_TARGET_NUMBER = 10_000_000;
+
+export const FEELINGS = ["tempting", "intriguing", "homely", "premium", "fun"] as const;
+export type Feeling = (typeof FEELINGS)[number];
+
+/** The closest old "main aim" (still read by the weekly report and Settings → Goals). */
+export const AIM_FOR_TARGET: Record<TargetKey, BusinessAim> = {
+  sales: "more_customers",
+  followers: "more_followers",
+  visits: "more_visits",
+  messages: "more_customers",
+};
+
+// ─── Your location (areas in config/kuwait.ts) ──────────────────────────────
+
+export const SERVICE_MODES = ["delivery", "shop", "both"] as const;
+export type ServiceMode = (typeof SERVICE_MODES)[number];

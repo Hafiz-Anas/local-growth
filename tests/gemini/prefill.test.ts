@@ -14,8 +14,8 @@ const CAPTIONS = [
 ];
 
 describe("Onboarding steps", () => {
-  it("is four light steps, with defaults for everything after the name", () => {
-    assert.deepEqual([...ONBOARDING_STEPS], ["instagram", "brand", "goals", "competitors"]);
+  it("is five light, skippable steps, with defaults for the goals", () => {
+    assert.deepEqual([...ONBOARDING_STEPS], ["business", "style", "goals", "location", "competitors"]);
     assert.deepEqual([...PROGRESS_STEPS], [...ONBOARDING_STEPS]);
     // Stored step numbers beyond the list (old 7-step wizard) land on the last step.
     assert.equal(stepId(7), "competitors");
@@ -51,9 +51,17 @@ describe("Onboarding pre-fill", () => {
     assert.deepEqual(s.products, ["saffron cashews", "Pistachio maamoul"]);
   });
 
+  it("menu categories are short labels — never sentences, prices or links", () => {
+    const s = parsePrefill(
+      JSON.stringify({ business_type: "bakery", niche: "", tone_level: 50, hashtags: [], products: [], categories: ["Cakes", "#Sweets", "Cakes", "Our amazing cakes are the best in town", "Cakes 5 KD", "www.kb.com", "x"] }),
+      { candidates: [], sourceText: "" },
+    );
+    assert.deepEqual(s.categories, ["Cakes", "Sweets"]);
+  });
+
   it("unknown or empty answers become empty fields, bad JSON is bad_output", () => {
     const s = parsePrefill(JSON.stringify({ business_type: "spaceship", niche: "", tone_level: "loud", hashtags: "x", products: null }), { candidates: [], sourceText: "" });
-    assert.deepEqual(s, { businessType: null, niche: null, toneLevel: null, hashtags: [], products: [] });
+    assert.deepEqual(s, { businessType: null, niche: null, toneLevel: null, hashtags: [], products: [], categories: [] });
     assert.throws(() => parsePrefill("sure! here you go", { candidates: [], sourceText: "" }), (e: TextGenerationError) => e.reason === "bad_output");
   });
 

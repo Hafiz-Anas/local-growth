@@ -5,6 +5,7 @@ import { isFeatureEnabled } from "@/lib/permissions";
 import { asIsRate, pickEditExamples, replyOutcome, type EditExample, type RegenerateTone } from "@/lib/replies";
 import { getAIService, type ReplyRequest } from "@/lib/services/ai";
 import type { Permissions, ReplyDraftDto, ReplySummaryDto } from "@/types";
+import { FOCUS_SELECT, toBusinessFocus } from "./business-focus";
 import { REPLY_SELECT, toReply } from "./dto";
 import { ApiError, notFound } from "./http";
 import { getRateLimiter, REPLY_REGENERATE_LIMIT } from "./rate-limit";
@@ -78,7 +79,7 @@ export async function replyStyleExamples(businessId: string, channel: "comment" 
 /** Everything an AI reply request needs about the business (sync, DMs and Regenerate share it). */
 export async function replyRequestBase(businessId: string, channel: "comment" | "dm"): Promise<Omit<ReplyRequest, "commentText" | "commenterUsername"> | null> {
   const [business, examples] = await Promise.all([
-    db.business.findUnique({ where: { id: businessId }, select: { name: true, nameAr: true, niche: true, brandVoice: { select: { toneLevel: true, brandWords: true, defaultHashtags: true } } } }),
+    db.business.findUnique({ where: { id: businessId }, select: { ...FOCUS_SELECT, name: true, nameAr: true, brandVoice: { select: { toneLevel: true, brandWords: true, defaultHashtags: true } } } }),
     replyStyleExamples(businessId, channel),
   ]);
   if (!business) return null;
@@ -88,6 +89,7 @@ export async function replyRequestBase(businessId: string, channel: "comment" | 
     businessName: business.name,
     businessNameAr: business.nameAr,
     niche: business.niche,
+    focus: toBusinessFocus(business),
     brandVoice: { toneLevel: voice?.toneLevel ?? 50, brandWords: voice?.brandWords ?? [], defaultHashtags: voice?.defaultHashtags ?? [] },
     channel,
     examples,

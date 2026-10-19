@@ -51,12 +51,16 @@ export function readGeminiTextConfig(env: Record<string, string | undefined> = p
   };
 }
 
+/** A content part: text, or an inline image (the style guide sends the business's photos). */
+type GeminiPart = { text?: string; inlineData?: { mimeType: string; data: string } };
+
 export function geminiTextRequestBody(prompt: TextPrompt) {
+  const user: GeminiPart[] = [...(prompt.images ?? []).map((image) => ({ inlineData: { mimeType: image.mimeType, data: image.data } })), { text: prompt.user }];
   return {
     systemInstruction: { parts: [{ text: prompt.system }] },
     contents: [
-      ...(prompt.history ?? []).map((turn) => ({ role: turn.role, parts: [{ text: turn.text }] })),
-      { role: "user", parts: [{ text: prompt.user }] },
+      ...(prompt.history ?? []).map((turn) => ({ role: turn.role, parts: [{ text: turn.text }] as GeminiPart[] })),
+      { role: "user", parts: user },
     ],
     generationConfig: {
       temperature: prompt.temperature,

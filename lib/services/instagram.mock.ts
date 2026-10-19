@@ -5,6 +5,7 @@ import { CLIENT_DATA, type ClientDataPack } from "@/mock-data/client-data";
 import { MOCK_CLIENTS } from "@/mock-data/clients";
 import { POST_ICONS, POST_TONES, generatedMedia, hash, mockCompetitorPostDetails, mockMediaUrl } from "@/mock-data/posts";
 import type { CompetitorPost, InstagramProfileDto, MediaDto } from "@/types";
+import { displayNameFromHandle } from "@/lib/display-names";
 import {
   InstagramMessagingError,
   InstagramNotConnectedError,
@@ -84,9 +85,9 @@ function engagementHistory(handle: string, rate: number): Array<{ date: string; 
 export class MockInstagramService implements InstagramService {
   async getProfile(account: InstagramAccount): Promise<InstagramProfileDto> {
     const mock = MOCK_CLIENTS.find((c) => c.id === account.businessId);
-    if (!mock) return { username: account.username, followers: 0, following: 0, posts: 0, bio: "", website: "", postsPublishedToday: 0 };
+    if (!mock) return { username: account.username, name: displayNameFromHandle(account.username), followers: 0, following: 0, posts: 0, bio: "", website: "", postsPublishedToday: 0 };
     const { followers, following, posts, bio, website, postsPublishedToday } = mock;
-    return { username: account.username, followers, following, posts, bio, website, postsPublishedToday };
+    return { username: account.username, name: mock.businessName, followers, following, posts, bio, website, postsPublishedToday };
   }
 
   async getInsights(account: InstagramAccount): Promise<InstagramInsights> {
@@ -117,6 +118,10 @@ export class MockInstagramService implements InstagramService {
       commentsHandledToday: dashboard.quickTiles.commentsHandledToday,
       dmsSentToday: engagement.stats.dmsSent,
     };
+  }
+
+  async getMediaImageUrl(account: InstagramAccount, mediaId: string): Promise<string | null> {
+    return (await this.getMedia(account, { limit: 50 })).find((m) => m.id === mediaId)?.mediaUrl ?? null;
   }
 
   async getMedia(account: InstagramAccount, { limit = 12 } = {}): Promise<MediaDto[]> {

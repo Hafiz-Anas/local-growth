@@ -136,6 +136,8 @@ export interface AdminIntegrationDto {
 
 export interface InstagramProfileDto {
   username: string;
+  /** The account's display name (a new sign-up's business name comes from it); null when unknown. */
+  name?: string | null;
   followers: number;
   following: number;
   posts: number;
