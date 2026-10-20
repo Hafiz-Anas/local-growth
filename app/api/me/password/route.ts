@@ -3,6 +3,7 @@ import { verifyPassword } from "@/lib/auth/password";
 import { db } from "@/lib/db";
 import { requireAuth } from "@/lib/server/guards";
 import { ApiError, handler, ok, readJson } from "@/lib/server/http";
+import { rememberLogin } from "@/lib/server/device-logins";
 import { setPassword } from "@/lib/server/passwords";
 import { PASSWORD_CHANGE_LIMIT, getRateLimiter } from "@/lib/server/rate-limit";
 import { changePasswordSchema } from "@/lib/validation/api";
@@ -10,7 +11,8 @@ import { changePasswordSchema } from "@/lib/validation/api";
 /**
  * PATCH /api/me/password  { currentPassword, newPassword }
  * Changes the password and signs the user out of every other session. The
- * session making this request is re-issued, so the user stays signed in here.
+ * session making this request is re-issued, so the user stays signed in here, and this
+ * browser remembers the login again (every remembered login was discarded).
  */
 export const PATCH = handler(async (request) => {
   const session = await requireAuth();
@@ -30,6 +32,7 @@ export const PATCH = handler(async (request) => {
   let signedIn = true;
   try {
     await signIn("credentials", { email: user.email, password: newPassword, redirect: false });
+    await rememberLogin(session.userId);
   } catch {
     signedIn = false;
   }

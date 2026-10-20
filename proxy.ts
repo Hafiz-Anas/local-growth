@@ -5,6 +5,8 @@ import { COOKIES } from "@/config/site";
 
 /** Pages reachable while logged out. Logged-in users are sent to their home page instead. */
 const PUBLIC_PATHS = new Set(["/login", "/signup", "/forgot-password", "/reset-password"]);
+/** "Add account" (account switcher): a signed-in client may open these with ?add=1 to log in or sign up another login. */
+const ADD_ACCOUNT_PATHS = new Set(["/login", "/signup"]);
 /** Pages that work both logged in and logged out (the emailed verification link). */
 const OPEN_PATHS = new Set(["/verify-email"]);
 
@@ -13,7 +15,7 @@ const OPEN_PATHS = new Set(["/verify-email"]);
  *  - logged out          → /login
  *  - user on /admin/*    → /dashboard
  *  - admin on user pages → /admin, unless previewing a client
- *  - logged in on a public page or / → role home
+ *  - logged in on a public page or / → role home (a client may open /login or /signup with ?add=1: "Add account")
  *
  * This is the first line of defence only: layouts, pages and server actions
  * check the session again, and feature-gated pages call notFound() on the server.
@@ -30,6 +32,9 @@ export const proxy = auth((request) => {
   }
 
   const home = HOME_BY_ROLE[user.role];
+  if (user.role === "user" && ADD_ACCOUNT_PATHS.has(pathname) && request.nextUrl.searchParams.get("add") === "1") {
+    return NextResponse.next();
+  }
   if (isPublic || pathname === "/") {
     return NextResponse.redirect(new URL(home, request.url));
   }

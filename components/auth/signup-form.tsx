@@ -11,14 +11,16 @@ import { cn } from "@/lib/utils";
 import { emailSchema } from "@/lib/validation/auth";
 import { PASSWORD_RULES, passwordProblems, passwordScore } from "@/lib/validation/password";
 import { AuthFooter, FloatingInput, ShowPasswordToggle } from "./auth-parts";
+import { AddingNotice } from "./login-form";
 
 const initialState: SignupState = { error: null, fields: [], values: { email: "" } };
 
 /**
  * Public sign-up in the same Instagram-style card as the login screen, step 1 of 2: email and
  * password. Step 2 connects Instagram (/signup/instagram), which also names the business.
+ * `adding`: "Add account" → "Create a new account" — the signed-in login stays remembered on this device.
  */
-export function SignupForm() {
+export function SignupForm({ adding = false }: { adding?: boolean }) {
   const { t } = useI18n();
   const [state, formAction, pending] = useActionState(signupAction, initialState);
   const [email, setEmail] = useState("");
@@ -47,6 +49,8 @@ export function SignupForm() {
             <p className="mb-6 text-center text-caption text-muted" data-testid="signup-step">
               {t("signup.stepOf", { n: 1, total: 2 })} · {t("signup.steps.account")}
             </p>
+
+            {adding && <AddingNotice hint={t("deviceAccounts.addingSignupHint")} />}
 
             <form action={formAction} className="space-y-1.5" noValidate>
               <FloatingInput
@@ -109,7 +113,7 @@ export function SignupForm() {
 
           <div className="mt-2.5 border-border py-5 text-center text-body sm:rounded-[1px] sm:border">
             {t("signup.haveAccount")}{" "}
-            <Link href="/login" className="font-semibold text-primary hover:text-link">
+            <Link href={adding ? "/login?add=1" : "/login"} className="font-semibold text-primary hover:text-link">
               {t("auth.login")}
             </Link>
           </div>

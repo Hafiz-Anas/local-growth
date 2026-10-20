@@ -267,6 +267,7 @@ model User {
   memberships             BusinessMember[]
   passwordResetTokens     PasswordResetToken[]
   emailVerificationTokens EmailVerificationToken[]
+  rememberedLogins        RememberedLogin[]
   feedback                Feedback[]
   activity            ActivityLog[]
   postDrafts          PostDraft[]          @relation("DraftAuthor")
@@ -1085,6 +1086,25 @@ model PasswordResetToken {
   tokenHash String    @unique
   expiresAt DateTime
   usedAt    DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+/// A login remembered on one browser ("Accounts on this device", lib/server/device-logins.ts). The browser
+/// keeps { id, user, token } in a sealed httpOnly cookie; only the token's SHA-256 is stored. Deleted when the
+/// person logs out of it or removes it from the device, and when the password changes (setPassword); it also
+/// stops working once expired, when the user is suspended or deleted, or its sessionVersion is out of date.
+model RememberedLogin {
+  id             String   @id @default(cuid())
+  userId         String
+  tokenHash      String   @unique
+  /// User.sessionVersion when it was remembered.
+  sessionVersion Int
+  createdAt      DateTime @default(now())
+  lastUsedAt     DateTime @default(now())
+  expiresAt      DateTime
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

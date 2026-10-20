@@ -1,21 +1,22 @@
 "use client";
 
-import { startTransition, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { AtSign, Camera, HelpCircle, Loader2, LogOut } from "lucide-react";
 import { HANDLE_PATTERN, normalizeHandle } from "@/components/competitors/helpers";
 import { MetaAccountPicker, MetaConnectButton, MetaOutcomeNotice, useMetaOutcome } from "@/components/instagram/meta-connect";
 import { LogoMark, Wordmark } from "@/components/brand/logo";
-import { AccountSwitcher, type CurrentAccount } from "@/components/layout/account-switcher";
+import type { CurrentAccount } from "@/components/layout/account-switcher";
+import { ActiveAccountSwitcher } from "@/components/layout/login-switcher";
 import { LanguageToggle, ThemeToggle } from "@/components/layout/toggles";
 import { VerifyEmailBanner } from "@/components/shared/verify-email-banner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { reportOnboardingEvent } from "@/lib/api/brand";
+import { logOutOf } from "@/lib/api/device-accounts";
 import { apiFetch, type ApiClientError } from "@/lib/api/client";
 import { errorMessage } from "@/lib/api/errors";
-import { logoutAction } from "@/lib/auth/actions";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 import { notify } from "@/store/ui-store";
@@ -57,7 +58,8 @@ export function ConnectInstagram({
 
   useEffect(() => reportOnboardingEvent("instagram", "started"), []);
 
-  const logout = () => startTransition(() => logoutAction());
+  // Logs out of this login only; another login remembered on this device opens instead, if any.
+  const logout = () => void logOutOf(false);
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -65,7 +67,7 @@ export function ConnectInstagram({
       <header className="border-b border-border">
         <div className="mx-auto flex h-14 w-full max-w-[680px] items-center gap-2 px-4">
           {account ? (
-            <AccountSwitcher current={account} compact />
+            <ActiveAccountSwitcher current={account} compact />
           ) : (
             <span className="inline-flex items-center gap-2">
               <LogoMark className="size-7" />

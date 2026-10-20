@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { startTransition } from "react";
+import { startTransition, useEffect } from "react";
 import Link from "next/link";
 import { Eye } from "lucide-react";
 import type { NavItem } from "@/config/navigation";
@@ -15,13 +15,14 @@ import { exitPreviewAction } from "@/lib/auth/actions";
 import { useI18n } from "@/lib/i18n/provider";
 import { splitForPhone } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
+import { notify } from "@/store/ui-store";
 import { PreferencesSync } from "@/components/providers/preferences-sync";
 import type { UiPreferences } from "@/types";
 import { AssistantBanner, useAssistantBanner } from "@/components/assistant/assistant-panel";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { MobileTabBar } from "./mobile-tab-bar";
 import { NavIcon } from "./nav-icon";
-import { AccountSwitcher } from "./account-switcher";
+import { ActiveAccountSwitcher } from "./login-switcher";
 import { CONTENT_INSET, ProfileMenu, type MenuUser, type MenuUserBase } from "./profile-menu";
 import { SectionTabs } from "./section-tabs";
 import { Sidebar } from "./sidebar";
@@ -44,6 +45,16 @@ export function UserShell({
   const { client, isPreview } = useActiveClient();
   const { t, locale } = useI18n();
   const withBanner = useAssistantBanner();
+  const accountLabel = client.instagramHandle ? `@${client.instagramHandle}` : locale === "ar" ? client.businessNameAr : client.businessName;
+
+  // After switching to another login (?switched=1, a full page load): "Switched to @handle", once.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has("switched")) return;
+    url.searchParams.delete("switched");
+    window.history.replaceState(window.history.state, "", url);
+    notify.success(t("deviceAccounts.switched", { account: accountLabel }));
+  }, [accountLabel, t]);
   const phone = splitForPhone(nav);
   // Phones: sections that don't fit the tab bar live in the profile menu.
   const shortcuts = phone.more.map((item) => ({ href: item.href, label: t(item.labelKey), icon: <NavIcon name={item.icon} className="size-4" /> }));
@@ -55,6 +66,7 @@ export function UserShell({
       : {
           ...base,
           secondary: client.instagramHandle === null ? client.businessName : `@${client.handle}`,
+          accountLabel,
           settingsHref: "/settings",
           plan: client.plan,
           shortcuts,
@@ -93,8 +105,8 @@ export function UserShell({
             <Link href="/dashboard" className="md:hidden" aria-label="Local Growth Engine">
               <LogoMark className="size-7" />
             </Link>
-            {/* The active Instagram account; tapping it switches between the login's accounts. */}
-            <AccountSwitcher
+            {/* The active Instagram account; tapping it switches between the logins remembered on this device. */}
+            <ActiveAccountSwitcher
               readOnly={isPreview}
               current={{
                 handle: client.instagramHandle ?? null,

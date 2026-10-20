@@ -7,6 +7,7 @@ import { signIn, signOut } from "@/auth";
 import { HOME_BY_ROLE } from "@/config/navigation";
 import { COOKIES } from "@/config/site";
 import { db } from "@/lib/db";
+import { forgetLoginOnDevice, rememberLogin } from "@/lib/server/device-logins";
 import { getLocale } from "@/lib/i18n/server";
 import { normalizeTheme } from "@/lib/theme-script";
 import { SIGNUP_LIMIT, clientIp, getRateLimiter } from "@/lib/server/rate-limit";
@@ -14,7 +15,7 @@ import { EmailTakenError, createSelfSignup } from "@/lib/server/signup";
 import { recordError } from "@/lib/server/onboarding";
 import { signupSchema } from "@/lib/validation/api";
 import { passwordProblems } from "@/lib/validation/password";
-import { requireAdmin } from "./server";
+import { getSession, requireAdmin } from "./server";
 
 export type LoginError = "invalid_credentials" | "missing_fields" | "suspended" | "rate_limited";
 
@@ -40,7 +41,9 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
     }
     throw error;
   }
-  const user = await db.user.findUnique({ where: { email: email.toLowerCase() }, select: { role: true, uiPreferences: true } });
+  const user = await db.user.findUnique({ where: { email: email.toLowerCase() }, select: { id: true, role: true, uiPreferences: true } });
+  // This browser remembers the login, so the person can switch back to it later without the password.
+  if (user) await rememberLogin(user.id);
   // The saved language and theme apply from the first page (no flash); the sidebar is applied in the browser.
   const prefs = user?.uiPreferences as { language?: unknown; theme?: unknown } | null;
   const store = await cookies();
@@ -105,11 +108,19 @@ export async function signupAction(_prev: SignupState, formData: FormData): Prom
     if (error instanceof AuthError) redirect("/login");
     throw error;
   }
+  const user = await db.user.findUnique({ where: { email: parsed.data.email.toLowerCase() }, select: { id: true } });
+  if (user) await rememberLogin(user.id);
   redirect(emailSent ? "/signup/instagram" : "/signup/instagram?verification=unsent");
 }
 
+/**
+ * Plain log out to /login (admins). A client login is also forgotten on this device; client screens use
+ * `logOutOf()` (lib/api/device-accounts.ts) instead, which moves on to another login remembered here.
+ */
 export async function logoutAction() {
   (await cookies()).delete(COOKIES.preview);
+  const session = await getSession();
+  if (session?.role === "user") await forgetLoginOnDevice(session.userId);
   await signOut({ redirectTo: "/login" });
 }
 

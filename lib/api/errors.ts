@@ -34,6 +34,8 @@ const KNOWN = new Set([
   "monitor_exists",
   "account_limit",
   "account_switched",
+  "login_expired",
+  "login_active",
   "network_error",
   "internal_error",
 ]);

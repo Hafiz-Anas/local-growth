@@ -1,4 +1,5 @@
 import { expect, test, type Browser, type BrowserContext, type Page } from "@playwright/test";
+import { LOGIN_HAS_SEVERAL_ACCOUNTS } from "../../config/accounts";
 
 /**
  * Instagram account switching (see playwright.config.ts for how to run): one login, several
@@ -19,6 +20,8 @@ const RUN = Date.now().toString(36).slice(-6);
 const SECOND_HANDLE = `noorsecond${RUN}`;
 
 test.describe.configure({ mode: "serial" });
+// Off while one login = one Instagram account (config/accounts.ts); tests/e2e/device-accounts.spec.ts covers switching.
+test.skip(!LOGIN_HAS_SEVERAL_ACCOUNTS, "Several Instagram accounts per login is turned off.");
 
 let admin: BrowserContext;
 let user: BrowserContext;

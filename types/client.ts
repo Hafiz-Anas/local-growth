@@ -73,6 +73,29 @@ export interface InstagramAccountsDto {
   canAdd: boolean;
 }
 
+/** A login remembered on this browser ("Accounts on this device", lib/server/device-logins.ts). */
+export interface DeviceAccountDto {
+  /** The remembered login's id (only meaningful together with this browser's device cookie). */
+  id: string;
+  /** Null until Instagram is connected (a new sign-up). */
+  handle: string | null;
+  name: string;
+  avatarUrl: string | null;
+  avatarInitials: string;
+  avatarTone: MediaTone;
+  connection: ConnectionStatus;
+  setupInProgress: boolean;
+  /** The login this browser is signed in with now. */
+  active: boolean;
+}
+
+export interface DeviceAccountsDto {
+  items: DeviceAccountDto[];
+  /** How many logins one browser remembers. */
+  max: number;
+  canAdd: boolean;
+}
+
 /** A client's Instagram accounts as admins see them (client detail page). */
 export interface AdminInstagramAccountsDto {
   items: Array<{ id: string; name: string; handle: string | null; connection: ConnectionStatus; setupInProgress: boolean; plan: PlanId }>;

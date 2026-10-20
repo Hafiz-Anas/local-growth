@@ -1,8 +1,9 @@
 import { z } from "zod";
 import { updateSession } from "@/auth";
+import { LOGIN_HAS_SEVERAL_ACCOUNTS } from "@/config/accounts";
 import { switchAccount } from "@/lib/server/accounts";
 import { requireRole } from "@/lib/server/guards";
-import { handler, ok, readJson } from "@/lib/server/http";
+import { handler, notFound, ok, readJson } from "@/lib/server/http";
 
 const switchSchema = z.object({ accountId: z.string().min(1).max(64) }).strict();
 
@@ -12,6 +13,7 @@ const switchSchema = z.object({ accountId: z.string().min(1).max(64) }).strict()
  * unfinished account); the browser then loads that page fresh so nothing of the old account stays.
  */
 export const POST = handler(async (request) => {
+  if (!LOGIN_HAS_SEVERAL_ACCOUNTS) throw notFound();
   const session = await requireRole("USER");
   const { accountId } = await readJson(request, switchSchema);
   const result = await switchAccount(session.userId, accountId);

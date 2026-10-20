@@ -29,6 +29,7 @@ import { BusinessUsersCard } from "./business-users-card";
 import { ClientBrandCard, ClientOnboardingCard } from "./client-onboarding-card";
 import { DeleteBusinessDialog } from "./delete-business-dialog";
 import { IntegrationCard } from "./integration-card";
+import { LOGIN_HAS_SEVERAL_ACCOUNTS } from "@/config/accounts";
 import { InstagramAccountsCard } from "./instagram-accounts-card";
 
 const itemKey = (key: FeatureKey) => `features.items.${key.replace(".", "_")}`;
@@ -231,7 +232,8 @@ export function ClientPermissionsView({ clientId }: { clientId: string }) {
 
       <ClientOnboardingCard business={business.data} />
 
-      <InstagramAccountsCard businessId={clientId} />
+      {/* Off while one login = one Instagram account (config/accounts.ts). */}
+      {LOGIN_HAS_SEVERAL_ACCOUNTS && <InstagramAccountsCard businessId={clientId} />}
 
       <IntegrationCard businessId={clientId} />
 

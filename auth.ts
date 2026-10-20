@@ -2,6 +2,7 @@ import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { checkSession, loadSessionClaims, type SessionClaims } from "@/lib/auth/claims";
 import { DUMMY_HASH, verifyPassword } from "@/lib/auth/password";
+import { verifyDeviceLogin } from "@/lib/auth/remembered";
 import { db } from "@/lib/db";
 import { LOGIN_LIMIT, clientIp, getRateLimiter } from "@/lib/server/rate-limit";
 import { loginSchema } from "@/lib/validation/auth";
@@ -23,6 +24,19 @@ export class TooManyAttempts extends CredentialsSignin {
  */
 const CLAIMS_MAX_AGE_MS = 5 * 60 * 1000;
 const SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7 days
+
+function claimsToUser(claims: SessionClaims) {
+  return {
+    id: claims.userId,
+    email: claims.email,
+    name: claims.name,
+    role: claims.role,
+    businessId: claims.businessId,
+    avatarUrl: claims.avatarUrl,
+    features: claims.features,
+    sessionVersion: claims.sessionVersion,
+  };
+}
 
 function claimsToToken(claims: SessionClaims) {
   return {
@@ -68,16 +82,21 @@ export const { handlers, auth, signIn, signOut, unstable_update: updateSession }
 
         const claims = await loadSessionClaims(user.id);
         if (!claims) throw new InvalidCredentials();
-        return {
-          id: claims.userId,
-          email: claims.email,
-          name: claims.name,
-          role: claims.role,
-          businessId: claims.businessId,
-          avatarUrl: claims.avatarUrl,
-          features: claims.features,
-          sessionVersion: claims.sessionVersion,
-        };
+        return claimsToUser(claims);
+      },
+    }),
+    // Switching to a login remembered on this device (lib/server/device-logins.ts). Only a login found in
+    // this request's own sealed device cookie, and still valid, is accepted — never a bare id.
+    Credentials({
+      id: "remembered",
+      credentials: { loginId: {} },
+      async authorize(raw, request) {
+        const loginId = typeof raw?.loginId === "string" ? raw.loginId : "";
+        const userId = loginId ? await verifyDeviceLogin(request.headers.get("cookie"), loginId) : null;
+        if (!userId) throw new InvalidCredentials();
+        const claims = await loadSessionClaims(userId);
+        if (!claims || claims.role !== "user") throw new InvalidCredentials();
+        return claimsToUser(claims);
       },
     }),
   ],

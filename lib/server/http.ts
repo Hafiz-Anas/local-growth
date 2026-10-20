@@ -59,6 +59,8 @@ export type ApiErrorCode =
   | "account_limit"
   /** The screen was rendered for another Instagram account than the active one (switched in another tab). */
   | "account_switched"
+  | "login_expired"
+  | "login_active"
   | "internal_error";
 
 /** Throw from route code (or guards); `handler()` turns it into the JSON error response. */

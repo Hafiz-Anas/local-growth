@@ -7,7 +7,8 @@ import { logActivity } from "./activity";
 /**
  * Sets a user's password and ends ALL of their existing sessions: bumping
  * `sessionVersion` makes every JWT issued before this point fail the
- * per-request check in auth.ts. Unused reset links are discarded too.
+ * per-request check in auth.ts. Unused reset links and the logins remembered on devices
+ * (RememberedLogin, lib/server/device-logins.ts) are discarded too.
  */
 export async function setPassword(
   userId: string,
@@ -23,6 +24,7 @@ export async function setPassword(
       select: { businessId: true },
     });
     await tx.passwordResetToken.deleteMany({ where: { userId, usedAt: null } });
+    await tx.rememberedLogin.deleteMany({ where: { userId } });
     await logActivity({ businessId: user.businessId, userId: audit.actorId, action: audit.action, details: { targetUserId: userId } }, tx);
   };
   if (client) await run(client);

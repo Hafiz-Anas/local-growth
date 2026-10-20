@@ -973,7 +973,8 @@
         "missing": "missing in .env: {list}"
       },
       "planLimits": "Limits per plan",
-      "planLimitsHint": "How many competitor accounts each plan can track and how many posts it can monitor at once (default 5 each), and how many Instagram accounts one login can switch between (default 1).",
+      "planLimitsHint": "How many competitor accounts each plan can track and how many posts it can monitor at once (default 5 each).",
+      "planLimitsHintAccounts": "It also sets how many Instagram accounts one login can switch between (default 1).",
       "planLimitsSaved": "Plan limits saved.",
       "planLimitCompetitors": "Competitors",
       "planLimitMonitored": "Posts monitored at once",
@@ -1211,7 +1212,9 @@
     "monitor_limit": "Your plan monitors up to {max} posts at a time. Stop one first.",
     "monitor_exists": "This post is already being monitored.",
     "account_limit": "Your plan's Instagram accounts are all in use. Contact us to add more.",
-    "account_switched": "Another Instagram account was opened in another tab. Reloading…"
+    "account_switched": "Another Instagram account was opened in another tab. Reloading…",
+    "login_expired": "That account needs its password again. Log in to add it back.",
+    "login_active": "That's the account you're using. Log out of it instead."
   },
   "states": {
     "loadFailed": "Couldn't load this",
@@ -2361,5 +2364,35 @@
     "loadFailed": "Couldn't load your Instagram accounts.",
     "limitOne": "Your plan includes 1 Instagram account. Contact us to add more.",
     "limitMany": "Your plan includes {limit} Instagram accounts and they're all in use. Contact us to add more."
+  },
+  "deviceAccounts": {
+    "title": "Accounts on this device",
+    "hint": "Switch between them without typing a password.",
+    "switcherLabel": "Switch account (now: {account})",
+    "switchTo": "Switch to {account}",
+    "active": "Active",
+    "newAccount": "New account",
+    "settingUp": "Setup not finished",
+    "loadFailed": "Couldn't load the accounts on this device.",
+    "add": "Add account",
+    "addTitle": "Add account",
+    "addHint": "{account} stays on this device, so you can switch back any time.",
+    "logIn": "Log in to an existing account",
+    "logInHint": "With its email and password.",
+    "create": "Create a new account",
+    "createHint": "Sign up with an email and password, then connect Instagram.",
+    "addingLoginHint": "Log in to another account. Your current account stays on this device.",
+    "addingSignupHint": "Create another account. Your current account stays on this device.",
+    "back": "Back",
+    "cancel": "Cancel",
+    "full": "This device remembers up to {max} accounts. Remove one to add another.",
+    "remove": "Remove {account} from this device",
+    "removeConfirm": "Remove {account} from this device?",
+    "removeHint": "You'll need its password to add it again.",
+    "removeAction": "Remove",
+    "removed": "{account} was removed from this device.",
+    "logOutOf": "Log out of",
+    "logOutAll": "Log out of all accounts",
+    "switched": "Switched to {account}"
   }
 }

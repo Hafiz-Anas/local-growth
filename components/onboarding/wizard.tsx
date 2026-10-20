@@ -1,20 +1,21 @@
 "use client";
 
-import { startTransition, useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, CircleCheck, Clock, LogOut } from "lucide-react";
 import Link from "next/link";
 import { LogoMark, Wordmark } from "@/components/brand/logo";
-import { AccountSwitcher, type CurrentAccount } from "@/components/layout/account-switcher";
+import type { CurrentAccount } from "@/components/layout/account-switcher";
+import { ActiveAccountSwitcher } from "@/components/layout/login-switcher";
 import { LanguageToggle, ThemeToggle } from "@/components/layout/toggles";
 import { ErrorState, Skeleton } from "@/components/shared/states";
 import { VerifyEmailBanner } from "@/components/shared/verify-email-banner";
 import { Button } from "@/components/ui/button";
 import { PROGRESS_STEPS, stepNumber, type OnboardingStepId } from "@/config/onboarding";
 import { beaconOnboardingEvent, reportOnboardingEvent, useOnboardingState } from "@/lib/api/brand";
+import { logOutOf } from "@/lib/api/device-accounts";
 import { apiFetch } from "@/lib/api/client";
-import { logoutAction } from "@/lib/auth/actions";
 import { qk } from "@/lib/api/queries";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
@@ -88,7 +89,7 @@ export function OnboardingWizard({
   const logout = () => {
     if (current.current) beaconOnboardingEvent(current.current, "abandoned", { reason: "logged_out" });
     current.current = null;
-    startTransition(() => logoutAction());
+    void logOutOf(false);
   };
 
   return (
@@ -97,7 +98,7 @@ export function OnboardingWizard({
       <header className="sticky top-0 z-20 border-b border-border bg-background">
         <div className="mx-auto flex h-14 w-full max-w-[680px] items-center gap-2 px-4">
           {account ? (
-            <AccountSwitcher current={account} compact />
+            <ActiveAccountSwitcher current={account} compact />
           ) : (
             <span className="inline-flex items-center gap-2">
               <LogoMark className="size-7" />

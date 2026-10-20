@@ -1,4 +1,5 @@
 import "server-only";
+import { LOGIN_HAS_SEVERAL_ACCOUNTS } from "@/config/accounts";
 import { accountLimitFor } from "@/lib/accounts";
 import { db } from "@/lib/db";
 import type { Prisma } from "@/lib/generated/prisma/client";
@@ -6,6 +7,7 @@ import { initials, toneFor } from "@/lib/utils";
 import type { AdminInstagramAccountsDto, InstagramAccountsDto, PlanId } from "@/types";
 import { logActivity } from "./activity";
 import { ApiError, notFound } from "./http";
+import { hasOtherDeviceLogins } from "./device-logins";
 import { connectionStatusOf } from "./instagram-account";
 import { getPlanLimits } from "./settings";
 
@@ -177,15 +179,16 @@ export async function adminAccountsFor(businessId: string): Promise<AdminInstagr
 
 /**
  * The account switcher's current account for the full-screen set-up pages (connect Instagram, the
- * wizard), only when the login has other accounts — a way back from an added account's set-up.
+ * wizard), only when there are other accounts to switch to — the login's other accounts, or (one login =
+ * one account, config/accounts.ts) other logins remembered on this device: a way back from a new account's set-up.
  */
 export async function setupSwitcherAccount(userId: string, businessId: string | null) {
   if (!businessId) return undefined;
-  const [business, count] = await Promise.all([
+  const [business, others] = await Promise.all([
     db.business.findUnique({ where: { id: businessId }, select: { name: true, instagramHandle: true, avatarUrl: true } }),
-    db.businessMember.count({ where: { userId } }),
+    LOGIN_HAS_SEVERAL_ACCOUNTS ? db.businessMember.count({ where: { userId } }).then((count) => count > 1) : hasOtherDeviceLogins(userId),
   ]);
-  if (!business || count < 2) return undefined;
+  if (!business || !others) return undefined;
   return {
     handle: business.instagramHandle,
     name: business.name,

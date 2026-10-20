@@ -18,7 +18,20 @@ import { ApiError } from "./http";
 export async function requireAuth(): Promise<Session> {
   const session = await getSession();
   if (!session) throw new ApiError(401, "unauthorized", "Sign in to continue.");
+  await assertRenderedAccount(session);
   return session;
+}
+
+/**
+ * A screen rendered for another Instagram account than the active one — another login switched to in
+ * another tab, or (when enabled) another account of this login — gets 409 `account_switched` instead of
+ * reading or changing the active one. Requests without the header (set-up screens) pass.
+ */
+export async function assertRenderedAccount(session: Session): Promise<void> {
+  if (session.role !== "user") return;
+  if (accountMismatch((await headers()).get(ACCOUNT_HEADER), session.businessId)) {
+    throw new ApiError(409, "account_switched", "Another Instagram account is active now. Reload to continue.");
+  }
 }
 
 export async function requireRole(role: "ADMIN" | "USER"): Promise<Session> {
@@ -37,14 +50,11 @@ export interface BusinessContext {
 /**
  * A signed-in USER and their active Instagram account. The session's account is checked against
  * the user's memberships on every request (lib/auth/claims.ts). A screen rendered for another
- * account (switched in another tab) gets 409 `account_switched` instead of changing this one.
+ * account (switched in another tab) gets 409 `account_switched` instead of changing this one (requireAuth).
  */
 export async function requireBusiness(): Promise<BusinessContext> {
   const session = await requireRole("USER");
   if (!session.businessId) throw new ApiError(403, "forbidden", "This login has no Instagram account.");
-  if (accountMismatch((await headers()).get(ACCOUNT_HEADER), session.businessId)) {
-    throw new ApiError(409, "account_switched", "Another Instagram account is active now. Reload to continue.");
-  }
   return { session, businessId: session.businessId, permissions: permissionsFromKeys(session.features) };
 }
 

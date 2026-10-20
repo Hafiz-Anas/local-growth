@@ -44,6 +44,8 @@ import { apiFetch, type ApiClientError } from "./client";
 export const qk = {
   /** The login's Instagram accounts (account switcher). */
   accounts: ["accounts"] as const,
+  /** The logins remembered on this browser (account switcher). */
+  deviceAccounts: ["device-accounts"] as const,
   me: ["me"] as const,
   dashboard: ["dashboard"] as const,
   competitors: ["competitors"] as const,

@@ -26,8 +26,9 @@ const ERROR_MESSAGES: Record<LoginError, string> = {
  * Login screen following Instagram's web login layout (showcase + narrow
  * bordered card), with our own logo and name throughout — never Instagram's or Meta's marks.
  * Email and password only: Instagram is connected later, in onboarding.
+ * `adding`: "Add account" from the switcher — the signed-in login stays remembered on this device.
  */
-export function LoginForm({ demoAccounts, sessionExpired = false }: { demoAccounts: DemoAccount[]; sessionExpired?: boolean }) {
+export function LoginForm({ demoAccounts, sessionExpired = false, adding = false }: { demoAccounts: DemoAccount[]; sessionExpired?: boolean; adding?: boolean }) {
   const { t } = useI18n();
   const [state, formAction, pending] = useActionState(loginAction, initialState);
   const [email, setEmail] = useState("");
@@ -52,6 +53,8 @@ export function LoginForm({ demoAccounts, sessionExpired = false }: { demoAccoun
               <div className="mb-8 flex justify-center">
                 <Logo className="[&_svg]:size-9 [&>span]:text-[30px]" />
               </div>
+
+              {adding && <AddingNotice hint={t("deviceAccounts.addingLoginHint")} />}
 
               {sessionExpired && !state.error && (
                 <p role="status" className="mb-4 rounded-card bg-secondary-bg px-3 py-2.5 text-center text-caption text-muted">
@@ -97,7 +100,7 @@ export function LoginForm({ demoAccounts, sessionExpired = false }: { demoAccoun
 
             <div className="mt-2.5 border-border py-5 text-center text-body sm:rounded-[1px] sm:border">
               {t("auth.noAccount")}{" "}
-              <Link href="/signup" className="font-semibold text-primary hover:text-link">
+              <Link href={adding ? "/signup?add=1" : "/signup"} className="font-semibold text-primary hover:text-link">
                 {t("auth.signUp")}
               </Link>
             </div>
@@ -117,6 +120,20 @@ export function LoginForm({ demoAccounts, sessionExpired = false }: { demoAccoun
       </main>
 
       <AuthFooter />
+    </div>
+  );
+}
+
+/** "Add account" mode: what's happening, and a way back to the signed-in account (a full page load). */
+export function AddingNotice({ hint }: { hint: string }) {
+  const { t } = useI18n();
+  return (
+    <div className="mb-5 rounded-card bg-secondary-bg px-3 py-2.5 text-center" data-testid="adding-account">
+      <p className="text-body font-semibold">{t("deviceAccounts.addTitle")}</p>
+      <p className="mt-0.5 text-caption text-muted">{hint}</p>
+      <a href="/dashboard" className="mt-1.5 inline-block text-caption font-semibold text-primary hover:text-link" data-testid="adding-cancel">
+        {t("deviceAccounts.cancel")}
+      </a>
     </div>
   );
 }

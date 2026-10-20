@@ -16,6 +16,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { logOutOf, useDeviceAccounts } from "@/lib/api/device-accounts";
 import { logoutAction } from "@/lib/auth/actions";
 import { useI18n } from "@/lib/i18n/provider";
 import type { MediaTone, PlanId, Role } from "@/types";
@@ -32,6 +33,8 @@ export interface MenuUser {
   /** Admins only: their profile page (a business user's profile is the business, edited in Settings). */
   profileHref?: string;
   settingsHref: string;
+  /** Users only: the active account ("@handle") — "Log out of @handle" logs out of this login on this device only. */
+  accountLabel?: string;
   /** The business's plan (users only), shown in the menu. */
   plan?: PlanId;
   /** Extra links shown in the menu on phones only (where the tab bar has no room). */
@@ -109,10 +112,36 @@ function ProfileMenuBody({ user }: { user: MenuUser }) {
         {t("topbar.language")}
       </DropdownMenuItem>
       <DropdownMenuSeparator />
-      <DropdownMenuItem onSelect={() => startTransition(() => logoutAction())}>
+      {user.role === "user" && user.accountLabel !== undefined ? (
+        <DeviceLogoutItems accountLabel={user.accountLabel} />
+      ) : (
+        <DropdownMenuItem onSelect={() => startTransition(() => logoutAction())}>
+          <LogOut className="rtl:-scale-x-100" />
+          {t("topbar.logout")}
+        </DropdownMenuItem>
+      )}
+    </>
+  );
+}
+
+/** Clients: "Log out of @handle" (moves on to another login remembered here) and, with several, "Log out of all accounts". */
+function DeviceLogoutItems({ accountLabel }: { accountLabel: string }) {
+  const { t } = useI18n();
+  const accounts = useDeviceAccounts();
+  return (
+    <>
+      <DropdownMenuItem onSelect={() => void logOutOf(false)} data-testid="menu-logout">
         <LogOut className="rtl:-scale-x-100" />
-        {t("topbar.logout")}
+        <span className="min-w-0 truncate">
+          {t("deviceAccounts.logOutOf")} <bdi>{accountLabel}</bdi>
+        </span>
       </DropdownMenuItem>
+      {(accounts.data?.items.length ?? 0) > 1 && (
+        <DropdownMenuItem onSelect={() => void logOutOf(true)} className="text-danger" data-testid="menu-logout-all">
+          <LogOut className="rtl:-scale-x-100" />
+          {t("deviceAccounts.logOutAll")}
+        </DropdownMenuItem>
+      )}
     </>
   );
 }

@@ -5,6 +5,7 @@ import { AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
 import { Segmented } from "@/components/settings/segmented";
 import { Avatar } from "@/components/shared/avatar";
 import { FEATURE_KEYS } from "@/config/features";
+import { LOGIN_HAS_SEVERAL_ACCOUNTS } from "@/config/accounts";
 import { MAX_COMPETITORS_LIMIT, MAX_INSTAGRAM_ACCOUNTS_LIMIT, MAX_MONITORED_POSTS_LIMIT, PLAN_IDS, PLAN_PRESETS, type PlanLimits } from "@/config/plans";
 import { apiFetch, type ApiClientError } from "@/lib/api/client";
 import { qk } from "@/lib/api/queries";
@@ -187,7 +188,10 @@ function PlanLimitsCard() {
   const fields: Array<{ field: keyof PlanLimits; label: string; max: number; testId: (plan: PlanId) => string }> = [
     { field: "competitors", label: t("admin.system.planLimitCompetitors"), max: MAX_COMPETITORS_LIMIT, testId: (plan) => `plan-limit-${plan}` },
     { field: "monitoredPosts", label: t("admin.system.planLimitMonitored"), max: MAX_MONITORED_POSTS_LIMIT, testId: (plan) => `plan-limit-monitored-${plan}` },
-    { field: "instagramAccounts", label: t("admin.system.planLimitAccounts"), max: MAX_INSTAGRAM_ACCOUNTS_LIMIT, testId: (plan) => `plan-limit-accounts-${plan}` },
+    // "Instagram accounts per login" is off while one login = one Instagram account (config/accounts.ts).
+    ...(LOGIN_HAS_SEVERAL_ACCOUNTS
+      ? [{ field: "instagramAccounts" as const, label: t("admin.system.planLimitAccounts"), max: MAX_INSTAGRAM_ACCOUNTS_LIMIT, testId: (plan: PlanId) => `plan-limit-accounts-${plan}` }]
+      : []),
   ];
 
   return (
@@ -195,7 +199,10 @@ function PlanLimitsCard() {
       <CardHeader>
         <div>
           <CardTitle>{t("admin.system.planLimits")}</CardTitle>
-          <CardDescription>{t("admin.system.planLimitsHint")}</CardDescription>
+          <CardDescription>
+            {t("admin.system.planLimitsHint")}
+            {LOGIN_HAS_SEVERAL_ACCOUNTS && ` ${t("admin.system.planLimitsHintAccounts")}`}
+          </CardDescription>
         </div>
       </CardHeader>
       <div className="px-4 pb-4">
