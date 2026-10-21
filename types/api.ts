@@ -85,7 +85,7 @@ export type InstagramProviderId = "mock" | "meta";
 export type ConnectFlow = "mock" | "meta" | "meta_unavailable";
 
 /** Outcome of Facebook Login, passed back to the page as ?instagram=… */
-export type MetaConnectOutcome = "connected" | "cancelled" | "pick" | "no_account" | "taken" | "already_added" | "declined" | "unavailable" | "expired" | "error";
+export type MetaConnectOutcome = "connected" | "cancelled" | "pick" | "no_account" | "taken" | "already_added" | "declined" | "unavailable" | "expired" | "error" | "not_tester";
 
 /** A Page + Instagram account offered when one login finds several (no tokens). */
 export interface MetaPageOptionDto {

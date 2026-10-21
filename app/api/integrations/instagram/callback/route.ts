@@ -2,13 +2,18 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { finishWithCode, OAUTH_COOKIE, OAUTH_COOKIE_PATH, recordCancelled, recordStateFailure, returnUrl, verifyState } from "@/lib/server/meta-connect";
 import { connectContext } from "@/lib/server/meta-session";
+import { finishInstagramSignup } from "@/lib/server/signup";
 import { getLocale } from "@/lib/i18n/server";
+import { isDevModeRefusal, isSignupState } from "@/lib/signup-flow";
 
 /**
  * GET /api/integrations/instagram/callback — Meta's redirect_uri (registered in the Meta app).
  *
  *  ?code=…&state=…               → verify state, exchange the code server-side, connect.
  *  ?error=access_denied&state=…  → the user cancelled: back where they started, calm message.
+ *  state "su.…"                  → a sign-up waiting for Instagram (lib/server/signup.ts): no one is
+ *                                  signed in yet; the account is created here once Instagram connects.
+ *                                  The demo Instagram screen (INSTAGRAM_PROVIDER=mock) sends ?mock_handle.
  *  nothing in the query          → token mode: the token is in the URL fragment, which never reaches
  *                                  the server. Serve a tiny page that posts it once to
  *                                  /api/integrations/instagram/token and clears the URL first.
@@ -21,6 +26,20 @@ export async function GET(request: Request) {
   const state = params.get("state");
 
   if (!code && !error && !state) return fragmentPage(await getLocale());
+
+  if (isSignupState(state)) {
+    const location = await finishInstagramSignup({
+      state,
+      code,
+      mockHandle: params.get("mock_handle"),
+      error,
+      errorText: [params.get("error_code"), params.get("error_message"), params.get("error_description")].filter(Boolean).join(" ") || null,
+    });
+    const response = NextResponse.redirect(new URL(location, request.url));
+    response.headers.set("Cache-Control", "no-store");
+    response.headers.set("Referrer-Policy", "no-referrer");
+    return response;
+  }
 
   const ctx = await connectContext();
   if (!ctx) return NextResponse.redirect(new URL("/login", request.url));
@@ -36,7 +55,12 @@ export async function GET(request: Request) {
   };
 
   if (!check.ok) return done(returnUrl(check.returnTo, await recordStateFailure(ctx, check.reason)));
-  if (error || !code) return done(returnUrl(check.returnTo, await recordCancelled(ctx, params.get("error_reason") ?? error)));
+  if (error || !code) {
+    // Development mode: Meta refuses people who aren't testers of the app.
+    const detail = [params.get("error_code"), params.get("error_message"), params.get("error_description")].filter(Boolean).join(" ");
+    if (isDevModeRefusal(detail)) return done(returnUrl(check.returnTo, await recordStateFailure(ctx, "not_tester")));
+    return done(returnUrl(check.returnTo, await recordCancelled(ctx, params.get("error_reason") ?? error)));
+  }
 
   const { outcome, username } = await finishWithCode(ctx, code);
   return done(returnUrl(check.returnTo, outcome, username ? { username } : undefined));
@@ -66,10 +90,11 @@ function fragmentPage(locale: string) {
     longLivedToken: h.get("long_lived_token"),
     error: h.get("error") || h.get("error_reason")
   };
+  var fallback = (body.state || "").indexOf("su.") === 0 ? "/signup?instagram=error" : "/settings?instagram=error#instagram";
   fetch("/api/integrations/instagram/token", { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json" }, body: JSON.stringify(body) })
     .then(function (r) { return r.json(); })
-    .then(function (j) { location.replace(j && j.ok ? j.data.redirectTo : "/settings?instagram=error#instagram"); })
-    .catch(function () { location.replace("/settings?instagram=error#instagram"); });
+    .then(function (j) { location.replace(j && j.ok ? j.data.redirectTo : fallback); })
+    .catch(function () { location.replace(fallback); });
 })();
 </script>
 </body>

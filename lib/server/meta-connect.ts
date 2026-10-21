@@ -8,6 +8,7 @@ import { exchangeCode, exchangeLongLived, inspectToken, listPages } from "@/lib/
 import { buildDialogUrl, ESSENTIAL_SCOPES, getMetaConfig, META_SCOPES } from "@/lib/services/meta/config";
 import { MetaApiError } from "@/lib/services/meta/errors";
 import { toPageOption, type PageCandidate, type TokenInfo } from "@/lib/services/meta/mappers";
+import { isDevModeRefusal } from "@/lib/signup-flow";
 import type { MetaConnectOutcome, MetaPageOptionDto } from "@/types";
 import { isOwnOtherAccount } from "./accounts";
 import { logActivity } from "./activity";
@@ -118,57 +119,77 @@ export async function recordCancelled(ctx: ConnectContext, reason: string | null
 }
 
 export async function recordStateFailure(ctx: ConnectContext, reason: string) {
+  if (reason === "not_tester") return fail(ctx, "not_tester", "Meta refused the login: the app is in development mode and this person isn't a tester.");
   return fail(ctx, reason === "expired" ? "expired" : "error", `Login state check failed (${reason}).`, { reason });
 }
 
-interface UserGrant {
+export interface UserGrant {
   userToken: string;
   info: TokenInfo;
 }
 
-/** Step 3 (code mode): exchange the authorization code server-side. */
-export async function finishWithCode(ctx: ConnectContext, code: string): Promise<{ outcome: MetaConnectOutcome; username?: string }> {
-  const client = graphFor(ctx.businessId, { connectionEffects: false });
-  try {
-    const short = await exchangeCode(client, code);
-    return finishWithToken(ctx, short.accessToken, null);
-  } catch (error) {
-    return { outcome: await fail(ctx, "error", `Code exchange failed: ${(error as Error).message}`) };
-  }
-}
+type GrantFailure = { ok: false; outcome: "error" | "declined" | "no_account" | "not_tester"; message: string; details?: Prisma.InputJsonObject };
 
 /**
- * Step 3 (both modes): long-lived token, validation, Pages. `longLived` is the
- * token Meta already put in the fragment (token mode) — still validated.
+ * Step 3 without side effects (shared with sign-up, which has no business yet): long-lived token,
+ * validation (our app, essential scopes) and the Pages with an Instagram account. `code` is exchanged
+ * first when given; `longLived` is the token Meta already put in the fragment (token mode).
  */
-export async function finishWithToken(ctx: ConnectContext, token: string, longLived: string | null): Promise<{ outcome: MetaConnectOutcome; username?: string }> {
-  const client = graphFor(ctx.businessId, { connectionEffects: false });
+export async function grantAndPages(businessId: string | null, input: { code: string } | { token: string; longLived: string | null }): Promise<{ ok: true; grant: UserGrant; candidates: PageCandidate[] } | GrantFailure> {
+  const client = graphFor(businessId, { connectionEffects: false });
+  const failed = (stage: string, error: unknown): GrantFailure => {
+    const message = error instanceof MetaApiError ? `${error.call}: ${error.message}` : (error as Error).message;
+    // Development mode: Meta refuses people who aren't testers of the app.
+    return { ok: false, outcome: isDevModeRefusal(message) ? "not_tester" : "error", message: `${stage} failed: ${message}` };
+  };
+  let token: string;
+  let longLived: string | null;
+  if ("code" in input) {
+    try {
+      token = (await exchangeCode(client, input.code)).accessToken;
+      longLived = null;
+    } catch (error) {
+      return failed("Code exchange", error);
+    }
+  } else ({ token, longLived } = input);
+
   let grant: UserGrant;
   try {
-    let userToken = longLived;
-    if (!userToken) userToken = (await exchangeLongLived(client, token)).accessToken;
+    const userToken = longLived ?? (await exchangeLongLived(client, token)).accessToken;
     grant = { userToken, info: await inspectToken(client, userToken) };
   } catch (error) {
-    const message = error instanceof MetaApiError ? `${error.call}: ${error.message}` : (error as Error).message;
-    return { outcome: await fail(ctx, "error", `Token validation failed: ${message}`) };
+    return failed("Token validation", error);
   }
 
   const missingEssential = ESSENTIAL_SCOPES.filter((s) => !grant.info.scopes.includes(s));
-  if (missingEssential.length) {
-    return { outcome: await fail(ctx, "declined", `Essential permissions not granted: ${missingEssential.join(", ")}`, { missing: missingEssential }) };
-  }
+  if (missingEssential.length) return { ok: false, outcome: "declined", message: `Essential permissions not granted: ${missingEssential.join(", ")}`, details: { missing: missingEssential } };
 
   let candidates: PageCandidate[];
   let pagesWithoutInstagram = 0;
   try {
     ({ candidates, pagesWithoutInstagram } = await listPages(client, grant.userToken));
   } catch (error) {
-    return { outcome: await fail(ctx, "error", `Listing Pages failed: ${(error as Error).message}`) };
+    return failed("Listing Pages", error);
   }
-
   if (candidates.length === 0) {
-    return { outcome: await fail(ctx, "no_account", `No Facebook Page with an Instagram professional account (${pagesWithoutInstagram} Page(s) without one).`, { pagesWithoutInstagram }) };
+    return { ok: false, outcome: "no_account", message: `No Facebook Page with an Instagram professional account (${pagesWithoutInstagram} Page(s) without one).`, details: { pagesWithoutInstagram } };
   }
+  return { ok: true, grant, candidates };
+}
+
+/** Step 3 (code mode): exchange the authorization code server-side. */
+export async function finishWithCode(ctx: ConnectContext, code: string): Promise<{ outcome: MetaConnectOutcome; username?: string }> {
+  return finishGrant(ctx, await grantAndPages(ctx.businessId, { code }));
+}
+
+/** Step 3 (token mode): the token from the fragment — still validated. */
+export async function finishWithToken(ctx: ConnectContext, token: string, longLived: string | null): Promise<{ outcome: MetaConnectOutcome; username?: string }> {
+  return finishGrant(ctx, await grantAndPages(ctx.businessId, { token, longLived }));
+}
+
+async function finishGrant(ctx: ConnectContext, result: Awaited<ReturnType<typeof grantAndPages>>): Promise<{ outcome: MetaConnectOutcome; username?: string }> {
+  if (!result.ok) return { outcome: await fail(ctx, result.outcome, result.message, result.details) };
+  const { grant, candidates } = result;
   if (candidates.length === 1) return connectCandidate(ctx, grant, candidates[0]);
 
   await db.metaPendingConnection.upsert({
@@ -178,6 +199,66 @@ export async function finishWithToken(ctx: ConnectContext, token: string, longLi
   });
   await logIntegration({ businessId: ctx.businessId, level: "info", call: "oauth.connect", errorCode: "pick", message: `${candidates.length} Instagram accounts found — waiting for the user to pick one.` });
   return { outcome: "pick" };
+}
+
+/** JSON (encrypted at rest) turned the token info's dates into strings: re-hydrate them. */
+export function reviveGrant(grant: UserGrant): UserGrant {
+  grant.info.expiresAt = grant.info.expiresAt ? new Date(grant.info.expiresAt) : null;
+  grant.info.dataAccessExpiresAt = grant.info.dataAccessExpiresAt ? new Date(grant.info.dataAccessExpiresAt) : null;
+  return grant;
+}
+
+export const metaAccountKey = (igUserId: string) => lookupKey(`ig:${igUserId}`);
+
+/** The InstagramConnection fields of a Meta connection (credentials encrypted). */
+export function metaConnectionData(grant: UserGrant, page: PageCandidate) {
+  const missing = META_SCOPES.filter((s) => !grant.info.scopes.includes(s));
+  const credentials = sealCredentials({
+    userToken: grant.userToken,
+    userTokenExpiresAt: grant.info.expiresAt?.toISOString() ?? null,
+    dataAccessExpiresAt: grant.info.dataAccessExpiresAt?.toISOString() ?? null,
+    metaUserId: grant.info.userId,
+    pageId: page.pageId,
+    pageName: page.pageName,
+    pageToken: page.pageToken,
+    igUserId: page.igUserId,
+    scopes: grant.info.scopes,
+  });
+  return {
+    provider: "META" as const,
+    status: "CONNECTED" as const,
+    username: page.username,
+    igUserId: null,
+    accessTokenEncrypted: null,
+    credentialsEncrypted: credentials,
+    igAccountKey: metaAccountKey(page.igUserId),
+    tokenExpiresAt: grant.info.expiresAt,
+    dataAccessExpiresAt: grant.info.dataAccessExpiresAt,
+    missingPermissions: missing,
+    connectedAt: new Date(),
+    lastSyncError: null,
+    syncStartedAt: null,
+    // A new login may be a different Page: subscribe it to the DM webhooks again.
+    webhookSubscribedAt: null,
+  };
+}
+
+/** After a Meta account is stored: log it and import profile + posts before the user lands back (the wizard needs them). */
+export async function afterMetaConnected(businessId: string, grant: UserGrant, page: PageCandidate, missing: string[]) {
+  await logIntegration({
+    businessId,
+    level: "info",
+    call: "oauth.connected",
+    message: `Connected @${page.username} (Page "${page.pageName}").${missing.length ? ` Not granted: ${missing.join(", ")}.` : ""}`,
+    details: { scopes: grant.info.scopes, missing, tokenExpiresAt: grant.info.expiresAt?.toISOString() ?? null },
+  });
+  await syncInstagram(businessId, { scope: "basic", reason: "connect" }).catch((e) => console.error("[meta] initial sync failed", (e as Error).message));
+}
+
+/** Insights, comments and the DM webhook subscription, right after the response. */
+export function afterMetaConnectedDeferred(businessId: string) {
+  after(() => syncInstagram(businessId, { scope: "deferred", reason: "connect" }).catch((e) => console.error("[meta] initial sync failed", (e as Error).message)));
+  after(() => ensureWebhookSubscription(businessId));
 }
 
 /** Picker choices of a pending login (no tokens); null when there is none or it expired. */
@@ -201,16 +282,13 @@ export async function connectPending(ctx: ConnectContext, pageId: string): Promi
   const { grant, candidates } = JSON.parse(decrypt(pending.credentialsEncrypted)) as { grant: UserGrant; candidates: PageCandidate[] };
   const candidate = candidates.find((c) => c.pageId === pageId);
   if (!candidate) return { outcome: await fail(ctx, "error", "The picked Page isn't one of the options.") };
-  // Re-hydrate the dates JSON turned into strings.
-  grant.info.expiresAt = grant.info.expiresAt ? new Date(grant.info.expiresAt) : null;
-  grant.info.dataAccessExpiresAt = grant.info.dataAccessExpiresAt ? new Date(grant.info.dataAccessExpiresAt) : null;
-  return connectCandidate(ctx, grant, candidate);
+  return connectCandidate(ctx, reviveGrant(grant), candidate);
 }
 
 /** Step 5: store the connection (encrypted) and import the account. */
 async function connectCandidate(ctx: ConnectContext, grant: UserGrant, page: PageCandidate): Promise<{ outcome: MetaConnectOutcome; username?: string }> {
   const { businessId } = ctx;
-  const accountKey = lookupKey(`ig:${page.igUserId}`);
+  const accountKey = metaAccountKey(page.igUserId);
 
   const elsewhere = await db.instagramConnection.findFirst({ where: { igAccountKey: accountKey, businessId: { not: businessId } }, select: { id: true } });
   const handleTaken = page.username ? await db.business.count({ where: { instagramHandle: page.username, id: { not: businessId } } }) : 0;
@@ -222,36 +300,7 @@ async function connectCandidate(ctx: ConnectContext, grant: UserGrant, page: Pag
     return { outcome: await fail(ctx, "taken", "This Instagram account is already connected to another business.", { username: page.username }) };
   }
 
-  const missing = META_SCOPES.filter((s) => !grant.info.scopes.includes(s));
-  const credentials = sealCredentials({
-    userToken: grant.userToken,
-    userTokenExpiresAt: grant.info.expiresAt?.toISOString() ?? null,
-    dataAccessExpiresAt: grant.info.dataAccessExpiresAt?.toISOString() ?? null,
-    metaUserId: grant.info.userId,
-    pageId: page.pageId,
-    pageName: page.pageName,
-    pageToken: page.pageToken,
-    igUserId: page.igUserId,
-    scopes: grant.info.scopes,
-  });
-  const now = new Date();
-  const data = {
-    provider: "META" as const,
-    status: "CONNECTED" as const,
-    username: page.username,
-    igUserId: null,
-    accessTokenEncrypted: null,
-    credentialsEncrypted: credentials,
-    igAccountKey: accountKey,
-    tokenExpiresAt: grant.info.expiresAt,
-    dataAccessExpiresAt: grant.info.dataAccessExpiresAt,
-    missingPermissions: missing,
-    connectedAt: now,
-    lastSyncError: null,
-    syncStartedAt: null,
-    // A new login may be a different Page: subscribe it to the DM webhooks again.
-    webhookSubscribedAt: null,
-  };
+  const data = metaConnectionData(grant, page);
   const previous = await db.instagramConnection.findUnique({ where: { businessId }, select: { igAccountKey: true } });
   await db.$transaction(async (tx) => {
     // A different account than before: drop the old account's synced posts and comments.
@@ -266,23 +315,13 @@ async function connectCandidate(ctx: ConnectContext, grant: UserGrant, page: Pag
     await tx.metaPendingConnection.deleteMany({ where: { businessId } });
     await logActivity({ businessId, userId: ctx.userId, action: "instagram.connected", details: { username: page.username, provider: "meta" } }, tx);
   });
-  await logIntegration({
-    businessId,
-    level: "info",
-    call: "oauth.connected",
-    message: `Connected @${page.username} (Page "${page.pageName}").${missing.length ? ` Not granted: ${missing.join(", ")}.` : ""}`,
-    details: { scopes: grant.info.scopes, missing, tokenExpiresAt: grant.info.expiresAt?.toISOString() ?? null },
-  });
-
-  // Profile + posts before the user lands back (the wizard needs them); insights and comments right after.
-  await syncInstagram(businessId, { scope: "basic", reason: "connect" }).catch((e) => console.error("[meta] initial sync failed", (e as Error).message));
+  await afterMetaConnected(businessId, grant, page, data.missingPermissions);
   // A new sign-up (or added account) is named after the Instagram account: its display name from the sync.
   if (page.username) {
     const profile = await db.instagramConnection.findUnique({ where: { businessId }, select: { profile: true } });
     await adoptInstagramName(businessId, page.username, (profile?.profile as { name?: string | null } | null)?.name);
   }
-  after(() => syncInstagram(businessId, { scope: "deferred", reason: "connect" }).catch((e) => console.error("[meta] initial sync failed", (e as Error).message)));
-  after(() => ensureWebhookSubscription(businessId));
+  afterMetaConnectedDeferred(businessId);
   return { outcome: "connected", username: page.username };
 }
 

@@ -222,16 +222,14 @@ test("“Create a new account” runs sign-up, Instagram and onboarding; the oth
   await expect(page.getByTestId("adding-account")).toBeVisible();
   await page.getByLabel("Email").fill(NEW.email);
   await page.getByLabel("Password").fill(NEW.password);
-  await page.getByRole("button", { name: "Sign up" }).click();
-  await page.waitForURL(/\/signup\/instagram/);
+  await page.getByRole("button", { name: "Continue with Instagram" }).click();
+  // The single sign-up page goes straight to Instagram (the demo screen with mock Instagram); no
+  // account exists until it connects.
+  await page.waitForURL(/\/signup\/demo-instagram/);
+  expect((await pool.query(`SELECT 1 FROM "User" WHERE email = $1`, [NEW.email])).rowCount).toBe(0);
 
-  // The switcher is there during set-up: a way back to the other accounts.
-  await openSwitcher(page);
-  await expect(rows(page)).toHaveCount(3);
-  await page.keyboard.press("Escape");
-
-  await page.locator("#ob-handle").fill(NEW.handle);
-  await page.getByRole("button", { name: "Connect Instagram", exact: true }).click();
+  await page.locator("#demo-handle").fill(NEW.handle);
+  await page.getByRole("button", { name: "Allow and connect" }).click();
   await page.waitForURL(/\/onboarding/);
   await expect(switcher(page)).toContainText(`@${NEW.handle}`);
   await page.getByRole("button", { name: "Finish later" }).click();

@@ -56,7 +56,7 @@ describe("Onboarding steps", () => {
       for (const t of TARGETS) assert.equal(typeof get(json, `onboarding.goals.targetOptions.${t}`), "string");
       for (const f of FEELINGS) assert.equal(typeof get(json, `onboarding.goals.feelings.${f}`), "string");
       for (const m of SERVICE_MODES) assert.equal(typeof get(json, `onboarding.location.modes.${m}`), "string");
-      for (const key of ["onboarding.skip", "onboarding.finishLater", "onboarding.allSet.title", "onboarding.allSet.home", "signup.steps.account", "signup.steps.instagram"]) {
+      for (const key of ["onboarding.skip", "onboarding.finishLater", "onboarding.allSet.title", "onboarding.allSet.home", "signup.submit", "signup.instagramHint"]) {
         assert.equal(typeof get(json, key), "string", `${lang} ${key}`);
       }
     }

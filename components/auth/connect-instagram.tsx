@@ -23,8 +23,10 @@ import { notify } from "@/store/ui-store";
 import type { ConnectFlow, InstagramConnectionDto } from "@/types";
 
 /**
- * Sign-up, step 2 of 2: connect Instagram. With INSTAGRAM_PROVIDER=meta this is Facebook Login for
- * Business (back here with ?instagram=<outcome>); otherwise the mock connects a typed handle at once.
+ * Connect Instagram, for a login that has none yet (e.g. accounts created before sign-up required it, or
+ * admin-created clients asked to connect); new sign-ups connect on /signup before any account exists.
+ * With INSTAGRAM_PROVIDER=meta this is Facebook Login for Business (back here with ?instagram=<outcome>);
+ * otherwise the mock connects a typed handle at once.
  * Required: the business is named after the account, and the wizard reads its posts. Once connected
  * the server page sends the user on to the wizard.
  */
@@ -85,11 +87,6 @@ export function ConnectInstagram({
       </header>
 
       <main className="mx-auto w-full max-w-[480px] flex-1 px-4 pt-8 pb-12 sm:pt-12">
-        {!addedAccount && (
-          <p className="mb-2 text-caption text-muted" data-testid="signup-step">
-            {t("signup.stepOf", { n: 2, total: 2 })} · {t("signup.steps.instagram")}
-          </p>
-        )}
         <h1 className="text-heading font-bold">{t(addedAccount ? "signup.connect.titleAdded" : "signup.connect.title")}</h1>
         <p className="mt-1.5 text-body text-muted">{t("signup.connect.helper")}</p>
 

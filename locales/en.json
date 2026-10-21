@@ -1301,26 +1301,40 @@
       "good": "Good",
       "strong": "Strong"
     },
-    "terms": "By signing up, you agree to our Terms and Privacy Policy. We'll email you a link to verify your address.",
-    "submit": "Sign up",
-    "creating": "Creating your account…",
+    "terms": "By continuing, you agree to our Terms and Privacy Policy. We'll email you a link to verify your address.",
+    "submit": "Continue with Instagram",
     "errors": {
       "invalid": "Some details aren't right yet. Check the highlighted fields.",
       "email_taken": "An account with this email already exists. Log in instead, or reset your password:",
       "rate_limited": "Too many sign-up attempts from this network. Please wait 15 minutes and try again.",
-      "generic": "Something went wrong creating your account. Please try again."
+      "generic": "Something went wrong creating your account. Please try again.",
+      "unavailable": "Connecting Instagram is temporarily unavailable, so new accounts can't be created right now. Please try again later."
     },
     "haveAccount": "Have an account?",
-    "stepOf": "Step {n} of {total}",
-    "steps": {
-      "account": "Your account",
-      "instagram": "Connect Instagram"
-    },
     "connect": {
       "title": "Connect your Instagram",
       "titleAdded": "Connect the new Instagram account",
       "helper": "We use it to name your business and learn your style from your posts.",
       "why": "Only Instagram Business or Creator accounts can be connected. We never post without your OK."
+    },
+    "redirecting": "Opening Instagram…",
+    "instagramHint": "You'll connect your Instagram business account to finish creating your account.",
+    "instagram": {
+      "cancelled": "Instagram wasn't connected, please try again.",
+      "error": "Instagram wasn't connected, please try again.",
+      "expired": "That took a little too long, so Instagram wasn't connected. Please try again.",
+      "not_tester": "Meta didn't let this Instagram account connect: the app is still in development mode, and only accounts added as testers can connect. Ask us to add yours as a tester, accept the invite, then try again.",
+      "taken": "This Instagram account is already connected to another login. Log in to that account instead, or contact us if it's yours.",
+      "declined": "Instagram wasn't connected: Facebook didn't give us access. Try again and keep the permissions switched on.",
+      "no_account": "We couldn't find an Instagram business account on that Facebook login. Switch your Instagram to a Business or Creator account linked to a Facebook Page, then try again.",
+      "unavailable": "Connecting Instagram is temporarily unavailable. Please try again later.",
+      "email_taken": "An account with this email was created meanwhile. Log in instead, or reset your password:"
+    },
+    "demo": {
+      "title": "Connect Instagram (demo)",
+      "body": "Demo mode: no real Instagram login. Enter the Instagram username to connect, as Instagram would after you log in.",
+      "allow": "Allow and connect",
+      "cancel": "Cancel"
     }
   },
   "verifyEmail": {
@@ -1942,7 +1956,8 @@
       "unavailable": "Connecting Instagram is temporarily unavailable. Please try again later.",
       "no_account": "We couldn't find an Instagram business account.",
       "pick": "Choose which Instagram account to connect.",
-      "already_added": "This Instagram account is already one of yours. Switch to it from the account menu at the top."
+      "already_added": "This Instagram account is already one of yours. Switch to it from the account menu at the top.",
+      "not_tester": "Meta didn't let this Instagram account connect: the app is still in development mode, and only accounts added as testers can connect. Ask us to add yours as a tester, then try again."
     },
     "noAccount": {
       "title": "We couldn't find an Instagram business account",

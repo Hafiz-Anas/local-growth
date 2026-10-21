@@ -15,7 +15,7 @@ import type { InstagramConnectionDto, MetaConnectOutcome, MetaPageOptionDto } fr
 
 /**
  * Facebook Login for Business ("Instagram API with Facebook Login"), shared by
- * sign-up (/signup/instagram), onboarding and Settings. The browser goes to
+ * sign-up (/signup), the connect screen (/signup/instagram), onboarding and Settings. The browser goes to
  * /api/integrations/instagram/start, Meta sends it back to the page with
  * ?instagram=<outcome>, and these components explain the outcome (picker for
  * several accounts, help when there is no business account, calm message on cancel).
@@ -23,7 +23,7 @@ import type { InstagramConnectionDto, MetaConnectOutcome, MetaPageOptionDto } fr
 
 export type ReturnTo = "signup" | "onboarding" | "settings";
 
-const OUTCOMES: MetaConnectOutcome[] = ["connected", "cancelled", "pick", "no_account", "taken", "already_added", "declined", "unavailable", "expired", "error"];
+const OUTCOMES: MetaConnectOutcome[] = ["connected", "cancelled", "pick", "no_account", "taken", "already_added", "declined", "unavailable", "expired", "error", "not_tester"];
 
 /** Where the browser goes to start Facebook Login. `rerequest` asks again for declined permissions. */
 export function metaStartHref(returnTo: ReturnTo, rerequest = false) {
@@ -155,27 +155,40 @@ export function NoBusinessAccountHelp({ returnTo, onDismiss, className }: { retu
   );
 }
 
+type PickResult = { outcome: MetaConnectOutcome; username: string | null; connection: InstagramConnectionDto };
+
 /**
  * One Facebook login found several Instagram accounts: pick one (Page name,
- * handle, avatar). Closing the dialog cancels the pending login.
+ * handle, avatar). Closing the dialog cancels the pending login. Sign-up (no one
+ * signed in yet) uses its own `endpoint`, /api/signup/pending.
  */
-export function MetaAccountPicker({ open, onClose, onConnected }: { open: boolean; onClose: () => void; onConnected: (result: { outcome: MetaConnectOutcome; username: string | null; connection: InstagramConnectionDto }) => void }) {
+export function MetaAccountPicker<R extends { outcome: MetaConnectOutcome } = PickResult>({
+  open,
+  onClose,
+  onConnected,
+  endpoint = "/api/integrations/instagram/pending",
+}: {
+  open: boolean;
+  onClose: () => void;
+  onConnected: (result: R) => void;
+  endpoint?: string;
+}) {
   const { t, locale } = useI18n();
   const options = useQuery<MetaPageOptionDto[], ApiClientError>({
-    queryKey: ["instagram", "pending-options"],
-    queryFn: () => apiFetch("/api/integrations/instagram/pending"),
+    queryKey: ["instagram", "pending-options", endpoint],
+    queryFn: () => apiFetch(endpoint),
     enabled: open,
     retry: false,
     staleTime: 0,
   });
-  const pick = useMutation<{ outcome: MetaConnectOutcome; username: string | null; connection: InstagramConnectionDto }, ApiClientError, string>({
+  const pick = useMutation<R, ApiClientError, string>({
     meta: { handlesErrors: true },
-    mutationFn: (pageId) => apiFetch("/api/integrations/instagram/pending", { method: "POST", body: { pageId } }),
+    mutationFn: (pageId) => apiFetch(endpoint, { method: "POST", body: { pageId } }),
     onSuccess: onConnected,
   });
   const cancel = () => {
     if (pick.isPending) return;
-    void apiFetch("/api/integrations/instagram/pending", { method: "DELETE" }).catch(() => undefined);
+    void apiFetch(endpoint, { method: "DELETE" }).catch(() => undefined);
     onClose();
   };
 

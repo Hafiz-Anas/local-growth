@@ -11,10 +11,7 @@ import { forgetLoginOnDevice, rememberLogin } from "@/lib/server/device-logins";
 import { getLocale } from "@/lib/i18n/server";
 import { normalizeTheme } from "@/lib/theme-script";
 import { SIGNUP_LIMIT, clientIp, getRateLimiter } from "@/lib/server/rate-limit";
-import { EmailTakenError, createSelfSignup } from "@/lib/server/signup";
-import { recordError } from "@/lib/server/onboarding";
-import { signupSchema } from "@/lib/validation/api";
-import { passwordProblems } from "@/lib/validation/password";
+import { startInstagramSignup } from "@/lib/server/signup";
 import { getSession, requireAdmin } from "./server";
 
 export type LoginError = "invalid_credentials" | "missing_fields" | "suspended" | "rate_limited";
@@ -56,7 +53,7 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
 }
 
 export type SignupField = "email" | "password";
-export type SignupError = "invalid" | "email_taken" | "rate_limited" | "generic";
+export type SignupError = "invalid" | "email_taken" | "rate_limited" | "unavailable" | "generic";
 
 export interface SignupState {
   error: SignupError | null;
@@ -66,9 +63,8 @@ export interface SignupState {
 }
 
 /**
- * Public sign-up, step 1 of 2: email and password create the user and an unnamed business (see
- * createSelfSignup) and sign them in; step 2 connects Instagram (/signup/instagram), which names the
- * business. Rate-limited per IP.
+ * Public sign-up (one page): checks email and password as always, then sends the browser to connect
+ * Instagram. No account exists until Instagram is connected — see lib/server/signup.ts. Rate-limited per IP.
  */
 export async function signupAction(_prev: SignupState, formData: FormData): Promise<SignupState> {
   const raw = {
@@ -77,40 +73,17 @@ export async function signupAction(_prev: SignupState, formData: FormData): Prom
   };
   const values = { email: raw.email };
 
-  const requestHeaders = await headers();
-  if (!(await getRateLimiter().consume(SIGNUP_LIMIT, clientIp(requestHeaders)))) return { error: "rate_limited", fields: [], values };
+  if (!(await getRateLimiter().consume(SIGNUP_LIMIT, clientIp(await headers())))) return { error: "rate_limited", fields: [], values };
 
-  const parsed = signupSchema.safeParse(raw);
-  const weak = passwordProblems(raw.password, { email: raw.email, name: "" }).length > 0;
-  if (!parsed.success || weak) {
-    const fields = new Set<SignupField>(parsed.success ? [] : parsed.error.issues.map((i) => i.path[0] as SignupField));
-    if (weak) fields.add("password");
-    return { error: "invalid", fields: [...fields], values };
-  }
-
-  const origin = process.env.AUTH_URL ?? `${requestHeaders.get("x-forwarded-proto") ?? "http"}://${requestHeaders.get("host")}`;
-  let businessId: string;
-  let emailSent: boolean;
+  let started: Awaited<ReturnType<typeof startInstagramSignup>>;
   try {
-    ({ businessId, emailSent } = await createSelfSignup({ ...parsed.data, language: await getLocale() }, origin));
+    started = await startInstagramSignup({ ...raw, language: await getLocale() });
   } catch (error) {
-    if (error instanceof EmailTakenError) return { error: "email_taken", fields: ["email"], values };
     console.error("[signup] failed", error);
     return { error: "generic", fields: [], values };
   }
-
-  (await cookies()).delete(COOKIES.preview);
-  try {
-    await signIn("credentials", { email: parsed.data.email, password: parsed.data.password, redirect: false });
-  } catch (error) {
-    // The account exists; if signing in fails (e.g. login rate limit), send them to log in.
-    await recordError(businessId, "signup", { reason: "auto_login_failed" });
-    if (error instanceof AuthError) redirect("/login");
-    throw error;
-  }
-  const user = await db.user.findUnique({ where: { email: parsed.data.email.toLowerCase() }, select: { id: true } });
-  if (user) await rememberLogin(user.id);
-  redirect(emailSent ? "/signup/instagram" : "/signup/instagram?verification=unsent");
+  if (!started.ok) return { error: started.error, fields: started.fields, values };
+  redirect(started.redirectTo);
 }
 
 /**

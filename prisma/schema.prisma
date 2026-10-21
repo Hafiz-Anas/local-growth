@@ -1278,3 +1278,25 @@ model WeeklyReport {
 
   @@index([businessId, createdAt])
 }
+
+/// A sign-up waiting for Instagram (lib/server/signup.ts): no User or Business exists until Instagram is
+/// connected. One per email (starting again replaces it); 15 minutes; expired rows are removed by the daily cron.
+model PendingSignup {
+  /// Random; the only thing the browser's (encrypted) cookie and the OAuth state carry.
+  id                   String   @id
+  email                String   @unique
+  /// bcrypt hash — the plain password is never stored.
+  passwordHash         String
+  /// "en" | "ar": the sign-up page's language, saved on the new user.
+  language             String
+  /// SHA-256 of the OAuth state's random part.
+  stateHash            String
+  /// Several Instagram accounts found: AES-256-GCM JSON with the user token + candidate Page tokens (picker).
+  credentialsEncrypted String?
+  /// Non-secret picker choices (MetaPageOptionDto[]).
+  options              Json?
+  expiresAt            DateTime
+  createdAt            DateTime @default(now())
+
+  @@index([expiresAt])
+}

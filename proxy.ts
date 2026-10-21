@@ -7,8 +7,11 @@ import { COOKIES } from "@/config/site";
 const PUBLIC_PATHS = new Set(["/login", "/signup", "/forgot-password", "/reset-password"]);
 /** "Add account" (account switcher): a signed-in client may open these with ?add=1 to log in or sign up another login. */
 const ADD_ACCOUNT_PATHS = new Set(["/login", "/signup"]);
-/** Pages that work both logged in and logged out (the emailed verification link). */
-const OPEN_PATHS = new Set(["/verify-email"]);
+/**
+ * Pages that work both logged in and logged out: the emailed verification link, and the demo Instagram
+ * screen sign-up goes through with INSTAGRAM_PROVIDER=mock (also from "Add account" while signed in).
+ */
+const OPEN_PATHS = new Set(["/verify-email", "/signup/demo-instagram"]);
 
 /**
  * Route protection (Next.js 16 renamed `middleware.ts` to `proxy.ts`).

@@ -3,6 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import { checkSession, loadSessionClaims, type SessionClaims } from "@/lib/auth/claims";
 import { DUMMY_HASH, verifyPassword } from "@/lib/auth/password";
 import { verifyDeviceLogin } from "@/lib/auth/remembered";
+import { redeemSignupTicket } from "@/lib/auth/signup-ticket";
 import { db } from "@/lib/db";
 import { LOGIN_LIMIT, clientIp, getRateLimiter } from "@/lib/server/rate-limit";
 import { loginSchema } from "@/lib/validation/auth";
@@ -93,6 +94,19 @@ export const { handlers, auth, signIn, signOut, unstable_update: updateSession }
       async authorize(raw, request) {
         const loginId = typeof raw?.loginId === "string" ? raw.loginId : "";
         const userId = loginId ? await verifyDeviceLogin(request.headers.get("cookie"), loginId) : null;
+        if (!userId) throw new InvalidCredentials();
+        const claims = await loadSessionClaims(userId);
+        if (!claims || claims.role !== "user") throw new InvalidCredentials();
+        return claimsToUser(claims);
+      },
+    }),
+    // The account sign-up just created once Instagram connected (lib/server/signup.ts): a one-time,
+    // server-only ticket (lib/auth/signup-ticket.ts) — sign-up never keeps the plain password.
+    Credentials({
+      id: "signup",
+      credentials: { ticket: {} },
+      async authorize(raw) {
+        const userId = typeof raw?.ticket === "string" ? await redeemSignupTicket(raw.ticket) : null;
         if (!userId) throw new InvalidCredentials();
         const claims = await loadSessionClaims(userId);
         if (!claims || claims.role !== "user") throw new InvalidCredentials();

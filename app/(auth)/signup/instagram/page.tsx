@@ -14,8 +14,9 @@ import { connectFlow } from "@/lib/services/meta/config";
 export const metadata: Metadata = { title: "Connect Instagram" };
 
 /**
- * Sign-up, step 2 of 2: connect Instagram (it names the business). A business that signed up but never
- * connected is sent back here from every page until it does; once connected, on to the wizard.
+ * Connect Instagram (it names the business) for a login that has none yet — sign-up itself now connects
+ * before the account exists (/signup). Such a business is sent back here from every page until it
+ * connects; once connected, on to the wizard.
  */
 export default async function ConnectInstagramPage({ searchParams }: PageProps<"/signup/instagram">) {
   const session = await requireSession();
