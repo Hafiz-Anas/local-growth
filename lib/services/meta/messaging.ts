@@ -220,9 +220,11 @@ export async function fetchMessagingProfile(client: GraphClient, pageToken: stri
 /**
  * Installs the app on the Page so Meta delivers its Instagram webhooks (needs pages_manage_metadata).
  * Which Instagram fields arrive (messages, comments) is chosen in the App Dashboard; this call only
- * has to name a Page field ("subscribe to any Page field", Meta's Instagram webhooks guide).
+ * has to name a Page field ("subscribe to any Page field", Meta's Instagram webhooks guide). It names
+ * "feed", which needs only pages_manage_metadata — the Page field "messages" is Messenger's and needs
+ * pages_messaging, which the app doesn't ask for, so subscribing to it always failed with (#200).
  */
 export async function subscribePageToMessages(client: GraphClient, pageId: string, pageToken: string): Promise<boolean> {
-  const res = await client.post<{ success?: boolean }>(`${pageId}/subscribed_apps`, { subscribed_fields: "messages" }, { call: "POST /{page}/subscribed_apps", token: pageToken, scopes: ["pages_manage_metadata"] });
+  const res = await client.post<{ success?: boolean }>(`${pageId}/subscribed_apps`, { subscribed_fields: "feed" }, { call: "POST /{page}/subscribed_apps", token: pageToken, scopes: ["pages_manage_metadata"] });
   return res.success === true;
 }

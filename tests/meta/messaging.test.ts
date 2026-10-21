@@ -138,7 +138,7 @@ describe("profiles and Page subscription", () => {
     const { client: c, calls } = client(() => ok({ success: true }));
     assert.equal(await subscribePageToMessages(c, "2002", "page-token"), true);
     assert.equal(calls[0].path, "2002/subscribed_apps");
-    assert.equal(calls[0].params.get("subscribed_fields"), "messages");
+    assert.equal(calls[0].params.get("subscribed_fields"), "feed");
   });
 });
 

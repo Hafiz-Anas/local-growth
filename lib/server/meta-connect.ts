@@ -5,9 +5,10 @@ import { decrypt, encrypt, lookupKey, randomToken } from "@/lib/crypto";
 import { db } from "@/lib/db";
 import { Prisma } from "@/lib/generated/prisma/client";
 import { exchangeCode, exchangeLongLived, inspectToken, listPages } from "@/lib/services/meta/api";
-import { buildDialogUrl, ESSENTIAL_SCOPES, getMetaConfig, META_SCOPES } from "@/lib/services/meta/config";
+import { buildDialogUrl, ESSENTIAL_SCOPES, getMetaConfig } from "@/lib/services/meta/config";
 import { MetaApiError } from "@/lib/services/meta/errors";
 import { toPageOption, type PageCandidate, type TokenInfo } from "@/lib/services/meta/mappers";
+import { grantFields } from "@/lib/services/meta/permissions";
 import { isDevModeRefusal } from "@/lib/signup-flow";
 import type { MetaConnectOutcome, MetaPageOptionDto } from "@/types";
 import { isOwnOtherAccount } from "./accounts";
@@ -210,9 +211,12 @@ export function reviveGrant(grant: UserGrant): UserGrant {
 
 export const metaAccountKey = (igUserId: string) => lookupKey(`ig:${igUserId}`);
 
-/** The InstagramConnection fields of a Meta connection (credentials encrypted). */
+/**
+ * The InstagramConnection fields of a Meta connection (credentials encrypted). A reconnect replaces
+ * all of them, so the scopes, missing permissions and webhook subscription follow the new token.
+ */
 export function metaConnectionData(grant: UserGrant, page: PageCandidate) {
-  const missing = META_SCOPES.filter((s) => !grant.info.scopes.includes(s));
+  const fields = grantFields(grant.info);
   const credentials = sealCredentials({
     userToken: grant.userToken,
     userTokenExpiresAt: grant.info.expiresAt?.toISOString() ?? null,
@@ -222,7 +226,7 @@ export function metaConnectionData(grant: UserGrant, page: PageCandidate) {
     pageName: page.pageName,
     pageToken: page.pageToken,
     igUserId: page.igUserId,
-    scopes: grant.info.scopes,
+    scopes: fields.scopes,
   });
   return {
     provider: "META" as const,
@@ -232,14 +236,13 @@ export function metaConnectionData(grant: UserGrant, page: PageCandidate) {
     accessTokenEncrypted: null,
     credentialsEncrypted: credentials,
     igAccountKey: metaAccountKey(page.igUserId),
-    tokenExpiresAt: grant.info.expiresAt,
-    dataAccessExpiresAt: grant.info.dataAccessExpiresAt,
-    missingPermissions: missing,
+    tokenExpiresAt: fields.tokenExpiresAt,
+    dataAccessExpiresAt: fields.dataAccessExpiresAt,
+    missingPermissions: fields.missingPermissions,
     connectedAt: new Date(),
     lastSyncError: null,
     syncStartedAt: null,
-    // A new login may be a different Page: subscribe it to the DM webhooks again.
-    webhookSubscribedAt: null,
+    webhookSubscribedAt: fields.webhookSubscribedAt,
   };
 }
 

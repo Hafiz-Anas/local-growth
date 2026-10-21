@@ -67,6 +67,8 @@ export class MetaApiError extends Error {
   readonly retryAfterMs: number | null;
   /** Permission the call needed; set for "permission" errors. */
   readonly missingScopes: MetaScope[];
+  /** True when Meta's message named `missingScopes`; false when they are only the call's declared scopes (a guess). */
+  readonly scopesNamed: boolean;
 
   constructor(init: {
     call: string;
@@ -78,6 +80,7 @@ export class MetaApiError extends Error {
     fbtraceId?: string | null;
     retryAfterMs?: number | null;
     missingScopes?: MetaScope[];
+    scopesNamed?: boolean;
   }) {
     super(sanitize(init.message));
     this.name = "MetaApiError";
@@ -89,6 +92,7 @@ export class MetaApiError extends Error {
     this.fbtraceId = init.fbtraceId ?? null;
     this.retryAfterMs = init.retryAfterMs ?? null;
     this.missingScopes = init.missingScopes ?? [];
+    this.scopesNamed = init.scopesNamed ?? false;
   }
 
   /** "190/463", "110/2207013", "4" or "network". */
@@ -111,6 +115,7 @@ export class MetaApiError extends Error {
       fbtraceId: body.fbtrace_id ?? null,
       retryAfterMs,
       missingScopes: kind === "permission" ? (mentioned.length ? mentioned : requiredScopes) : [],
+      scopesNamed: kind === "permission" && mentioned.length > 0,
     });
   }
 }

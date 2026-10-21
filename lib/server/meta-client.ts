@@ -3,14 +3,17 @@ import { db } from "@/lib/db";
 import { getMetaConfig } from "@/lib/services/meta/config";
 import { MetaApiError } from "@/lib/services/meta/errors";
 import { GraphClient, type GraphCallInfo, type GraphUsage } from "@/lib/services/meta/graph";
+import { flagMissingScopes } from "@/lib/services/meta/permissions";
 import { logIntegration } from "./integration-log";
+import { openCredentials } from "./meta-credentials";
 import { notify } from "./notifications";
 
 /**
  * Graph clients bound to a business. Every failed call is written to the
  * IntegrationEvent log and has its side effect on the connection:
  *   token_invalid (190) → status NEEDS_RECONNECT ("Reconnect Instagram" banner)
- *   permission          → the permission is added to missingPermissions
+ *   permission          → the permission is added to missingPermissions (unless it was granted
+ *                         and Meta didn't name it — see lib/services/meta/permissions.ts)
  *   rate_limited / high usage → the business cools down; syncs wait
  */
 
@@ -61,11 +64,10 @@ async function onFailure(businessId: string | null, error: MetaApiError) {
     const { count } = await db.instagramConnection.updateMany({ where: { businessId, provider: "META", status: "CONNECTED" }, data: { status: "NEEDS_RECONNECT" } });
     if (count) await notify({ businessId, type: "instagram_reconnect", dedupeKey: "instagram_reconnect" });
   } else if (error.kind === "permission" && error.missingScopes.length) {
-    const conn = await db.instagramConnection.findUnique({ where: { businessId }, select: { missingPermissions: true } });
-    const merged = [...new Set([...(conn?.missingPermissions ?? []), ...error.missingScopes])];
-    if (conn && merged.length !== conn.missingPermissions.length) {
-      await db.instagramConnection.update({ where: { businessId }, data: { missingPermissions: merged } });
-    }
+    const conn = await db.instagramConnection.findUnique({ where: { businessId }, select: { missingPermissions: true, credentialsEncrypted: true } });
+    if (!conn) return;
+    const merged = flagMissingScopes(conn.missingPermissions, error, openCredentials(conn.credentialsEncrypted)?.scopes ?? null);
+    if (merged) await db.instagramConnection.update({ where: { businessId }, data: { missingPermissions: merged } });
   }
 }
 

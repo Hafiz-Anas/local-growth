@@ -274,7 +274,9 @@ export async function ensureWebhookSubscription(businessId: string): Promise<voi
     if (!has("instagram_manage_messages")) await logIntegration({ businessId, level: "warning", call: "webhook.subscribe", message: "instagram_manage_messages wasn't granted: DM replies and private keyword DMs won't work until Instagram is reconnected with it." });
     const ok = await subscribePageToMessages(graphFor(businessId), credentials.pageId, credentials.pageToken);
     if (!ok) throw new Error("Meta didn't confirm the subscription.");
-    await db.instagramConnection.update({ where: { businessId }, data: { webhookSubscribedAt: new Date() } });
+    // The call worked, so pages_manage_metadata is granted: drop it if an earlier failure flagged it.
+    const { missingPermissions } = (await db.instagramConnection.findUnique({ where: { businessId }, select: { missingPermissions: true } })) ?? { missingPermissions: [] };
+    await db.instagramConnection.update({ where: { businessId }, data: { webhookSubscribedAt: new Date(), missingPermissions: missingPermissions.filter((s) => s !== "pages_manage_metadata") } });
     await logIntegration({ businessId, level: "info", call: "webhook.subscribe", message: `Page "${credentials.pageName}" subscribed to Instagram webhooks (messages, comments).` });
   } catch (error) {
     // Graph errors are already logged (and flagged) by graphFor.
