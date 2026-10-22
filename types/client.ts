@@ -38,8 +38,8 @@ export interface Client {
   avatarInitials: string;
   /** Which Instagram implementation serves this business (mock demo data or real Meta). */
   instagramProvider?: "mock" | "meta";
-  /** Set when the connection needs the user: the token expired/was revoked, or permissions are missing. */
-  instagramIssue?: { reason: "reconnect" | "permissions"; permissions: string[] } | null;
+  /** Set when the Meta token expired or was revoked (missing permissions are only a tag in Settings). */
+  instagramIssue?: { reason: "reconnect" } | null;
   /**
    * Set-up prompts on the dashboard: `onboardingStepsLeft` when the owner chose "Finish later"
    * (the wizard still has steps), `newStepsPromptDue` once for businesses that finished the older

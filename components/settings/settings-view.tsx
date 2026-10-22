@@ -6,7 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Loader2, RefreshCw, Unplug } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useActiveClient, useFeature } from "@/components/providers/active-client-provider";
-import { ConnectedNotice, MetaAccountPicker, MetaConnectButton, MetaOutcomeNotice, MissingPermissionsNotice, useMetaOutcome } from "@/components/instagram/meta-connect";
+import { ConnectedNotice, MetaAccountPicker, MetaConnectButton, MetaOutcomeNotice, useMetaOutcome, usePermissionNames } from "@/components/instagram/meta-connect";
 import { Avatar } from "@/components/shared/avatar";
 import { ConnectionPill } from "@/components/shared/connection-pill";
 import { FeatureToggle } from "@/components/shared/feature-toggle";
@@ -14,6 +14,7 @@ import { KuwaitClock } from "@/components/shared/kuwait-clock";
 import { PageHeader } from "@/components/shared/page-header";
 import { ErrorState, Skeleton } from "@/components/shared/states";
 import { TagInput } from "@/components/shared/tag-input";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/dialog";
@@ -73,6 +74,7 @@ export function SettingsView() {
 function InstagramCard() {
   const { client, isPreview } = useActiveClient();
   const { t, locale } = useI18n();
+  const permissionNames = usePermissionNames();
   const router = useRouter();
   const queryClient = useQueryClient();
   const connection = useConnection();
@@ -113,12 +115,15 @@ function InstagramCard() {
   // Until the connection status loads, the flow is unknown: don't offer a button that might use the wrong one.
   const busy = connect.isPending || disconnect.isPending || !data;
   const needsReconnect = data?.needsReconnect ?? client.instagramIssue?.reason === "reconnect";
+  // Missing permissions: a small tag here (no banners elsewhere), and Reconnect asks for them again.
+  const missingPermissions = isMeta && !needsReconnect ? (data?.missingPermissions ?? []) : [];
   const syncing = sync.isPending || Boolean(data?.syncing);
 
   const connectButton =
     flow === "meta" ? (
       <MetaConnectButton
         returnTo="settings"
+        rerequest={missingPermissions.length > 0}
         variant={connected && !data?.needsReconnect ? "secondary" : "primary"}
         label={status === "disconnected" ? t("settings.instagram.connect") : t("settings.instagram.reconnect")}
         disabled={busy}
@@ -134,7 +139,14 @@ function InstagramCard() {
     <Card id="instagram" className="scroll-mt-[calc(var(--topbar-height)+16px)]">
       <CardHeader>
         <CardTitle>{t("settings.instagram.title")}</CardTitle>
-        <ConnectionPill status={status} withIcon />
+        <div className="flex flex-wrap items-center gap-2">
+          {missingPermissions.length > 0 && (
+            <Badge variant="warning" title={permissionNames(missingPermissions)} data-testid="permissions-missing">
+              {t("instagramConnect.permissionsMissing")}
+            </Badge>
+          )}
+          <ConnectionPill status={status} withIcon />
+        </div>
       </CardHeader>
       <CardContent>
         {connection.isError && <ErrorState error={connection.error} onRetry={() => connection.refetch()} className="mb-3" />}
@@ -185,7 +197,6 @@ function InstagramCard() {
 
         {isMeta && (
           <>
-            {!data?.needsReconnect && <MissingPermissionsNotice permissions={data?.missingPermissions ?? []} returnTo="settings" className="mt-3" />}
             <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-caption">
               <span className="min-w-0 flex-1 text-muted">
                 {syncing

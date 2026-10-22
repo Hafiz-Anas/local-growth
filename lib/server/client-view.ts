@@ -38,7 +38,7 @@ export async function getClientView(businessId: string): Promise<Client | null> 
       goalsPromptDoneAt: true,
       setupPromptDoneAt: true,
       members: { where: { user: { role: "USER" } }, select: { user: { select: { id: true, email: true } } }, orderBy: { createdAt: "asc" }, take: 1 },
-      instagramConnection: { select: { status: true, tokenExpiresAt: true, connectedAt: true, provider: true, missingPermissions: true } },
+      instagramConnection: { select: { status: true, tokenExpiresAt: true, connectedAt: true, provider: true } },
       brandVoice: { select: { whatsappNumber: true } },
       activity: { select: { createdAt: true }, orderBy: { createdAt: "desc" }, take: 1 },
     },
@@ -50,11 +50,8 @@ export async function getClientView(businessId: string): Promise<Client | null> 
   const connection = connectionStatusOf(conn);
   // Meta data older than 6 hours is refreshed in the background after this render.
   await scheduleAutoSync(businessId);
-  const instagramIssue: Client["instagramIssue"] = needsReconnect(conn)
-    ? { reason: "reconnect", permissions: [] }
-    : conn?.provider === "META" && conn.status === "CONNECTED" && conn.missingPermissions.length
-      ? { reason: "permissions", permissions: conn.missingPermissions }
-      : null;
+  // Missing permissions aren't an issue for the shell: Settings shows them as a tag.
+  const instagramIssue: Client["instagramIssue"] = needsReconnect(conn) ? { reason: "reconnect" } : null;
   const owner = row.members[0]?.user;
   return {
     id: row.id,

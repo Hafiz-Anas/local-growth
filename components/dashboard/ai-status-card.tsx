@@ -34,7 +34,10 @@ export function AiStatusCard({ className }: { className?: string }) {
   if (status.isPending) return <Skeleton className={cn("mb-8 h-28 rounded-panel", className)} />;
   if (status.isError) return null;
 
-  const { account, coverage, freshness, warnings } = status.data;
+  const { account, coverage, freshness } = status.data;
+  // Missing permissions are shown only as a tag in Settings, never here.
+  const warnings = status.data.warnings.filter((w) => w !== "permissions");
+  const health = account.health === "permissions" ? "healthy" : account.health;
   const never = t("aiStatus.never");
   return (
     <section className={cn("mb-8 rounded-panel border border-border p-4", className)} aria-labelledby="ai-status-title" data-testid="ai-status">
@@ -43,8 +46,8 @@ export function AiStatusCard({ className }: { className?: string }) {
         <h2 id="ai-status-title" className="text-title font-bold">
           {t("aiStatus.title")}
         </h2>
-        <Badge variant={HEALTH_BADGE[account.health]} className="ms-auto">
-          {t(`aiStatus.health.${account.health}`)}
+        <Badge variant={HEALTH_BADGE[health]} className="ms-auto">
+          {t(`aiStatus.health.${health}`)}
         </Badge>
       </div>
 
@@ -112,9 +115,9 @@ function Warnings({ warnings, account }: { warnings: AiStatusDto["warnings"]; ac
   const main = warnings[0];
   const meta = account.provider === "meta";
   const action =
-    main === "reconnect" || main === "permissions" ? (
+    main === "reconnect" ? (
       meta ? (
-        <MetaConnectButton returnTo="settings" rerequest={main === "permissions"} size="sm" label={t("aiStatus.reconnect")} className="h-8" />
+        <MetaConnectButton returnTo="settings" size="sm" label={t("aiStatus.reconnect")} className="h-8" />
       ) : (
         <Button asChild size="sm">
           <Link href="/settings#instagram">{t("aiStatus.reconnect")}</Link>

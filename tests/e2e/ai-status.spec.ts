@@ -1,4 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
+import { SHOW_AI_STATUS_CARD } from "../../config/dashboard";
 
 /**
  * The dashboard's AI status card (see playwright.config.ts for how to run): account, coverage,
@@ -10,6 +11,7 @@ const USER = { email: "user@mathanetbaity.dev", password: "User@123" };
 const ADMIN = { email: "admin@localgrowth.dev", password: "Admin@123" };
 
 test.describe.configure({ mode: "serial" });
+test.skip(!SHOW_AI_STATUS_CARD, "The AI status card is turned off (config/dashboard.ts).");
 
 let page: Page;
 

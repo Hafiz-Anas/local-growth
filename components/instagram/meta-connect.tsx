@@ -236,24 +236,6 @@ export function MetaAccountPicker<R extends { outcome: MetaConnectOutcome } = Pi
   );
 }
 
-/** Missing permissions on a working connection, with "Reconnect and allow". */
-export function MissingPermissionsNotice({ permissions, returnTo, className }: { permissions: string[]; returnTo: ReturnTo; className?: string }) {
-  const { t } = useI18n();
-  const names = usePermissionNames();
-  if (!permissions.length) return null;
-  return (
-    <div role="status" className={cn("rounded-card bg-warning/12 p-3 text-caption", className)}>
-      <p className="flex items-start gap-2">
-        <AlertTriangle className="mt-px size-4 shrink-0 text-warning" aria-hidden="true" />
-        <span>
-          <span className="font-semibold">{t("instagramConnect.permissions.title")}</span> {t("instagramConnect.permissions.body", { list: names(permissions) })}
-        </span>
-      </p>
-      <MetaConnectButton returnTo={returnTo} rerequest variant="secondary" size="sm" label={t("instagramConnect.permissions.reconnect")} className="mt-2" />
-    </div>
-  );
-}
-
 /** Success line after connecting through Meta. */
 export function ConnectedNotice({ username, onDismiss }: { username: string | null; onDismiss: () => void }) {
   const { t } = useI18n();

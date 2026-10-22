@@ -98,7 +98,7 @@ export function UserShell({
         )}
 
         {!isPreview && <VerifyEmailBanner unverified={emailUnverified} email={base.email} />}
-        {client.instagramIssue && !isPreview && <InstagramIssueBanner issue={client.instagramIssue} />}
+        {client.instagramIssue && !isPreview && <InstagramIssueBanner />}
 
         <header className="sticky top-0 z-20 h-(--topbar-height) border-b border-border bg-background">
           <div className="mx-auto flex h-full max-w-(--content-max-width) items-center gap-3 px-4 md:px-8">

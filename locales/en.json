@@ -1975,16 +1975,10 @@
       "connect": "Connect",
       "expired": "This choice has expired. Close this and connect Instagram again."
     },
-    "permissions": {
-      "title": "Some permissions are missing.",
-      "body": "Instagram didn't allow access to {list}. Those features won't work until you reconnect and allow them.",
-      "reconnect": "Reconnect and allow"
-    },
+    "permissionsMissing": "Permissions missing",
     "banner": {
       "reconnectTitle": "Instagram needs reconnecting.",
       "reconnectBody": "Your Instagram login expired or was removed, so we can't update your data or reply for you.",
-      "permissionsTitle": "Instagram permissions are missing.",
-      "permissionsBody": "Allow access to {list} to use every feature.",
       "action": "Reconnect Instagram"
     },
     "sync": {
