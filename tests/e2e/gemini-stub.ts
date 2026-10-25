@@ -22,6 +22,8 @@ import { createServer } from "node:http";
  *   data (or an invented number while `state.inventMonitor` is set, which must be rejected);
  * - statistics summaries (system prompt "statistics period") get a summary without numbers (or an invented
  *   number while `state.inventStatistics` is set);
+ * - shareability findings (schema with "findings") get one finding quoting the account's average share rate
+ *   from the data (or an invented number while `state.inventShares` is set, which must be rejected);
  * - chat requests get an answer echoing the question (Arabic for an Arabic question);
  * - a question containing "[down]", or `state.fail`, gets a 503.
  */
@@ -29,7 +31,7 @@ import { createServer } from "node:http";
 export interface StubCall {
   system: string;
   turns: Array<{ role: string; text: string }>;
-  kind: "strategy" | "report" | "monitor" | "statistics" | "prefill" | "style" | "suggest" | "reply" | "competitor" | "classify" | "postInsight" | "chat";
+  kind: "strategy" | "report" | "monitor" | "statistics" | "shareability" | "prefill" | "style" | "suggest" | "reply" | "competitor" | "classify" | "postInsight" | "chat";
 }
 
 export const STUB_PORT = Number(process.env.E2E_GEMINI_STUB_PORT ?? 4010);
@@ -63,7 +65,7 @@ export function stubRecommendations(n: number) {
 
 export async function startGeminiStub(port = STUB_PORT) {
   const calls: StubCall[] = [];
-  const state = { fail: false, styleImages: 0, analyses: 0, inventNumbersFor: "", rewrites: 0, inventFor: "", inventMonitor: false, inventStatistics: false };
+  const state = { fail: false, styleImages: 0, analyses: 0, inventNumbersFor: "", rewrites: 0, inventFor: "", inventMonitor: false, inventStatistics: false, inventShares: false };
   const server = createServer((req, res) => {
     let raw = "";
     req.on("data", (chunk) => (raw += chunk));
@@ -74,6 +76,8 @@ export async function startGeminiStub(port = STUB_PORT) {
       const system = body.systemInstruction?.parts[0]?.text ?? "";
       const kind = props.recommendations
         ? "strategy"
+        : props.findings
+          ? "shareability"
         : props.summary_en && system.includes("finished monitoring")
           ? "monitor"
           : props.summary_en && system.includes("statistics period")
@@ -145,6 +149,13 @@ export async function startGeminiStub(port = STUB_PORT) {
             ? { summary_en: "Reach grew 987654% this period.", summary_ar: "نما الوصول 987654% في هذه الفترة." }
             : { summary_en: "Posting more often went together with more likes and comments than the period before; Reels stood out. Try another Reel this week.", summary_ar: "ترافق النشر الأكثر مع إعجابات وتعليقات أكثر من الفترة السابقة، وبرزت الريلز. جربوا ريلاً آخر هذا الأسبوع." },
         );
+      } else if (kind === "shareability") {
+        const average = system.match(/Account average share rate: ([\d.]+)%/)?.[1] ?? "";
+        text = JSON.stringify({
+          findings: state.inventShares
+            ? [{ finding_en: "Reels get 987654% more shares.", finding_ar: "الريلز تُشارَك 987654% أكثر." }]
+            : [{ finding_en: `Giveaways and gift posts seem to get sent to friends most, above your average of ${average}%. Plan one this week.`, finding_ar: `يبدو أن السحوبات ومنشورات الهدايا تُرسَل للأصدقاء أكثر، فوق متوسطكم البالغ ${average}%. خطّطوا لواحد هذا الأسبوع.` }],
+        });
       } else if (kind === "competitor") {
         const handle = system.match(/competitors \(@([^)]+)\)/)?.[1] ?? "";
         const invent = Boolean(state.inventFor) && handle === state.inventFor;

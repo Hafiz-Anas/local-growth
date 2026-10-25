@@ -20,6 +20,8 @@ import { notifyRepliesWaiting } from "./notifications";
  *   basic    → profile (+ a daily follower snapshot) and the last 50 posts
  *   deferred → account insights, post insights (recent posts), comments (+ keyword replies, AI reply drafts)
  *   full     → both
+ *   postInsights → only the recent posts' insights (the daily cron, for Shareability's shares and reach;
+ *                  doesn't count as a sync for the 6-hour auto sync)
  * On connect, "basic" runs before the redirect and "deferred" right after it.
  * "Sync now" runs "full"; pages trigger a background "full" sync when the data is older than 6 hours.
  *
@@ -28,7 +30,7 @@ import { notifyRepliesWaiting } from "./notifications";
  * down, and a rate-limit error ends the sync early.
  */
 
-export type SyncScope = "basic" | "deferred" | "full";
+export type SyncScope = "basic" | "deferred" | "full" | "postInsights";
 export type SyncReason = "connect" | "manual" | "auto";
 
 export interface SyncResult {
@@ -81,7 +83,11 @@ export async function syncInstagram(businessId: string, { scope = "full", reason
     const ig = { id: account.igUserId, token: account.accessToken };
     const client = graphFor(businessId);
 
-    if (scope !== "deferred") {
+    if (scope === "postInsights") {
+      await syncPostInsights(businessId, client, ig, reason, counts);
+    }
+
+    if (scope === "basic" || scope === "full") {
       // Profile + daily snapshot.
       const profile = await fetchProfile(client, ig.id, ig.token);
       await db.$transaction([
@@ -115,7 +121,7 @@ export async function syncInstagram(businessId: string, { scope = "full", reason
       counts.media = media.length;
     }
 
-    if (scope !== "basic") {
+    if (scope === "deferred" || scope === "full") {
       await syncInsights(businessId, client, ig, reason, counts);
       anyDone = true;
       await syncComments(businessId, client, ig, account.username, counts);
@@ -162,6 +168,11 @@ async function syncInsights(businessId: string, client: ReturnType<typeof graphF
     });
   }
 
+  await syncPostInsights(businessId, client, ig, reason, counts);
+}
+
+/** Lifetime insights (reach, saves, shares, views…) of the recent posts, newest first. */
+async function syncPostInsights(businessId: string, client: ReturnType<typeof graphFor>, ig: { id: string; token: string }, reason: SyncReason, counts: SyncResult["counts"]) {
   const recent = await db.instagramMedia.findMany({
     where: { businessId, postedAt: { gte: new Date(Date.now() - 30 * DAY) }, NOT: { mediaProductType: "STORY" } },
     orderBy: { postedAt: "desc" },

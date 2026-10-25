@@ -18,7 +18,7 @@ import { MOCK_ACTIVITY } from "../mock-data/admin";
 import { CLIENT_DATA } from "../mock-data/client-data";
 import { MOCK_CLIENTS } from "../mock-data/clients";
 import { MOCK_PERMISSIONS } from "../mock-data/permissions";
-import { generatedMedia, growthShare } from "../mock-data/posts";
+import { generatedMedia, growthShare, mockShares } from "../mock-data/posts";
 import type { ActivityKind, Client } from "../types";
 import { describeDatabase, isProductionTarget } from "../scripts/db-target";
 
@@ -273,7 +273,7 @@ async function seedAnalysisHistory(client: Client, pack: (typeof CLIENT_DATA)[st
   const now = Date.now();
   const top = pack.dashboard.topPost;
   const posts = [
-    { id: top.id, postedAt: shift(top.postedAt).toISOString(), likes: top.likes, comments: top.comments, reach: top.reach, saves: top.saves, shares: Math.round(top.saves * 0.4), views: null as number | null },
+    { id: top.id, postedAt: shift(top.postedAt).toISOString(), likes: top.likes, comments: top.comments, reach: top.reach, saves: top.saves, shares: mockShares(top.reach, "photo", 1.8), views: null as number | null },
     ...generatedMedia(client.handle, 12, now).map((m) => ({ ...m, shares: m.shares ?? null, views: m.views ?? null })),
   ];
   const scaled = (value: number | null, share: number) => (value === null ? null : Math.round(value * share));

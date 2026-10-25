@@ -36,6 +36,20 @@ export const MOCK_CAPTIONS = [
 
 const DAY = 24 * 60 * 60 * 1000;
 
+/**
+ * How often each MOCK_CAPTIONS post is sent to friends, in shares per 100 accounts reached, so the
+ * Shareability findings have something real to find: giveaways, collaborations and gift posts get
+ * shared most, "find us" and team posts least (typical rates for small local accounts: 0.5–3%).
+ */
+const CAPTION_SHARE_PCT = [1.0, 0.8, 1.6, 1.2, 0.4, 1.5, 0.9, 3.0, 2.4, 0.6, 2.0, 0.7] as const;
+/** Reels travel further in DMs than photos. */
+const FORMAT_SHARE_FACTOR: Record<NonNullable<MediaDto["format"]>, number> = { reel: 1.5, carousel: 1.2, photo: 1, video: 1.2 };
+
+/** Shares for a mock post: its reach × its caption's share rate × its format's factor. */
+export function mockShares(reach: number, format: NonNullable<MediaDto["format"]>, sharePct: number): number {
+  return Math.round((reach * sharePct * FORMAT_SHARE_FACTOR[format]) / 100);
+}
+
 /** Every fourth post is a Reel; one in three of the others a carousel. */
 export function mockFormat(i: number): NonNullable<MediaDto["format"]> {
   if (i % 4 === 3) return "reel";
@@ -54,9 +68,10 @@ export function generatedMedia(seed: string, count: number, now = Date.now()): M
     const format = mockFormat(i);
     const reach = likes * (6 + (i % 5));
     const saves = 5 + ((h >>> ((i + 5) % 16)) % 120);
+    const captionIndex = (h + i) % MOCK_CAPTIONS.length;
     return {
       id: `ig_media_${seed}_${i + 1}`,
-      caption: MOCK_CAPTIONS[(h + i) % MOCK_CAPTIONS.length],
+      caption: MOCK_CAPTIONS[captionIndex],
       mediaUrl: mockMediaUrl(tone),
       mediaType: format === "reel" ? ("video" as const) : ("image" as const),
       format,
@@ -66,7 +81,7 @@ export function generatedMedia(seed: string, count: number, now = Date.now()): M
       comments: 3 + ((h >>> ((i + 3) % 16)) % 60),
       reach,
       saves,
-      shares: Math.round(saves * 0.4) + (i % 3),
+      shares: mockShares(reach, format, CAPTION_SHARE_PCT[captionIndex]),
       views: format === "reel" ? Math.round(reach * 1.8) : null,
       postedAt: new Date(now - (i * 2 + 1) * DAY - (h % 7) * 3_600_000).toISOString(),
     };

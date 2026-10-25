@@ -2,6 +2,8 @@ import type { AccountStats, FormatShare, GroupStat, GrowthPoint, MetricCompariso
 import type { Method, MethodRank, PromotedComparison } from "@/lib/analysis/methods";
 import type { MetricVsAverage, RecentSummary, SeriesPoint } from "@/lib/analysis/post-performance";
 import type { CompetitorInsight, PostInsight } from "@/lib/services/text/analysis";
+import type { PostShareRate } from "@/lib/analysis/shareability";
+import type { ShareFinding } from "@/lib/services/text/shareability";
 
 export type { AccountStats, GrowthPoint, MetricComparison, PostFormat, Method, MethodRank, PromotedComparison, MetricVsAverage, RecentSummary, SeriesPoint, CompetitorInsight, PostInsight };
 
@@ -109,4 +111,39 @@ export interface PostDetailDto {
   comparedWith: number;
   demo: boolean;
   insight: AiTextState<PostInsight>;
+  /** shares ÷ reach vs the account's average; absent when "Most shared" (postInsights.shareability) is off. */
+  shareRate?: PostShareRate | null;
 }
+
+// ── Shareability (Post performance → "Most shared") ───────────────────────────
+
+export interface MostSharedPost {
+  id: string;
+  caption: string;
+  format: PostFormat;
+  postedAt: string;
+  shares: number;
+  reach: number;
+  /** shares ÷ reach, percent with two decimals. */
+  ratePct: number;
+  /** Times the account's average, one decimal. */
+  vsAverage: number | null;
+  mediaUrl: string | null;
+}
+
+export interface ShareabilityDto {
+  connected: boolean;
+  demo: boolean;
+  /** "unavailable": no share numbers from Instagram (yet); "not_enough_posts": fewer than minPosts posts with reach ≥ minReach. */
+  status: "ready" | "not_enough_posts" | "unavailable";
+  minReach: number;
+  minPosts: number;
+  averagePct: number | null;
+  /** Posts with a share rate. */
+  posts: number;
+  excluded: { lowReach: number; unavailable: number };
+  mostShared: MostSharedPost[];
+  findings: AiTextState<ShareFinding[]>;
+}
+
+export type { PostShareRate, ShareFinding };

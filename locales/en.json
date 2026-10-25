@@ -693,7 +693,8 @@
       "format": "Format",
       "engagement": "Engagement",
       "hashtags": "Hashtags",
-      "competitors": "Competitors"
+      "competitors": "Competitors",
+      "shares": "Shares"
     },
     "metrics": {
       "reach": "average reach per post",
@@ -1166,7 +1167,8 @@
       "engagement_autoReply": "Auto-reply",
       "engagement_whatsappPricing": "WhatsApp price replies",
       "settings_brandVoice": "Brand voice",
-      "competitors_analysis": "Competitor analysis"
+      "competitors_analysis": "Competitor analysis",
+      "postInsights_shareability": "Most shared (shares ÷ reach)"
     }
   },
   "roles": {
@@ -2420,5 +2422,28 @@
     "logOutOf": "Log out of",
     "logOutAll": "Log out of all accounts",
     "switched": "Switched to {account}"
+  },
+  "shareability": {
+    "title": "Most shared",
+    "hint": "How many of the people who saw a post sent it to someone (shares ÷ reach). Instagram shows posts that get sent to friends to more people. Your average: {average} over {posts} posts.",
+    "hintNoAverage": "How many of the people who saw a post sent it to someone (shares ÷ reach). Instagram shows posts that get sent to friends to more people.",
+    "notYet": "Not available yet",
+    "notYetHint": {
+      "unavailable": "Instagram hasn't sent share numbers for your posts yet. They usually appear a day or two after posting.",
+      "not_enough_posts": "We need at least {minPosts} posts that reached {minReach} or more people to compare."
+    },
+    "sharesOfReach": "{shares} shares · reach {reach}",
+    "timesAverage": "{value}× your average",
+    "aboutAverage": "About your average",
+    "lowReachNote": "Left out: posts reached by fewer than {minReach} people ({count}), so one share can't look like a hit.",
+    "findingsTitle": "Why these get shared",
+    "findingsSoon": "Findings appear once {count} posts have a share rate.",
+    "rateTitle": "Share rate",
+    "rateMeaning": "of the people it reached shared it",
+    "averageOf": "Your average is {average} ({posts} posts).",
+    "noAverageYet": "Your average appears once {count} posts have a share rate.",
+    "lowReachTitle": "Too few people reached",
+    "lowReachHint": "This post reached fewer than {minReach} people, too few to tell how shareable it is.",
+    "unavailableHint": "Instagram hasn't sent this post's share numbers yet. They usually appear a day or two after posting."
   }
 }

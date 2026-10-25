@@ -5,6 +5,7 @@ import {
   ACCOUNT_TOTAL_METRICS,
   POST_METRICS,
   POST_METRICS_MINIMAL,
+  POST_METRICS_SHARES,
   businessDiscoveryFields,
   displayUrl,
   mapComment,
@@ -195,7 +196,7 @@ export async function fetchAccountInsights(client: GraphClient, igUserId: string
 
 /** Lifetime insights of one post; null when Meta has none for it (e.g. posted before the account went professional). */
 export async function fetchPostInsights(client: GraphClient, mediaId: string, token: string): Promise<{ values: Record<string, number> | null; reason?: string }> {
-  for (const metrics of [POST_METRICS, POST_METRICS_MINIMAL]) {
+  for (const metrics of [POST_METRICS, POST_METRICS_SHARES, POST_METRICS_MINIMAL]) {
     try {
       const res = await client.get<{ data: GraphInsight[] }>(
         `${mediaId}/insights`,

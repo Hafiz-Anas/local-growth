@@ -20,6 +20,7 @@ import { aiPace } from "./ai-pace";
 import { gatherAssistantFacts } from "./assistant";
 import { ApiError, notFound } from "./http";
 import { notify } from "./notifications";
+import { hasShareability, shareabilityFacts } from "./shareability";
 
 /**
  * AI strategy recommendations per business: a weekly analysis (cron) or a
@@ -122,6 +123,8 @@ export type GenerateResult = { result: "generated" } | { result: "unchanged" } |
 export async function generateRecommendations(businessId: string, trigger: "SCHEDULED" | "MANUAL", options: { userId?: string; withCompetitors: boolean }): Promise<GenerateResult> {
   const facts = await gatherAssistantFacts(businessId, "strategy", { withCompetitors: options.withCompetitors });
   if (facts.instagram.status === "not_connected") return { result: "no_data" };
+  // "Most shared" on: its numbers and the cached findings, so at least one action can be share-based.
+  if (await hasShareability(businessId)) facts.shareability = await shareabilityFacts(businessId);
   const decisions = await pastDecisions(businessId);
   const inputHash = strategyInputHash(facts, decisions);
 

@@ -17,6 +17,8 @@ import type { Method } from "@/lib/analysis/methods";
 import { parseClassification, parseCompetitorInsight, parsePostInsight, type CompetitorInsight, type PostInsight } from "./text/analysis";
 import { parseMonitorSummary } from "./text/monitoring";
 import { parseStatisticsSummary } from "./text/statistics";
+import { mockShareFindings, parseShareFindings, type ShareFinding } from "./text/shareability";
+import type { ShareabilityData } from "@/lib/analysis/shareability";
 import { composeCaption, cleanReply, greetName, isArabic, parseBrandContext, parseCaptions, replyLanguage, stripAvoided } from "./text/output";
 import {
   assistantPrompt,
@@ -26,6 +28,7 @@ import {
   postInsightPrompt,
   monitorSummaryPrompt,
   statisticsSummaryPrompt,
+  shareabilityPrompt,
   brandPrefillPrompt,
   styleGuidePrompt,
   suggestCompetitorsPrompt,
@@ -196,7 +199,16 @@ export interface AIService {
   monitorSummary(request: AnalysisTextRequest): Promise<SummaryAnswer>;
   /** Short EN + AR summary of a Statistics period (correlation, not causation). A failure says why; the page then shows numbers and charts only. */
   statisticsSummary(request: AnalysisTextRequest): Promise<SummaryAnswer>;
+  /** Shareability: 1–3 findings on what the most-shared posts have in common (EN + AR). A failure says why; the card then shows the numbers only. */
+  shareFindings(request: ShareFindingsRequest): Promise<ShareFindingsAnswer>;
 }
+
+export interface ShareFindingsRequest extends AnalysisTextRequest {
+  /** The numbers behind `data` (the mock writes its findings from them). */
+  numbers: ShareabilityData;
+}
+
+export type ShareFindingsAnswer = { ok: true; findings: ShareFinding[] } | { ok: false; reason: TextFailureReason };
 
 export type SummaryAnswer = { ok: true; en: string; ar: string } | { ok: false; reason: TextFailureReason };
 
@@ -513,9 +525,15 @@ export class MockAIService implements AIService {
   async statisticsSummary(): Promise<SummaryAnswer> {
     return { ok: false, reason: "not_configured" };
   }
+
+  /** MOCK: findings written in code from the strongest patterns in the same numbers (lib/services/text/shareability.ts). */
+  async shareFindings(request: ShareFindingsRequest): Promise<ShareFindingsAnswer> {
+    const findings = mockShareFindings(request.numbers);
+    return findings.length ? { ok: true, findings } : { ok: false, reason: "bad_output" };
+  }
 }
 
-type AICall = "ai.captions" | "ai.reply.comment" | "ai.reply.dm" | "ai.reply.rewrite" | "ai.competitor" | "ai.classify" | "ai.post" | "ai.monitor" | "ai.statistics" | "ai.brand_context" | "ai.assistant" | "ai.strategy" | "ai.report" | "ai.prefill" | "ai.style" | "ai.suggest";
+type AICall = "ai.captions" | "ai.reply.comment" | "ai.reply.dm" | "ai.reply.rewrite" | "ai.competitor" | "ai.classify" | "ai.post" | "ai.monitor" | "ai.statistics" | "ai.shareability" | "ai.brand_context" | "ai.assistant" | "ai.strategy" | "ai.report" | "ai.prefill" | "ai.style" | "ai.suggest";
 
 /**
  * Gemini text model (prompts in ./text/prompts.ts). Never fails: when the
@@ -539,7 +557,7 @@ export class GeminiAIService implements AIService {
     const config = readGeminiTextConfig();
     // What the user gets instead of a model answer, for the log.
     const instead =
-      call === "ai.report" || call === "ai.competitor" || call === "ai.post" || call === "ai.monitor" || call === "ai.statistics"
+      call === "ai.report" || call === "ai.competitor" || call === "ai.post" || call === "ai.monitor" || call === "ai.statistics" || call === "ai.shareability"
         ? { text: call === "ai.report" ? "published the report with numbers only" : "showed the numbers only", fallback: "numbers_only" }
         : call === "ai.classify"
           ? { text: "kept the rule-based post types", fallback: "rules" }
@@ -727,6 +745,16 @@ export class GeminiAIService implements AIService {
       request.businessId,
       () => statisticsSummaryPrompt({ businessName: request.businessName, businessNameAr: request.businessNameAr, data: request.data }),
       (answer) => ({ ok: true, ...parseStatisticsSummary(answer, request.data) }),
+      (reason) => ({ ok: false, reason }),
+    );
+  }
+
+  async shareFindings(request: ShareFindingsRequest) {
+    return this.run<ShareFindingsAnswer>(
+      "ai.shareability",
+      request.businessId,
+      () => shareabilityPrompt({ businessName: request.businessName, businessNameAr: request.businessNameAr, data: request.data }),
+      (answer) => ({ ok: true, findings: parseShareFindings(answer, request.data) }),
       (reason) => ({ ok: false, reason }),
     );
   }

@@ -99,6 +99,8 @@ export interface AssistantFacts {
   competitors?: AssistantCompetitor[];
   /** The analysis pages' numbers (each part only with its feature): content mix, methods, competitor analysis. */
   analysis?: AssistantAnalysis;
+  /** Strategy only, with "Most shared" on: share rates and the cached findings as labelled lines (shareabilityFactLines). */
+  shareability?: string[];
 }
 
 export interface AssistantAnalysis {
@@ -351,6 +353,7 @@ export function formatFacts(facts: AssistantFacts, mode: FactsScope, now = new D
     lines.push("", "## Statistics: the last 30 days vs the 30 before (from stored daily follower counts and posts; correlation, not causation)", statisticsDataBlock(analysis.statistics.data, { demo: analysis.statistics.demo }));
   }
   if (analysis?.monitoring && (mode === "analytics" || mode === "strategy")) lines.push(...monitoringLines(analysis.monitoring));
+  if (facts.shareability?.length && mode === "strategy") lines.push(...facts.shareability);
   if (analysis?.competitors && mode === "competitors") {
     lines.push("", "## Competitor analysis (measured from their public posts; content types are estimates from captions)");
     if (analysis.you) lines.push(...statsLines("The business", analysis.you, analysis.followers ?? null));

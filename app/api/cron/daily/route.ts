@@ -5,6 +5,7 @@ import { runMonitorSweep } from "@/lib/server/monitoring";
 import { notifyReconnectsNeeded } from "@/lib/server/notifications";
 import { runRecommendationSweep } from "@/lib/server/recommendations";
 import { runReportSweep } from "@/lib/server/reports";
+import { runShareabilitySweep } from "@/lib/server/shareability";
 import { purgeExpiredSignups } from "@/lib/server/signup";
 import { runStatisticsSweep } from "@/lib/server/statistics";
 import { runStyleGuideSweep } from "@/lib/server/style-guide";
@@ -15,7 +16,8 @@ const BUDGET_MS = 240_000;
 
 /**
  * GET /api/cron/daily — the daily job (scheduled in vercel.json, `Authorization: Bearer $CRON_SECRET`):
- * reconnect alerts, expired pending sign-ups removed, today's follower count (Statistics), then weekly reports, then weekly recommendations for the businesses that are due,
+ * reconnect alerts, expired pending sign-ups removed, today's follower count (Statistics), then weekly reports, then "Most shared"
+ * (fresh post insights for Meta accounts + the findings, at most once a day), then weekly recommendations for the businesses that are due,
  * then the analysis: daily post snapshots, post methods, weekly competitor snapshots and comparisons,
  * then post monitoring (daily readings and monitors that ended), then photo style guides from the recent posts
  * for businesses that have none yet (STYLE_GUIDE_CRON_BATCH per run).
@@ -30,12 +32,14 @@ export const GET = handler(async (request) => {
   // Today's follower count for Statistics (longer trends build from these).
   const statistics = await runStatisticsSweep(30_000);
   const reports = await runReportSweep(Math.min(120_000, BUDGET_MS - (Date.now() - started)));
+  // Before Recommendations, so the weekly tips see today's share numbers and findings.
+  const shareability = await runShareabilitySweep(Math.max(0, Math.min(45_000, BUDGET_MS - (Date.now() - started))));
   const recommendations = await runRecommendationSweep(Math.max(0, Math.min(90_000, BUDGET_MS - (Date.now() - started))));
   const analysis = await runAnalysisSweep(Math.max(0, BUDGET_MS - (Date.now() - started)));
   // Post monitoring also runs hourly (GET /api/cron/monitor); here it keeps daily monitors going without that.
   const monitoring = await runMonitorSweep(Math.max(0, BUDGET_MS - (Date.now() - started)));
   const styleGuides = await runStyleGuideSweep(Math.max(0, BUDGET_MS - (Date.now() - started)));
-  const summary = { reconnects, expiredSignups, statistics, reports, recommendations, analysis, monitoring, styleGuides };
+  const summary = { reconnects, expiredSignups, statistics, reports, shareability, recommendations, analysis, monitoring, styleGuides };
   console.info("[cron:daily]", JSON.stringify(summary));
   return ok(summary);
 });

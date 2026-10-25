@@ -385,6 +385,7 @@ model Business {
   postInsights        PostInsight[]
   postMonitors        PostMonitor[]
   statisticsSummaries StatisticsSummary[]
+  shareFindings       ShareFindings?
   styleGuide          StyleGuide?
 }
 
@@ -790,6 +791,22 @@ model StatisticsSummary {
   business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
   @@unique([businessId, range])
+}
+
+/// Shareability findings (Post performance → "Most shared"): 1–3 AI findings on what the most-shared
+/// posts have in common, cached per business and rewritten at most once a day when the share numbers
+/// change (`inputHash`). The numbers (shares ÷ reach) are computed on every load (lib/analysis/shareability.ts).
+model ShareFindings {
+  id          String    @id @default(cuid())
+  businessId  String    @unique
+  inputHash   String
+  /// [{ en, ar }]
+  findings    Json
+  generatedAt DateTime  @default(now())
+  /// Last attempt that didn't produce findings (the AI unavailable): retried after an hour.
+  failedAt    DateTime?
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 }
 
 // ─── Brand profile ───────────────────────────────────────────────────────────

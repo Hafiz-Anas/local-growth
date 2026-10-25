@@ -234,8 +234,14 @@ export function mapComment(c: GraphComment): CommentRecord {
 export const ACCOUNT_TOTAL_METRICS = ["reach", "views", "accounts_engaged", "total_interactions", "profile_links_taps", "profile_views"] as const;
 export type AccountTotalMetric = (typeof ACCOUNT_TOTAL_METRICS)[number];
 
-/** Per-post metrics. Not every metric exists for every media type; the sync falls back to POST_METRICS_MINIMAL. */
+/**
+ * Per-post metrics (GET /{ig-media}/insights). Meta documents reach, saved, shares, views and
+ * total_interactions for FEED posts (single image and carousel; not the media inside a carousel) and
+ * REELS, and an unsupported one fails the whole request (#100). So the sync asks for everything, then
+ * keeps shares (Shareability needs shares + reach) before falling back to POST_METRICS_MINIMAL.
+ */
 export const POST_METRICS = ["reach", "saved", "shares", "total_interactions", "views"] as const;
+export const POST_METRICS_SHARES = ["reach", "saved", "shares"] as const;
 export const POST_METRICS_MINIMAL = ["reach", "saved"] as const;
 
 export interface UnavailableMetric {

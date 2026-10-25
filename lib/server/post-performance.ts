@@ -9,6 +9,7 @@ import { ANALYSIS_PROMPT_VERSION, postDataBlock, type PostInsight } from "@/lib/
 import type { AiTextState, PostDetailDto, PostPerformanceDto } from "@/types";
 import { ApiError, notFound } from "./http";
 import { ownPosts } from "./post-data";
+import { shareRateFor } from "./shareability";
 import { getRateLimiter, POST_INSIGHT_LIMIT } from "./rate-limit";
 
 /**
@@ -48,7 +49,7 @@ function insightHash(post: AnalysisPost, averages: Array<number | null>): string
   return fingerprint({ v: ANALYSIS_PROMPT_VERSION, id: post.id, m: [post.likes, post.comments, post.reach, post.saves, post.shares, post.views].map(r), a: averages.map(r) });
 }
 
-async function buildDetail(businessId: string, igMediaId: string) {
+async function buildDetail(businessId: string, igMediaId: string, { shareability = false }: { shareability?: boolean } = {}) {
   const own = await ownPosts(businessId);
   const post = own.posts.find((p) => p.id === igMediaId);
   if (!post) throw notFound("Post");
@@ -74,12 +75,13 @@ async function buildDetail(businessId: string, igMediaId: string) {
     comparedWith: peers.length,
     demo: own.demo,
     insight,
+    ...(shareability && { shareRate: shareRateFor(own, igMediaId) }),
   };
   return { detail, hash };
 }
 
-export async function postDetail(businessId: string, igMediaId: string): Promise<PostDetailDto> {
-  return (await buildDetail(businessId, igMediaId)).detail;
+export async function postDetail(businessId: string, igMediaId: string, options: { shareability?: boolean } = {}): Promise<PostDetailDto> {
+  return (await buildDetail(businessId, igMediaId, options)).detail;
 }
 
 /**

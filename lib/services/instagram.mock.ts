@@ -3,7 +3,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { MOCK_SYSTEM_STATUS } from "@/mock-data/admin";
 import { CLIENT_DATA, type ClientDataPack } from "@/mock-data/client-data";
 import { MOCK_CLIENTS } from "@/mock-data/clients";
-import { POST_ICONS, POST_TONES, generatedMedia, hash, mockCompetitorPostDetails, mockMediaUrl } from "@/mock-data/posts";
+import { POST_ICONS, POST_TONES, generatedMedia, hash, mockCompetitorPostDetails, mockMediaUrl, mockShares } from "@/mock-data/posts";
 import type { CompetitorPost, InstagramProfileDto, MediaDto } from "@/types";
 import { displayNameFromHandle } from "@/lib/display-names";
 import {
@@ -129,7 +129,7 @@ export class MockInstagramService implements InstagramService {
     // Accounts without a mock pack only have posts once connected.
     if (!top && !account.connected) return [];
     const seed = account.username || account.businessId;
-    const first: MediaDto[] = top ? [{ ...top, mediaUrl: mockMediaUrl(top.tone), mediaType: "image", format: "photo", shares: Math.round(top.saves * 0.4), views: null, postedAt: shift(top.postedAt) }] : [];
+    const first: MediaDto[] = top ? [{ ...top, mediaUrl: mockMediaUrl(top.tone), mediaType: "image", format: "photo", shares: mockShares(top.reach, "photo", 1.8), views: null, postedAt: shift(top.postedAt) }] : [];
     return [...first, ...generatedMedia(seed, 12)].slice(0, limit);
   }
 

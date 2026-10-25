@@ -48,6 +48,8 @@ export const MONITOR_START_LIMIT: RateLimitRule = { name: "monitor-start", limit
 export const MONITOR_SUMMARY_LIMIT: RateLimitRule = { name: "monitor-summary", limit: 10, windowMs: 60 * 60 * 1000 };
 /** AI summaries of a Statistics period per business (each range is cached until its numbers change). */
 export const STATISTICS_SUMMARY_LIMIT: RateLimitRule = { name: "statistics-summary", limit: 10, windowMs: 60 * 60 * 1000 };
+/** Shareability findings requested from Post performance, per business (they're rewritten once a day at most anyway). */
+export const SHARE_FINDINGS_LIMIT: RateLimitRule = { name: "share-findings", limit: 6, windowMs: 60 * 60 * 1000 };
 /** AI post images per business (each one costs a paid model call). */
 export const IMAGE_GENERATION_LIMIT: RateLimitRule = { name: "image-generation", limit: 20, windowMs: 60 * 60 * 1000 };
 /** Photo style-guide analyses per business (each is one AI call with up to 5 images; the AI's daily budget applies too). */

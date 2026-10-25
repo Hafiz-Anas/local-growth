@@ -459,6 +459,8 @@ export interface PreviewDto {
     postPerformance?: import("./analysis").PostPerformanceDto;
     /** Post detail for the recent posts (preview opens them read-only). */
     postDetails?: Record<string, import("./analysis").PostDetailDto>;
+    /** "Most shared" (postInsights.shareability). */
+    shareability?: import("./analysis").ShareabilityDto;
     monitoring?: import("./monitoring").MonitoringDto;
     /** Every monitor in the overview, opened read-only. */
     monitorDetails?: Record<string, import("./monitoring").MonitorDetailDto>;

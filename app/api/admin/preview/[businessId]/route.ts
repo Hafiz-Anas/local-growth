@@ -14,6 +14,7 @@ import { STAT_RANGES } from "@/lib/analysis/statistics";
 import { monitorDetail, monitoringOverview } from "@/lib/server/monitoring";
 import { getStatistics } from "@/lib/server/statistics";
 import { postDetail, postPerformance } from "@/lib/server/post-performance";
+import { getShareability } from "@/lib/server/shareability";
 import { notificationPrefsSchema } from "@/lib/validation/api";
 import type { PreviewDto } from "@/types";
 
@@ -62,8 +63,10 @@ export const GET = handler(async (_request, context: RouteContext<"/api/admin/pr
   if (on("methods")) d.methods = await methodsOverview(businessId, permissions);
   if (on("postInsights")) {
     d.postPerformance = await postPerformance(businessId);
-    const ids = d.postPerformance.summary.posts.map((p) => p.id);
-    d.postDetails = Object.fromEntries(await Promise.all(ids.map(async (id) => [id, await postDetail(businessId, id)] as const)));
+    if (on("postInsights.shareability")) d.shareability = await getShareability(businessId);
+    // The recent posts, plus "Most shared" ones that are older.
+    const ids = [...new Set([...d.postPerformance.summary.posts.map((p) => p.id), ...(d.shareability?.mostShared.map((p) => p.id) ?? [])])];
+    d.postDetails = Object.fromEntries(await Promise.all(ids.map(async (id) => [id, await postDetail(businessId, id, { shareability: on("postInsights.shareability") })] as const)));
   }
   if (on("monitoring")) {
     d.monitoring = await monitoringOverview(businessId);

@@ -50,6 +50,7 @@ export const FEATURE_KEYS = [
   "reports",
 
   "postInsights",
+  "postInsights.shareability",
 
   "methods",
 
@@ -125,7 +126,7 @@ export const FEATURE_MODULES: FeatureModuleDef[] = [
   {
     id: "postInsights",
     moduleKey: "postInsights",
-    subFeatures: [],
+    subFeatures: ["postInsights.shareability"],
   },
   {
     id: "methods",

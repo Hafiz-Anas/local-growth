@@ -115,6 +115,18 @@ describe("account insights", () => {
     assert.equal(result.values, null);
     assert.match(result.reason ?? "", /invalid_request/);
   });
+
+  it("post insights keep shares when only views / total_interactions are refused (Shareability needs shares + reach)", async () => {
+    const asked: string[] = [];
+    const withShares = { data: [...(fx.insightsPost as { data: object[] }).data, { name: "shares", period: "lifetime", values: [{ value: 14 }], id: "17900000000000001/insights/shares/lifetime" }] };
+    const c = client(({ params }) => {
+      const metric = params.get("metric")!;
+      asked.push(metric);
+      return metric.includes("views") ? err(fx.errorInvalidMetric) : ok(withShares);
+    });
+    assert.deepEqual((await fetchPostInsights(c.client, "17900000000000001", "EAApage")).values, { reach: 900, saved: 31, shares: 14 });
+    assert.deepEqual(asked, ["reach,saved,shares,total_interactions,views", "reach,saved,shares"]);
+  });
 });
 
 describe("dashboard numbers from synced data", () => {

@@ -10,7 +10,7 @@ import { TextGenerationError } from "./errors";
  */
 
 /** Bump when the prompt or the schema changes, so cached results are re-analysed. */
-export const STRATEGY_PROMPT_VERSION = 1;
+export const STRATEGY_PROMPT_VERSION = 2;
 export const STRATEGY_MIN = 3;
 export const STRATEGY_MAX = 5;
 /** Days between a recommendation marked Done and its outcome check. */
@@ -18,7 +18,7 @@ export const OUTCOME_DAYS = 7;
 /** Days of posts before "Done" that make the baseline. */
 export const BASELINE_DAYS = 14;
 
-export const STRATEGY_CATEGORIES = ["content", "timing", "format", "engagement", "hashtags", "competitors"] as const;
+export const STRATEGY_CATEGORIES = ["content", "timing", "format", "engagement", "hashtags", "competitors", "shares"] as const;
 export const STRATEGY_METRICS = ["reach", "interactions", "followers"] as const;
 export const STRATEGY_CONFIDENCE = ["strong", "moderate", "early"] as const;
 export type StrategyCategory = (typeof STRATEGY_CATEGORIES)[number];

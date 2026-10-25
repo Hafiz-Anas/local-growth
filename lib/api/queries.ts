@@ -28,6 +28,7 @@ import type {
   CompetitorAnalysisDto,
   MethodsDto,
   PostPerformanceDto,
+  ShareabilityDto,
   PostDetailDto,
   MonitoringDto,
   MonitorDetailDto,
@@ -63,6 +64,7 @@ export const qk = {
   methods: ["methods"] as const,
   postPerformance: ["post-performance"] as const,
   postDetail: (id: string) => ["post-performance", id] as const,
+  shareability: ["shareability"] as const,
   monitoring: ["monitoring"] as const,
   monitor: (id: string) => ["monitoring", id] as const,
   statistics: (range: string) => ["statistics", range] as const,
@@ -197,6 +199,8 @@ export const useMethods = (enabled = true) => useClientData<MethodsDto>(qk.metho
 export const usePostPerformance = (enabled = true) => useClientData<PostPerformanceDto>(qk.postPerformance, "/api/post-performance", (d) => d.postPerformance, enabled);
 export const usePostDetail = (id: string) =>
   useClientData<PostDetailDto>(qk.postDetail(id), `/api/post-performance/${encodeURIComponent(id)}`, (d) => d.postDetails?.[id]);
+/** "Most shared": share rate per post, the account's average and the cached findings (requested separately). */
+export const useShareability = (enabled = true) => useClientData<ShareabilityDto>(qk.shareability, "/api/shareability", (d) => d.shareability, enabled);
 /** Post monitoring: monitored posts, the plan's limit, recent posts to pick from and the history. */
 export const useMonitoring = (enabled = true) => useClientData<MonitoringDto>(qk.monitoring, "/api/monitoring", (d) => d.monitoring, enabled);
 export const useMonitor = (id: string) => useClientData<MonitorDetailDto>(qk.monitor(id), `/api/monitoring/${encodeURIComponent(id)}`, (d) => d.monitorDetails?.[id]);

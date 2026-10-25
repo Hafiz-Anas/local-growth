@@ -14,6 +14,7 @@ import { qk, usePostDetail } from "@/lib/api/queries";
 import { useI18n } from "@/lib/i18n/provider";
 import { formatCompact, formatNumber, intlLocale } from "@/lib/utils";
 import type { PostDetailDto, PostInsight } from "@/types";
+import { ShareRateCard } from "./most-shared";
 import { AiExplanation, AnalysisFootnote, DemoBadge, MeasuredBadge, PostThumb, SignedPct } from "./shared";
 
 /** One post: its numbers vs the account's average, how they changed day by day, and the AI's short explanation. */
@@ -116,6 +117,8 @@ function Detail({ detail }: { detail: PostDetailDto }) {
         </ul>
         {detail.comparedWith < 3 && <p className="mt-3 text-caption text-muted">{t("postPerformance.earlyComparison")}</p>}
       </Card>
+
+      {detail.shareRate !== undefined && <ShareRateCard shareRate={detail.shareRate} />}
 
       <AiExplanation<PostInsight>
         queryKey={qk.postDetail(post.id)}

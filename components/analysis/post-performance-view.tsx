@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { BarChart3, ChevronRight, Eye, Heart, MessageCircle, Plug, TrendingUp } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { useFeature } from "@/components/providers/active-client-provider";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatTile } from "@/components/shared/stat-tile";
 import { EmptyState, ErrorState, Skeleton, SkeletonList } from "@/components/shared/states";
@@ -11,15 +12,18 @@ import { usePostPerformance } from "@/lib/api/queries";
 import { useI18n } from "@/lib/i18n/provider";
 import { formatCompact, formatNumber, intlLocale } from "@/lib/utils";
 import type { PostPerformanceDto } from "@/types";
+import { MostSharedCard } from "./most-shared";
 import { AnalysisFootnote, BarsCard, DemoBadge, MeasuredBadge, PostThumb, SignedPct } from "./shared";
 
 /**
  * Insights → Post performance: the last posts compared with each other, with a chart; each opens its
- * detail. Below them, "What works best": post types and weekdays by average likes + comments.
+ * detail. Below them, "Most shared" (shares ÷ reach, postInsights.shareability) and "What works best":
+ * post types and weekdays by average likes + comments.
  */
 export function PostPerformanceView() {
   const { t, locale } = useI18n();
   const query = usePostPerformance();
+  const shareability = useFeature("postInsights.shareability");
 
   if (query.isPending) return <ListSkeleton />;
   if (query.isError) return <ErrorState error={query.error} onRetry={() => query.refetch()} />;
@@ -86,6 +90,8 @@ export function PostPerformanceView() {
               ))}
             </ul>
           </Card>
+
+          {shareability && <MostSharedCard />}
 
           {query.data.whatWorks && <WhatWorks data={query.data.whatWorks} />}
         </>
