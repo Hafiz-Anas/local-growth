@@ -164,7 +164,7 @@ test("switching is instant, keeps the login, lands on Home, and a stale tab relo
   await staleTab.goto("/post-generator");
   await expect(switcher(staleTab)).toContainText(`@${SECOND_HANDLE}`);
 
-  await page.goto("/statistics");
+  await page.goto("/post-performance");
   await openSwitcher(page);
   await expect(page.getByTestId("account-row")).toHaveCount(2);
   await expect(page.getByTestId("account-limit")).toHaveText("Your plan includes 2 Instagram accounts and they're all in use. Contact us to add more.");

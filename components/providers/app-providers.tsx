@@ -12,7 +12,7 @@ import { QueryProvider } from "./query-provider";
 export function AppProviders({ locale, theme, children }: { locale: Locale; theme: "light" | "dark"; children: ReactNode }) {
   return (
     // Dark unless the person chose light; no "system" mode. lib/theme-script.ts applies it before first paint.
-    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} disableTransitionOnChange>
+    <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} disableTransitionOnChange>
       <ThemeSync serverTheme={theme} />
       <I18nProvider initialLocale={locale}>
         <QueryProvider>

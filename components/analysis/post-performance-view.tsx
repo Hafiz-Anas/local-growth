@@ -11,9 +11,12 @@ import { usePostPerformance } from "@/lib/api/queries";
 import { useI18n } from "@/lib/i18n/provider";
 import { formatCompact, formatNumber, intlLocale } from "@/lib/utils";
 import type { PostPerformanceDto } from "@/types";
-import { AnalysisFootnote, DemoBadge, MeasuredBadge, PostThumb, SignedPct } from "./shared";
+import { AnalysisFootnote, BarsCard, DemoBadge, MeasuredBadge, PostThumb, SignedPct } from "./shared";
 
-/** Insights → Post performance: the last posts compared with each other, with a chart; each opens its detail. */
+/**
+ * Insights → Post performance: the last posts compared with each other, with a chart; each opens its
+ * detail. Below them, "What works best": post types and weekdays by average likes + comments.
+ */
 export function PostPerformanceView() {
   const { t, locale } = useI18n();
   const query = usePostPerformance();
@@ -83,6 +86,8 @@ export function PostPerformanceView() {
               ))}
             </ul>
           </Card>
+
+          {query.data.whatWorks && <WhatWorks data={query.data.whatWorks} />}
         </>
       )}
       <AnalysisFootnote />
@@ -123,6 +128,31 @@ function RecentChart({ data }: { data: PostPerformanceDto }) {
       </ResponsiveContainer>
       <p className="mt-1 text-caption text-muted">{t("postPerformance.avgLine", { value: formatNumber(Math.round(data.summary.avgInteractions), locale) })}</p>
     </div>
+  );
+}
+
+function WhatWorks({ data }: { data: NonNullable<PostPerformanceDto["whatWorks"]> }) {
+  const { t } = useI18n();
+  return (
+    <section className="mt-6" data-testid="what-works">
+      <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-title font-bold">{t("postPerformance.whatWorks.title")}</h2>
+        <MeasuredBadge />
+      </div>
+      <p className="mb-3 text-caption text-muted">{t("postPerformance.whatWorks.hint", { count: data.posts })}</p>
+      <div className="grid gap-4 md:grid-cols-2">
+        <BarsCard
+          title={t("postPerformance.whatWorks.types")}
+          testId="best-types"
+          rows={data.mix.map((m) => ({ key: m.format, label: t(`analysis.format.${m.format}`), value: Math.round(m.avgInteractions), note: t("postPerformance.whatWorks.typeNote", { count: m.posts, share: m.sharePct }) }))}
+        />
+        <BarsCard
+          title={t("postPerformance.whatWorks.days")}
+          testId="best-days"
+          rows={data.days.map((d) => ({ key: d.key, label: t(`analysis.day.${d.key}`), value: Math.round(d.avgInteractions), note: t("postPerformance.whatWorks.dayNote", { count: d.posts }) }))}
+        />
+      </div>
+    </section>
   );
 }
 

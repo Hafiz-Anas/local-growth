@@ -1,6 +1,6 @@
 {
   "common": {
-    "appName": "Local Growth Engine",
+    "appName": "AI Growth Engine",
     "from": "من",
     "company": "Raid Technologies",
     "save": "حفظ",
@@ -37,7 +37,7 @@
   "nav": {
     "competitors": "المنافسون",
     "postGenerator": "مولّد المنشورات",
-    "experiment": "تجربة النشر",
+    "experiment": "أفضل أوقات النشر",
     "engagement": "التفاعل",
     "settings": "الإعدادات",
     "overview": "نظرة عامة",
@@ -46,7 +46,7 @@
     "onboarding": "التهيئة",
     "assistant": "المساعد الذكي",
     "recommendations": "التوصيات",
-    "reports": "التقارير",
+    "reports": "التقارير الأسبوعية",
     "main": "التنقل الرئيسي",
     "home": "الرئيسية",
     "posts": "المنشورات",
@@ -55,9 +55,18 @@
     "competitorAccounts": "الحسابات",
     "competitorAnalysis": "التحليل",
     "postPerformance": "أداء المنشورات",
-    "methods": "الأساليب",
+    "methods": "أساليب التسويق",
     "postMonitoring": "مراقبة المنشورات",
-    "statistics": "الإحصاءات"
+    "statistics": "الإحصاءات",
+    "tabHints": {
+      "postPerformance": "كيف تؤدي منشوراتكم",
+      "recommendations": "ما الخطوة التالية",
+      "reports": "أسبوعكم بالأرقام",
+      "methods": "التعاونات والعروض والإعلانات",
+      "postMonitoring": "تابعوا منشورات مختارة",
+      "experiment": "متى تنشرون",
+      "statistics": "حسابكم مع الوقت"
+    }
   },
   "plans": {
     "starter": "الأساسية",
@@ -119,7 +128,7 @@
       "privacy": "الخصوصية",
       "terms": "الشروط"
     },
-    "copyright": "© 2026 Local Growth Engine من Raid Technologies",
+    "copyright": "© 2026 AI Growth Engine من Raid Technologies",
     "info": {
       "contact": {
         "title": "تحتاج حساباً؟",
@@ -179,7 +188,7 @@
   "notFound": {
     "title": "عذراً، هذه الصفحة غير متاحة.",
     "body": "قد يكون الرابط الذي اتبعته معطلاً، أو ربما تمت إزالة الصفحة.",
-    "back": "العودة إلى Local Growth Engine."
+    "back": "العودة إلى AI Growth Engine."
   },
   "dashboard": {
     "title": "لوحة التحكم",
@@ -394,7 +403,7 @@
     }
   },
   "experiment": {
-    "title": "تجربة النشر",
+    "title": "أفضل أوقات النشر",
     "question": "هل استراتيجية النشر عندك ناجحة؟",
     "subtitle": "نوزّع منشوراتك على ثلاث فترات زمنية ونقارن الوصول بمعدّلك المعتاد.",
     "live": "تجربة مباشرة",
@@ -1109,7 +1118,7 @@
       "dashboard": "عناصر لوحة التحكم",
       "competitors": "تحليل المنافسين",
       "postGenerator": "مولّد المنشورات",
-      "experiment": "تجربة النشر",
+      "experiment": "أفضل أوقات النشر",
       "engagement": "التفاعل",
       "assistant": "المساعد الذكي",
       "recommendations": "التوصيات",
@@ -1363,7 +1372,7 @@
     }
   },
   "welcome": {
-    "title": "أهلاً بك في Local Growth Engine يا {name}!",
+    "title": "أهلاً بك في AI Growth Engine يا {name}!",
     "body": "ملف علامتك التجارية جاهز. الكابشنات والردود ستتبع أسلوبك من الآن.",
     "features": "ضمن باقتك",
     "connectTitle": "اربط إنستغرام لترى أرقامك الحقيقية",
@@ -1949,7 +1958,7 @@
       "connected": "تم ربط إنستغرام.",
       "connectedAs": "تم ربط إنستغرام — @{username}.",
       "cancelled": "لا بأس — لم يتم ربط إنستغرام. يمكنك ربطه متى ما كنت جاهزاً.",
-      "taken": "حساب إنستغرام هذا مرتبط بنشاط آخر على Local Growth Engine. تواصل معنا إن كان حسابك.",
+      "taken": "حساب إنستغرام هذا مرتبط بنشاط آخر على AI Growth Engine. تواصل معنا إن كان حسابك.",
       "declined": "لم يمنحنا فيسبوك صلاحية الوصول إلى حسابك على إنستغرام. أعد الربط وأبقِ الصلاحيات مفعّلة.",
       "expired": "استغرق الأمر وقتاً أطول من اللازم. يرجى الربط مرة أخرى.",
       "error": "تعذّر ربط إنستغرام هذه المرة. حاول مرة أخرى.",
@@ -2180,7 +2189,15 @@
     "historyTitle": "مع الوقت",
     "historyHint": "أرقام يومية خلال {days} أيام.",
     "historySoon": "يمتلئ الرسم مع أخذ لقطة كل يوم (نحتاج يومين على الأقل).",
-    "interactions": "الإعجابات + التعليقات"
+    "interactions": "الإعجابات + التعليقات",
+    "whatWorks": {
+      "title": "ما الذي ينجح أكثر",
+      "hint": "متوسط الإعجابات والتعليقات لكل منشور من آخر {count} منشورات. الأفضل أولاً.",
+      "types": "أنواع المنشورات",
+      "typeNote": "عدد المنشورات: {count} · {share}٪ مما تنشرونه",
+      "days": "أيام الأسبوع",
+      "dayNote": "عدد المنشورات: {count}"
+    }
   },
   "methods": {
     "title": "أساليب التسويق",

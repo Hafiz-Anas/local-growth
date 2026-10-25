@@ -3,7 +3,8 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { FEATURE_KEYS } from "../config/features";
-import { MAX_PHONE_TABS, ROUTE_FEATURES, USER_NAV, type NavItem } from "../config/navigation";
+import { SHOW_STATISTICS } from "../config/insights";
+import { MAX_PHONE_TABS, ROUTE_FEATURES, USER_NAV, type NavItem, type NavPage } from "../config/navigation";
 import { PLAN_IDS, PLAN_PRESETS } from "../config/plans";
 import { activePage, activeSection, isActiveItem, splitForPhone } from "../lib/navigation";
 import { allOff, filterNav } from "../lib/permissions";
@@ -24,21 +25,23 @@ describe("navigation config: one obvious home per page", () => {
   });
 
   it("lists every page exactly once (no duplicates), and each has a route (no dead ends)", () => {
-    const pages = USER_NAV.flatMap((i) => i.pages ?? [i]).map((p) => p.href);
+    const pages = USER_NAV.flatMap<NavPage>((i) => i.pages ?? [i]).map((p) => p.href);
     assert.equal(new Set(pages).size, pages.length);
     for (const href of pages) assert.ok(existsSync(path.join("app", "(user)", href, "page.tsx")), `no page for ${href}`);
   });
 
   it("has every label in English and Arabic", () => {
     const get = (locale: string, key: string) => key.split(".").reduce<unknown>((o, k) => (o as Record<string, unknown>)?.[k], JSON.parse(readFileSync(path.join("locales", `${locale}.json`), "utf8")));
-    const keys = [...USER_NAV.map((i) => i.labelKey), ...USER_NAV.flatMap((i) => i.pages ?? []).map((p) => p.labelKey), "nav.main"];
+    const pages = USER_NAV.flatMap((i) => i.pages ?? []);
+    const keys = [...USER_NAV.map((i) => i.labelKey), ...pages.map((p) => p.labelKey), ...pages.flatMap((p) => (p.descriptionKey ? [p.descriptionKey] : [])), "nav.main"];
     for (const key of keys) for (const locale of ["en", "ar"]) assert.equal(typeof get(locale, key), "string", `${locale}: ${key}`);
   });
 
-  it("groups recommendations, reports, statistics, post performance, post monitoring, methods and the posting experiment under Insights", () => {
+  it("orders Insights from \"how am I doing\" to \"what to do\" to the deeper tools, each tab with a description", () => {
     const insights = section(filterNav(USER_NAV, allOn()), "nav.insights")!;
-    assert.equal(insights.href, "/recommendations");
-    assert.deepEqual(insights.pages!.map((p) => p.href), ["/recommendations", "/reports", "/statistics", "/post-performance", "/post-monitoring", "/methods", "/experiment"]);
+    assert.equal(insights.href, "/post-performance");
+    assert.deepEqual(insights.pages!.map((p) => p.href), ["/post-performance", "/recommendations", "/reports", "/methods", "/post-monitoring", "/experiment"]);
+    for (const page of insights.pages!) assert.ok(page.descriptionKey, `no description for ${page.href}`);
     assert.deepEqual(section(filterNav(USER_NAV, allOn()), "nav.competitors")!.pages!.map((p) => p.href), ["/competitors", "/competitors/analysis"]);
     assert.equal(ROUTE_FEATURES["/competitors/analysis"], "competitors.analysis");
     assert.equal(ROUTE_FEATURES["/reports"], "reports");
@@ -46,11 +49,19 @@ describe("navigation config: one obvious home per page", () => {
   });
 });
 
+describe("Statistics tab switch (config/insights.ts)", () => {
+  it("keeps Statistics out of the navigation while it is turned off", () => {
+    const hrefs = USER_NAV.flatMap((i) => i.pages ?? []).map((p) => p.href);
+    assert.equal(hrefs.includes("/statistics"), SHOW_STATISTICS);
+    assert.equal("/statistics" in ROUTE_FEATURES, SHOW_STATISTICS);
+  });
+});
+
 describe("feature switches: hidden modules appear nowhere", () => {
   it("removes a hidden page from its section, and the section links to the first visible page", () => {
-    const insights = section(filterNav(USER_NAV, without("recommendations")), "nav.insights")!;
-    assert.equal(insights.href, "/reports");
-    assert.deepEqual(insights.pages!.map((p) => p.href), ["/reports", "/statistics", "/post-performance", "/post-monitoring", "/methods", "/experiment"]);
+    const insights = section(filterNav(USER_NAV, without("postInsights")), "nav.insights")!;
+    assert.equal(insights.href, "/recommendations");
+    assert.deepEqual(insights.pages!.map((p) => p.href), ["/recommendations", "/reports", "/methods", "/post-monitoring", "/experiment"]);
     // competitors.analysis off: Competitors keeps one page (no tabs).
     assert.deepEqual(section(filterNav(USER_NAV, without("competitors.analysis")), "nav.competitors")!.pages!.map((p) => p.href), ["/competitors"]);
   });

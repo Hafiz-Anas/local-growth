@@ -102,7 +102,7 @@ export function UserShell({
 
         <header className="sticky top-0 z-20 h-(--topbar-height) border-b border-border bg-background">
           <div className="mx-auto flex h-full max-w-(--content-max-width) items-center gap-3 px-4 md:px-8">
-            <Link href="/dashboard" className="md:hidden" aria-label="Local Growth Engine">
+            <Link href="/dashboard" className="md:hidden" aria-label="AI Growth Engine">
               <LogoMark className="size-7" />
             </Link>
             {/* The active Instagram account; tapping it switches between the logins remembered on this device. */}

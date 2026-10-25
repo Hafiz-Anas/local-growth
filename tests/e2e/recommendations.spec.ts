@@ -70,8 +70,11 @@ test.afterAll(async () => {
 });
 
 test("first analysis: 3–5 actions with rationale, confidence and post counts", async () => {
+  // Insights opens on Post performance; Recommendations is its second tab.
   await page.goto("/dashboard", { waitUntil: "networkidle" });
-  await page.getByRole("link", { name: "Recommendations" }).first().click();
+  await page.locator("aside").getByRole("link", { name: "Insights" }).click();
+  await page.waitForURL(/\/post-performance$/);
+  await page.getByTestId("section-tabs").getByRole("link", { name: "Recommendations" }).click();
   await expect(page).toHaveURL(/\/recommendations$/);
   await expect(page.getByText("No recommendations yet")).toBeVisible();
 

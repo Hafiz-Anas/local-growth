@@ -41,7 +41,7 @@ Set these under **Project → Settings → Environment Variables**, scoped to **
 | `DEMO_ACCOUNTS_ENABLED` | `false` |
 | `EMAIL_PROVIDER` | `resend` (real email). `console` only writes links to the function logs. |
 | `RESEND_API_KEY` | Resend API key with *Sending access* (Resend → API Keys). Mark it **Sensitive**. |
-| `EMAIL_FROM` | A sender on your verified domain, e.g. `Local Growth Engine <no-reply@your-domain>` (see *Email sending domain* below) |
+| `EMAIL_FROM` | A sender on your verified domain, e.g. `AI Growth Engine <no-reply@your-domain>` (see *Email sending domain* below) |
 | `INSTAGRAM_PROVIDER` | `meta` for real Instagram connections (`mock` = demo flow) |
 | `META_APP_ID` | Your Meta app ID |
 | `META_APP_SECRET` | Meta app secret (Meta for Developers → App settings → Basic) |

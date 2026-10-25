@@ -1,6 +1,6 @@
 {
   "common": {
-    "appName": "Local Growth Engine",
+    "appName": "AI Growth Engine",
     "from": "from",
     "company": "Raid Technologies",
     "save": "Save",
@@ -37,7 +37,7 @@
   "nav": {
     "competitors": "Competitors",
     "postGenerator": "Post Generator",
-    "experiment": "Posting experiment",
+    "experiment": "Best posting times",
     "engagement": "Engagement",
     "settings": "Settings",
     "overview": "Overview",
@@ -46,7 +46,7 @@
     "onboarding": "Onboarding",
     "assistant": "AI Assistant",
     "recommendations": "Recommendations",
-    "reports": "Reports",
+    "reports": "Weekly reports",
     "main": "Main",
     "home": "Home",
     "posts": "Posts",
@@ -55,9 +55,18 @@
     "competitorAccounts": "Accounts",
     "competitorAnalysis": "Analysis",
     "postPerformance": "Post performance",
-    "methods": "Methods",
+    "methods": "Marketing methods",
     "postMonitoring": "Post monitoring",
-    "statistics": "Statistics"
+    "statistics": "Statistics",
+    "tabHints": {
+      "postPerformance": "How your posts are doing",
+      "recommendations": "What to do next",
+      "reports": "Your week in numbers",
+      "methods": "Collabs, offers and ads",
+      "postMonitoring": "Track chosen posts",
+      "experiment": "When to post",
+      "statistics": "Your account over time"
+    }
   },
   "plans": {
     "starter": "Starter",
@@ -119,7 +128,7 @@
       "privacy": "Privacy",
       "terms": "Terms"
     },
-    "copyright": "© 2026 Local Growth Engine from Raid Technologies",
+    "copyright": "© 2026 AI Growth Engine from Raid Technologies",
     "info": {
       "contact": {
         "title": "Need an account?",
@@ -179,7 +188,7 @@
   "notFound": {
     "title": "Sorry, this page isn't available.",
     "body": "The link you followed may be broken, or the page may have been removed.",
-    "back": "Go back to Local Growth Engine."
+    "back": "Go back to AI Growth Engine."
   },
   "dashboard": {
     "title": "Dashboard",
@@ -394,7 +403,7 @@
     }
   },
   "experiment": {
-    "title": "Posting Experiment",
+    "title": "Best posting times",
     "question": "Is your posting strategy working?",
     "subtitle": "We rotate your posts across three time windows and compare reach against your usual baseline.",
     "live": "Live experiment",
@@ -1109,7 +1118,7 @@
       "dashboard": "Dashboard widgets",
       "competitors": "Competitor Insights",
       "postGenerator": "Post Generator",
-      "experiment": "Posting Experiment",
+      "experiment": "Best posting times",
       "engagement": "Engagement",
       "assistant": "AI Assistant",
       "recommendations": "Recommendations",
@@ -1363,7 +1372,7 @@
     }
   },
   "welcome": {
-    "title": "Welcome to Local Growth Engine, {name}!",
+    "title": "Welcome to AI Growth Engine, {name}!",
     "body": "Your brand profile is ready. Captions and replies will now follow your style.",
     "features": "Included in your plan",
     "connectTitle": "Connect Instagram to see your real numbers",
@@ -1949,7 +1958,7 @@
       "connected": "Instagram connected.",
       "connectedAs": "Instagram connected — @{username}.",
       "cancelled": "No problem — Instagram wasn't connected. You can connect it whenever you're ready.",
-      "taken": "This Instagram account is already connected to another business on Local Growth Engine. Contact us if it's yours.",
+      "taken": "This Instagram account is already connected to another business on AI Growth Engine. Contact us if it's yours.",
       "declined": "Facebook didn't give us access to your Instagram account. Connect again and keep the permissions switched on.",
       "expired": "That took a little too long. Please connect again.",
       "error": "We couldn't connect Instagram this time. Please try again.",
@@ -2180,7 +2189,15 @@
     "historyTitle": "Over time",
     "historyHint": "Daily numbers over {days} days.",
     "historySoon": "The chart fills in as we take a snapshot each day (two days are needed).",
-    "interactions": "Likes + comments"
+    "interactions": "Likes + comments",
+    "whatWorks": {
+      "title": "What works best",
+      "hint": "Average likes + comments per post, from your last {count} posts. Best first.",
+      "types": "Post types",
+      "typeNote": "Posts: {count} · {share}% of what you post",
+      "days": "Days of the week",
+      "dayNote": "Posts: {count}"
+    }
   },
   "methods": {
     "title": "Marketing methods",

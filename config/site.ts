@@ -1,5 +1,5 @@
 export const SITE = {
-  name: "Local Growth Engine",
+  name: "AI Growth Engine",
   company: "Raid Technologies",
   timeZone: "Asia/Kuwait",
   defaultLocale: "en",

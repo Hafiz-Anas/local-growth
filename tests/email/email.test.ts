@@ -37,7 +37,7 @@ const verify = {
 describe("email templates", () => {
   it("renders the verification email in English with HTML and a plain-text fallback", () => {
     const email = renderEmailVerification(verify, NOW);
-    assert.equal(email.subject, "Confirm your email for Local Growth Engine");
+    assert.equal(email.subject, "Confirm your email for AI Growth Engine");
     assert.match(email.html, /<html lang="en" dir="ltr">/);
     assert.match(email.html, /href="https:\/\/local-growth-five\.vercel\.app\/verify-email\?token=abc123"/);
     assert.match(email.html, /#0095f6/);
@@ -78,14 +78,14 @@ describe("ResendEmailService", () => {
   it("sends one message per email with from, to, subject, html and text", async () => {
     const stub = stubClient();
     const log = captureLogger();
-    const service = new ResendEmailService({ client: stub.client, from: "Local Growth Engine <hello@raidtechs.com>", logger: log.logger });
+    const service = new ResendEmailService({ client: stub.client, from: "AI Growth Engine <hello@raidtechs.com>", logger: log.logger });
     await service.sendEmailVerification(verify);
     await service.sendPasswordReset({ ...verify, resetUrl: "http://localhost:3000/reset-password?token=x" });
     await service.sendOnboardingInvite({ to: "b@example.com", name: "Ali", locale: "ar", businessName: "Al-bait", loginUrl: "http://localhost:3000/login" });
 
     assert.equal(stub.sent.length, 3);
     assert.deepEqual(stub.sent[0].to, ["owner@example.com"]);
-    assert.equal(stub.sent[0].from, "Local Growth Engine <hello@raidtechs.com>");
+    assert.equal(stub.sent[0].from, "AI Growth Engine <hello@raidtechs.com>");
     assert.ok(stub.sent[0].html.includes("verify-email?token=abc123"));
     assert.ok(stub.sent[0].text.length > 0);
     assert.match(stub.sent[2].html, /dir="rtl"/);

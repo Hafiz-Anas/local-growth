@@ -1,4 +1,4 @@
-import type { AccountStats, GrowthPoint, MetricComparison, PostFormat } from "@/lib/analysis/posts";
+import type { AccountStats, FormatShare, GroupStat, GrowthPoint, MetricComparison, PostFormat, Weekday } from "@/lib/analysis/posts";
 import type { Method, MethodRank, PromotedComparison } from "@/lib/analysis/methods";
 import type { MetricVsAverage, RecentSummary, SeriesPoint } from "@/lib/analysis/post-performance";
 import type { CompetitorInsight, PostInsight } from "@/lib/services/text/analysis";
@@ -95,6 +95,8 @@ export interface PostPerformanceDto {
   summary: RecentSummary;
   /** Media for the rows (image, link). */
   media: Record<string, { mediaUrl: string | null; permalink: string | null }>;
+  /** "What works best": post types and weekdays by average interactions, over the stored posts; null without posts. */
+  whatWorks: { posts: number; mix: FormatShare[]; days: Array<GroupStat<Weekday>> } | null;
 }
 
 export interface PostDetailDto {

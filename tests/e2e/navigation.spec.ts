@@ -32,6 +32,7 @@ const sidebar = (p: Page) => p.locator("aside");
 const sidebarLabels = (p: Page) => sidebar(p).locator("nav, ul").first().getByRole("link").allInnerTexts();
 const tabBar = (p: Page) => p.getByTestId("tab-bar");
 const sectionTabs = (p: Page) => p.getByTestId("section-tabs");
+const tabLabels = (p: Page) => sectionTabs(p).getByTestId("section-tab-label");
 
 let page: Page;
 
@@ -52,20 +53,29 @@ test("desktop: one sidebar entry per section; Insights holds its pages as tabs",
   // No section tabs on single-page sections.
   await expect(sectionTabs(page)).toHaveCount(0);
 
+  // From "how am I doing" to "what to do" to the deeper tools, each tab with a line under its title.
   await sidebar(page).getByRole("link", { name: "Insights" }).click();
-  await expect(page).toHaveURL(/\/recommendations$/);
-  await expect(sectionTabs(page).getByRole("link")).toHaveText(["Recommendations", "Reports", "Statistics", "Post performance", "Post monitoring", "Methods", "Posting experiment"]);
-  await expect(sectionTabs(page).getByRole("link", { name: "Recommendations" })).toHaveAttribute("aria-current", "page");
+  await expect(page).toHaveURL(/\/post-performance$/);
+  await expect(tabLabels(page)).toHaveText(["Post performance", "Recommendations", "Weekly reports", "Marketing methods", "Post monitoring", "Best posting times"]);
+  await expect(sectionTabs(page).getByRole("link", { name: "Post performance" })).toHaveAttribute("aria-current", "page");
+  await expect(sectionTabs(page).getByRole("link", { name: "Recommendations" })).toHaveAccessibleDescription("What to do next");
+  await expect(sectionTabs(page)).toContainText("When to post");
 
-  await sectionTabs(page).getByRole("link", { name: "Reports" }).click();
+  await sectionTabs(page).getByRole("link", { name: "Weekly reports" }).click();
   await expect(page).toHaveURL(/\/reports$/);
-  await expect(sectionTabs(page).getByRole("link", { name: "Reports" })).toHaveAttribute("aria-current", "page");
+  await expect(sectionTabs(page).getByRole("link", { name: "Weekly reports" })).toHaveAttribute("aria-current", "page");
   // The sidebar keeps Insights active on every page of the section.
   await expect(sidebar(page).getByRole("link", { name: "Insights" })).toHaveAttribute("aria-current", "page");
 
-  await sectionTabs(page).getByRole("link", { name: "Posting experiment" }).click();
+  await sectionTabs(page).getByRole("link", { name: "Best posting times" }).click();
   await expect(page).toHaveURL(/\/experiment$/);
+  await expect(page).toHaveTitle("Best posting times · AI Growth Engine");
   await expect(sidebar(page).getByRole("link", { name: "Insights" })).toHaveAttribute("aria-current", "page");
+
+  // Statistics is turned off (config/insights.ts): old links land on Post performance, never a 404.
+  await page.goto("/statistics");
+  await expect(page).toHaveURL(/\/post-performance$/);
+  await expect(page.getByTestId("what-works")).toBeVisible();
 
   await sidebar(page).getByRole("link", { name: "Posts" }).click();
   await expect(page).toHaveURL(/\/post-generator$/);
@@ -80,8 +90,8 @@ test("phone: five labelled tabs, active section, nothing behind the assistant ba
   await expect(tabBar(page).getByRole("link", { name: "Home" })).toHaveAttribute("aria-current", "page");
 
   await tabBar(page).getByRole("link", { name: "Insights" }).click();
-  await expect(page).toHaveURL(/\/recommendations$/);
-  await sectionTabs(page).getByRole("link", { name: "Reports" }).click();
+  await expect(page).toHaveURL(/\/post-performance$/);
+  await sectionTabs(page).getByRole("link", { name: "Weekly reports" }).click();
   await expect(page).toHaveURL(/\/reports$/);
   await expect(tabBar(page).getByRole("link", { name: "Insights" })).toHaveAttribute("aria-current", "page");
 
@@ -96,7 +106,7 @@ test("phone: five labelled tabs, active section, nothing behind the assistant ba
 test("Arabic, right to left: the sections and tabs are translated", async () => {
   await switchLanguage(page, "ar");
   await expect(tabBar(page).getByRole("link")).toHaveText(["الرئيسية", "المنشورات", "التفاعل", "التحليلات", "المنافسون"]);
-  await expect(sectionTabs(page).getByRole("link")).toHaveText(["التوصيات", "التقارير", "الإحصاءات", "أداء المنشورات", "مراقبة المنشورات", "الأساليب", "تجربة النشر"]);
+  await expect(tabLabels(page)).toHaveText(["أداء المنشورات", "التوصيات", "التقارير الأسبوعية", "أساليب التسويق", "مراقبة المنشورات", "أفضل أوقات النشر"]);
   await switchLanguage(page, "en");
   await page.setViewportSize({ width: 1366, height: 800 });
 });

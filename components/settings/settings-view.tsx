@@ -408,7 +408,7 @@ export function PreferencesCard() {
           <span className="text-body font-semibold">{t("settings.preferences.theme")}</span>
           <Segmented
             label={t("settings.preferences.theme")}
-            value={mounted ? normalizeTheme(theme) : "dark"}
+            value={mounted ? normalizeTheme(theme) : "light"}
             onChange={setTheme}
             options={[
               { value: "light", label: t("settings.preferences.light") },

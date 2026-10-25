@@ -17,8 +17,8 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  // Dark by default (see lib/theme-script.ts).
-  themeColor: "#000000",
+  // Light by default (see lib/theme-script.ts).
+  themeColor: "#ffffff",
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {

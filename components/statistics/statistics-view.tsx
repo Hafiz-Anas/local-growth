@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { BarChart3, CalendarRange, Eye, Heart, Plug, Users } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { AiExplanation, AnalysisFootnote, DemoBadge, MeasuredBadge, SignedPct } from "@/components/analysis/shared";
+import { AiExplanation, AnalysisFootnote, BarsCard, DemoBadge, MeasuredBadge, SignedPct } from "@/components/analysis/shared";
 import { ChipSelect } from "@/components/shared/chip-select";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatTile } from "@/components/shared/stat-tile";
@@ -245,30 +245,6 @@ function ActivityChart({ data }: { data: StatisticsDto }) {
         <Bar dataKey="interactions" fill="var(--lge-chart-line)" radius={[3, 3, 0, 0]} maxBarSize={28} isAnimationActive={false} />
       </BarChart>
     </ResponsiveContainer>
-  );
-}
-
-function BarsCard({ title, rows, testId, percent = false }: { title: string; rows: Array<{ key: string; label: string; value: number; note: string }>; testId: string; percent?: boolean }) {
-  const { locale } = useI18n();
-  const max = Math.max(1, ...rows.map((r) => r.value));
-  return (
-    <Card className="p-4">
-      <h2 className="mb-3 text-title font-bold">{title}</h2>
-      <ul className="space-y-2.5" data-testid={testId}>
-        {rows.map((r, i) => (
-          <li key={r.key} data-key={r.key}>
-            <div className="mb-1 flex items-baseline justify-between gap-2 text-body">
-              <span className={i === 0 && !percent ? "font-semibold" : undefined}>{r.label}</span>
-              <span className="tabular-nums">{percent ? `${formatNumber(r.value, locale)}%` : formatNumber(r.value, locale)}</span>
-            </div>
-            <div className="h-2 overflow-hidden rounded-pill bg-button-secondary">
-              <div className="h-full rounded-pill bg-[var(--lge-chart-line)]" style={{ width: `${(r.value / max) * 100}%` }} />
-            </div>
-            <p className="mt-0.5 text-caption text-muted">{r.note}</p>
-          </li>
-        ))}
-      </ul>
-    </Card>
   );
 }
 

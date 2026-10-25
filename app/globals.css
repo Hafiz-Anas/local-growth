@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /*
- * Local Growth Engine — design tokens.
+ * AI Growth Engine — design tokens.
  * Every color, radius, font size and layout dimension lives here.
  * Raw tokens are CSS variables on :root / .dark; the @theme block maps them to
  * Tailwind utilities (bg-background, text-muted, border-border, rounded-card …).
@@ -36,9 +36,10 @@
   --lge-blue: #0095f6;
   --lge-blue-hover: #1877f2;
   --lge-blue-soft: rgba(0, 149, 246, 0.1);
-  --lge-red: #ed4956;
-  --lge-green: #2fa84f;
-  --lge-amber: #e8a400;
+  /* Status colours are also used for small text: darker in light mode for 4.5:1 on white. */
+  --lge-red: #d92d3c;
+  --lge-green: #1a7f37;
+  --lge-amber: #a86200;
   --lge-ig-1: #f58529;
   --lge-ig-2: #dd2a7b;
   --lge-ig-3: #8134af;
@@ -80,7 +81,9 @@
   --lge-separator: #262626;
 
   --lge-blue-soft: rgba(0, 149, 246, 0.18);
+  --lge-red: #ed4956;
   --lge-green: #4cc56f;
+  --lge-amber: #e8a400;
 
   --lge-chart-grid: #262626;
   --lge-chart-alt: #737373;

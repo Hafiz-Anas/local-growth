@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { apiFetch, type ApiClientError } from "@/lib/api/client";
 import { useI18n } from "@/lib/i18n/provider";
-import { cn, intlLocale, toneFor } from "@/lib/utils";
+import { cn, formatNumber, intlLocale, toneFor } from "@/lib/utils";
 import type { AiTextState, AnalysisPostDto, MediaIcon } from "@/types";
 
 const ICONS: MediaIcon[] = ["coffee", "gift", "cake", "bag", "sparkles", "cup"];
@@ -153,4 +153,29 @@ export function SignedPct({ value, className }: { value: number | null; classNam
   if (value === null) return <span className={cn("text-muted", className)}>–</span>;
   const text = `${value > 0 ? "+" : value < 0 ? "−" : ""}${new Intl.NumberFormat(intlLocale(locale), { maximumFractionDigits: 1 }).format(Math.abs(value))}%`;
   return <span className={cn("font-semibold tabular-nums", value > 0 ? "text-success" : value < 0 ? "text-danger" : "text-muted", className)}>{text}</span>;
+}
+
+/** A titled card of horizontal bars, best first (Post performance's "What works best", Statistics). */
+export function BarsCard({ title, rows, testId, percent = false }: { title: string; rows: Array<{ key: string; label: string; value: number; note: string }>; testId: string; percent?: boolean }) {
+  const { locale } = useI18n();
+  const max = Math.max(1, ...rows.map((r) => r.value));
+  return (
+    <Card className="p-4">
+      <h2 className="mb-3 text-title font-bold">{title}</h2>
+      <ul className="space-y-2.5" data-testid={testId}>
+        {rows.map((r, i) => (
+          <li key={r.key} data-key={r.key}>
+            <div className="mb-1 flex items-baseline justify-between gap-2 text-body">
+              <span className={i === 0 && !percent ? "font-semibold" : undefined}>{r.label}</span>
+              <span className="tabular-nums">{percent ? `${formatNumber(r.value, locale)}%` : formatNumber(r.value, locale)}</span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-pill bg-button-secondary">
+              <div className="h-full rounded-pill bg-[var(--lge-chart-line)]" style={{ width: `${(r.value / max) * 100}%` }} />
+            </div>
+            <p className="mt-0.5 text-caption text-muted">{r.note}</p>
+          </li>
+        ))}
+      </ul>
+    </Card>
+  );
 }

@@ -1,3 +1,4 @@
+import { SHOW_STATISTICS } from "@/config/insights";
 import { db } from "@/lib/db";
 import { isFeatureEnabled } from "@/lib/permissions";
 import { getBrandProfile } from "@/lib/server/brand";
@@ -69,7 +70,7 @@ export const GET = handler(async (_request, context: RouteContext<"/api/admin/pr
     const ids = [...d.monitoring.active, ...d.monitoring.history].map((m) => m.id);
     d.monitorDetails = Object.fromEntries(await Promise.all(ids.map(async (id) => [id, await monitorDetail(businessId, id)] as const)));
   }
-  if (on("statistics")) d.statistics = Object.fromEntries(await Promise.all(STAT_RANGES.map(async (r) => [r, await getStatistics(businessId, r)] as const)));
+  if (SHOW_STATISTICS && on("statistics")) d.statistics = Object.fromEntries(await Promise.all(STAT_RANGES.map(async (r) => [r, await getStatistics(businessId, r)] as const)));
   if (on("settings.brandVoice")) d.brandVoice = await data.getBrandVoice(businessId);
   return ok(preview);
 });

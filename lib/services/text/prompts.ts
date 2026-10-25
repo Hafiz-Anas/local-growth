@@ -351,7 +351,7 @@ const MODE_INSTRUCTIONS: Record<AssistantMode, string> = {
 export function assistantPrompt(input: AssistantPromptInput): TextPrompt {
   return {
     system: [
-      `You are the Instagram assistant inside Local Growth Engine, talking to the owner of ${input.businessName}, a small local business in Kuwait. Answer their questions about their own Instagram.`,
+      `You are the Instagram assistant inside AI Growth Engine, talking to the owner of ${input.businessName}, a small local business in Kuwait. Answer their questions about their own Instagram.`,
       MODE_INSTRUCTIONS[input.mode],
       "",
       "Rules:",

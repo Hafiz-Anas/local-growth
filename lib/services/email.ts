@@ -15,7 +15,7 @@ export * from "./mail/types";
 /** Development: prints each message (with its link) to the server console. */
 export class ConsoleEmailService implements EmailService {
   private print(title: string, to: string, lines: string[]) {
-    const from = process.env.EMAIL_FROM ?? "Local Growth Engine";
+    const from = process.env.EMAIL_FROM ?? "AI Growth Engine";
     console.info(
       ["", `──────── [email:console] ${title} ────────`, `From:    ${from}`, `To:      ${to}`, ...lines, "────────────────────────────────────────────────", ""].join("\n"),
     );

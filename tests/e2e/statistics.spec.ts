@@ -1,5 +1,6 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
 import { Pool } from "pg";
+import { SHOW_STATISTICS } from "../../config/insights";
 import { startGeminiStub } from "./gemini-stub";
 
 /**
@@ -16,6 +17,7 @@ const ADMIN = { email: "admin@localgrowth.dev", password: "Admin@123" };
 const CRON_SECRET = process.env.CRON_SECRET ?? "e2e-cron";
 
 test.describe.configure({ mode: "serial" });
+test.skip(!SHOW_STATISTICS, "The Statistics tab is turned off (config/insights.ts); navigation.spec.ts checks the redirect.");
 
 let page: Page;
 let stub: Awaited<ReturnType<typeof startGeminiStub>>;

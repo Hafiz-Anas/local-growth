@@ -71,7 +71,7 @@ export function Sidebar({
         "transition-[width] duration-200 ease-out",
       )}
     >
-      <Link href={homeHref} className="relative mb-5 flex h-[73px] shrink-0 items-center px-3 pt-4" aria-label="Local Growth Engine">
+      <Link href={homeHref} className="relative mb-5 flex h-[73px] shrink-0 items-center px-3 pt-4" aria-label="AI Growth Engine">
         <LogoMark className={cn("absolute size-7", SHOW_WHEN_COLLAPSED, FADE)} />
         <Wordmark className={cn("text-[22px] whitespace-nowrap", SHOW_WHEN_EXPANDED, FADE)} />
       </Link>

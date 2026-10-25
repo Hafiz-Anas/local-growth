@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 
 /**
  * Placeholder product mark: a gradient rounded square holding a location pin
- * with a growth arrow — "local" + "growth". Original artwork, not Instagram's glyph.
+ * with a growth arrow. Original artwork, not Instagram's glyph.
  */
 export function LogoMark({ className }: { className?: string }) {
   const id = useId();
@@ -33,7 +33,7 @@ export function LogoMark({ className }: { className?: string }) {
 export function Wordmark({ className }: { className?: string }) {
   return (
     <span className={cn("text-[22px] leading-none font-bold tracking-[-0.02em]", className)}>
-      Local<span className="text-ig-gradient">Growth</span>
+      AI<span className="text-ig-gradient">Growth</span>
     </span>
   );
 }

@@ -23,7 +23,7 @@ export function AdminShell({ user: base, preferences, children }: { user: MenuUs
       <div className={CONTENT_INSET}>
         <header className="sticky top-0 z-20 h-(--topbar-height) border-b border-border bg-background">
           <div className="mx-auto flex h-full max-w-(--content-max-width) items-center gap-3 px-4 md:px-8">
-            <Link href="/admin" className="md:hidden" aria-label="Local Growth Engine">
+            <Link href="/admin" className="md:hidden" aria-label="AI Growth Engine">
               <LogoMark className="size-7" />
             </Link>
             <div className="flex min-w-0 items-center gap-2">

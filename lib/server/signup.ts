@@ -142,7 +142,7 @@ export const signupStore: SignupStore<SignupConnection> = {
             role: "USER",
             businessId: business.id,
             memberships: { create: { businessId: business.id } },
-            uiPreferences: { sidebarCollapsed: false, theme: "dark", language: pending.language },
+            uiPreferences: { sidebarCollapsed: false, language: pending.language },
           },
           select: { id: true },
         });

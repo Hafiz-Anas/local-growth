@@ -46,8 +46,8 @@ export const handleSchema = z
 
 export const uiPreferencesSchema = z.object({
   sidebarCollapsed: z.boolean().default(false),
-  // "system" (the old default) and anything missing are read as dark.
-  theme: z.enum(["light", "dark", "system"]).default("dark").transform(normalizeTheme),
+  // Only a saved "dark" is dark; "system" (an old default) and anything missing are read as light.
+  theme: z.enum(["light", "dark", "system"]).default("light").transform(normalizeTheme),
   language: z.enum(["en", "ar"]).default("en"),
 });
 

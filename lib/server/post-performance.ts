@@ -2,7 +2,7 @@ import "server-only";
 import { db } from "@/lib/db";
 import type { Prisma } from "@/lib/generated/prisma/client";
 import { isMethod } from "@/lib/analysis/methods";
-import { fingerprint, type AnalysisPost } from "@/lib/analysis/posts";
+import { accountStats, fingerprint, type AnalysisPost } from "@/lib/analysis/posts";
 import { postSeries, postVsAverage, recentSummary } from "@/lib/analysis/post-performance";
 import { getAIService } from "@/lib/services/ai";
 import { ANALYSIS_PROMPT_VERSION, postDataBlock, type PostInsight } from "@/lib/services/text/analysis";
@@ -27,11 +27,18 @@ const today = () => new Date().toISOString().slice(0, 10);
 
 export async function postPerformance(businessId: string): Promise<PostPerformanceDto> {
   const own = await ownPosts(businessId);
+  const stats = accountStats(own.posts, own.followers, own.timeZone);
   return {
     connected: own.connected,
     demo: own.demo,
     summary: recentSummary(own.posts, RECENT_POSTS),
     media: Object.fromEntries([...own.media].map(([id, m]) => [id, { mediaUrl: m.mediaUrl, permalink: m.permalink ?? null }])),
+    // Moved here from Statistics (config/insights.ts): best first.
+    whatWorks: stats && {
+      posts: stats.posts,
+      mix: [...stats.mix].sort((a, b) => b.avgInteractions - a.avgInteractions),
+      days: [...stats.byWeekday].sort((a, b) => b.avgInteractions - a.avgInteractions),
+    },
   };
 }
 

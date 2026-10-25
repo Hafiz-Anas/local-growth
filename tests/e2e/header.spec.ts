@@ -101,6 +101,6 @@ test("phone width: the connection status fits; Settings is in the menu, the sect
   await page.getByRole("menuitem", { name: "Settings" }).click();
   await page.waitForURL(/\/settings$/);
   await page.getByTestId("tab-bar").getByRole("link", { name: "Insights" }).click();
-  await page.waitForURL(/\/recommendations$/);
+  await page.waitForURL(/\/post-performance$/);
   await page.close();
 });

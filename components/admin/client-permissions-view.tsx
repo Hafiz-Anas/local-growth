@@ -30,6 +30,7 @@ import { ClientBrandCard, ClientOnboardingCard } from "./client-onboarding-card"
 import { DeleteBusinessDialog } from "./delete-business-dialog";
 import { IntegrationCard } from "./integration-card";
 import { LOGIN_HAS_SEVERAL_ACCOUNTS } from "@/config/accounts";
+import { SHOW_STATISTICS } from "@/config/insights";
 import { InstagramAccountsCard } from "./instagram-accounts-card";
 
 const itemKey = (key: FeatureKey) => `features.items.${key.replace(".", "_")}`;
@@ -194,7 +195,7 @@ export function ClientPermissionsView({ clientId }: { clientId: string }) {
             </div>
 
             <div className="mb-8 space-y-4">
-              {FEATURE_MODULES.map((module) => {
+              {FEATURE_MODULES.filter((module) => SHOW_STATISTICS || module.id !== "statistics").map((module) => {
                 const moduleOn = module.moduleKey ? perms[module.moduleKey] : true;
                 return (
                   <Card key={module.id}>

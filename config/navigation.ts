@@ -1,3 +1,4 @@
+import { SHOW_STATISTICS } from "@/config/insights";
 import type { FeatureKey } from "@/types";
 
 export type NavIcon =
@@ -20,6 +21,8 @@ export interface NavPage {
   href: string;
   /** Translation key under nav.* */
   labelKey: string;
+  /** Translation key of the one-line description shown under the tab title. */
+  descriptionKey?: string;
   /** When set, the page (and its route) only exist if this feature is ON. */
   feature?: FeatureKey;
 }
@@ -48,9 +51,8 @@ export const MAX_PHONE_TABS = 5;
 
 /**
  * The client app's sections — the single source for the sidebar, the phone tab bar, the profile
- * menu on phones and the tabs at the top of a section. To add a page (e.g. Statistics or Post
- * monitoring), add one entry to a section's `pages` (it becomes a tab there) or add a section.
- * Pages keep their own URLs, so links from notifications and emails don't change.
+ * menu on phones and the tabs at the top of a section. To add a page, add one entry to a section's
+ * `pages` (it becomes a tab there) or add a section. Pages keep their own URLs, so links from notifications and emails don't change.
  */
 export const USER_NAV: NavItem[] = [
   { href: "/dashboard", labelKey: "nav.home", icon: "home", pages: [{ href: "/dashboard", labelKey: "nav.home" }] },
@@ -67,17 +69,18 @@ export const USER_NAV: NavItem[] = [
     pages: [{ href: "/engagement", labelKey: "nav.replies", feature: "engagement" }],
   },
   {
-    href: "/recommendations",
+    // From "how am I doing" to "what to do" to the deeper tools.
+    href: "/post-performance",
     labelKey: "nav.insights",
     icon: "insights",
     pages: [
-      { href: "/recommendations", labelKey: "nav.recommendations", feature: "recommendations" },
-      { href: "/reports", labelKey: "nav.reports", feature: "reports" },
-      { href: "/statistics", labelKey: "nav.statistics", feature: "statistics" },
-      { href: "/post-performance", labelKey: "nav.postPerformance", feature: "postInsights" },
-      { href: "/post-monitoring", labelKey: "nav.postMonitoring", feature: "monitoring" },
-      { href: "/methods", labelKey: "nav.methods", feature: "methods" },
-      { href: "/experiment", labelKey: "nav.experiment", feature: "experiment" },
+      { href: "/post-performance", labelKey: "nav.postPerformance", descriptionKey: "nav.tabHints.postPerformance", feature: "postInsights" },
+      ...(SHOW_STATISTICS ? [{ href: "/statistics", labelKey: "nav.statistics", descriptionKey: "nav.tabHints.statistics", feature: "statistics" as const }] : []),
+      { href: "/recommendations", labelKey: "nav.recommendations", descriptionKey: "nav.tabHints.recommendations", feature: "recommendations" },
+      { href: "/reports", labelKey: "nav.reports", descriptionKey: "nav.tabHints.reports", feature: "reports" },
+      { href: "/methods", labelKey: "nav.methods", descriptionKey: "nav.tabHints.methods", feature: "methods" },
+      { href: "/post-monitoring", labelKey: "nav.postMonitoring", descriptionKey: "nav.tabHints.postMonitoring", feature: "monitoring" },
+      { href: "/experiment", labelKey: "nav.experiment", descriptionKey: "nav.tabHints.experiment", feature: "experiment" },
     ],
   },
   {
@@ -101,7 +104,7 @@ export const ADMIN_NAV: NavItem[] = [
 
 /** Feature required to open a user route. */
 export const ROUTE_FEATURES: Record<string, FeatureKey> = Object.fromEntries(
-  USER_NAV.flatMap((item) => item.pages ?? [item])
+  USER_NAV.flatMap<NavPage>((item) => item.pages ?? [item])
     .filter((page) => page.feature)
     .map((page) => [page.href, page.feature!]),
 );
