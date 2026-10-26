@@ -20,12 +20,23 @@ import { cn, formatNumber, initials, toneFor } from "@/lib/utils";
 import { notify } from "@/store/ui-store";
 import type { ReplyDraftDto, ReplySummaryDto } from "@/types";
 
+/** Which Engagement tab a reply belongs to: keyword replies, AI replies to comments or AI replies to DMs. */
+export type ReplyKind = "comment" | "dm" | "keyword";
+
+export function replyKind(reply: ReplyDraftDto): ReplyKind {
+  if (reply.keywordRule) return "keyword";
+  return reply.channel === "dm" ? "dm" : "comment";
+}
+
+const EMPTY_ICON = { comment: MessagesSquare, dm: Send, keyword: Zap } as const;
+
 /**
- * Engagement → the reply queue: "Waiting" (AI drafts and keyword replies to approve: tap the reply to
+ * Engagement → the reply queue of one tab (`kind`): "Waiting" (drafts to approve: tap the reply to
  * edit, Regenerate with a tone, Send or Dismiss; replies that can't be sent any more stay with a
  * warning until removed) and "Sent" (how each reply went out: as drafted, edited or written by hand).
+ * All tabs share one cached list; each shows only its own kind.
  */
-export function ReplyQueue() {
+export function ReplyQueue({ kind, connected = true }: { kind: ReplyKind; connected?: boolean }) {
   const { t, locale } = useI18n();
   const queryClient = useQueryClient();
   const replies = useReplies();
@@ -33,7 +44,7 @@ export function ReplyQueue() {
   const summary = useReplySummary();
   const sent = useSentReplies(tab === "sent");
 
-  const queue = replies.data ?? [];
+  const queue = (replies.data ?? []).filter((r) => replyKind(r) === kind);
   const waiting = queue.filter((r) => !r.blocked).length;
 
   // Optimistic removal from the queue, rolled back on error.
@@ -109,7 +120,12 @@ export function ReplyQueue() {
           ) : replies.isError ? (
             <ErrorState error={replies.error} onRetry={() => replies.refetch()} className="m-4" />
           ) : queue.length === 0 ? (
-            <EmptyState icon={MessagesSquare} title={t("engagement.queue.empty")} hint={t("engagement.queue.emptyHint")} className="py-14" />
+            <EmptyState
+              icon={EMPTY_ICON[kind]}
+              title={t(connected ? "engagement.queue.empty" : "engagement.queue.notConnected")}
+              hint={t(connected ? `engagement.queue.emptyHint.${kind}` : "engagement.queue.notConnectedHint")}
+              className="py-14"
+            />
           ) : (
             <ul className="divide-y divide-separator">
               {queue.map((reply) => (
@@ -128,7 +144,7 @@ export function ReplyQueue() {
         </TabsContent>
 
         <TabsContent value="sent">
-          <SentReplies summary={summary.data ?? null} sent={sent.data} loading={sent.isPending} error={sent.isError ? sent.error : null} onRetry={() => sent.refetch()} />
+          <SentReplies sent={sent.data?.filter((r) => replyKind(r) === kind)} loading={sent.isPending} error={sent.isError ? sent.error : null} onRetry={() => sent.refetch()} />
         </TabsContent>
       </Tabs>
     </Card>
@@ -354,74 +370,70 @@ const OUTCOME_STYLE = {
   manual: { variant: "neutral", icon: Pencil },
 } as const;
 
+/** How the AI drafts went out over the last days (as drafted, edited, written by hand): Reply settings. */
+export function ReplySummaryCard() {
+  const { t, locale } = useI18n();
+  const summary = useReplySummary();
+  if (!summary.data) return null;
+  const s = summary.data;
+  const total = s.ai.as_is + s.ai.edited + s.ai.manual;
+  const share = (n: number) => (total ? `${(n / total) * 100}%` : "0%");
+
+  return (
+    <Card className="p-4" data-testid="reply-summary">
+      <p className="text-caption font-semibold text-muted uppercase">{t("engagement.sent.period", { days: formatNumber(s.days, locale) })}</p>
+      {total ? (
+        <>
+          <p className="mt-1 text-title font-semibold">{t("engagement.sent.rate", { rate: formatNumber(s.asIsRate ?? 0, locale) })}</p>
+          <div className="mt-3 flex h-2 overflow-hidden rounded-pill bg-button-secondary" aria-hidden="true">
+            <span className="bg-success" style={{ width: share(s.ai.as_is) }} />
+            <span className="bg-primary" style={{ width: share(s.ai.edited) }} />
+            <span className="bg-muted" style={{ width: share(s.ai.manual) }} />
+          </div>
+          <ul className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 text-caption text-muted">
+            <li className="flex items-center gap-1.5">
+              <span className="size-2 rounded-full bg-success" aria-hidden="true" />
+              {t("engagement.sent.outcome.as_is")} · <span className="font-semibold text-foreground tabular-nums">{formatNumber(s.ai.as_is, locale)}</span>
+            </li>
+            <li className="flex items-center gap-1.5">
+              <span className="size-2 rounded-full bg-primary" aria-hidden="true" />
+              {t("engagement.sent.outcome.edited")} · <span className="font-semibold text-foreground tabular-nums">{formatNumber(s.ai.edited, locale)}</span>
+            </li>
+            <li className="flex items-center gap-1.5">
+              <span className="size-2 rounded-full bg-muted" aria-hidden="true" />
+              {t("engagement.sent.outcome.manual")} · <span className="font-semibold text-foreground tabular-nums">{formatNumber(s.ai.manual, locale)}</span>
+            </li>
+          </ul>
+        </>
+      ) : (
+        <p className="mt-1 text-body text-muted">{t("engagement.sent.noneYet")}</p>
+      )}
+      {s.keyword > 0 && <p className="mt-2 text-caption text-muted">{t("engagement.sent.keyword", { count: formatNumber(s.keyword, locale) })}</p>}
+    </Card>
+  );
+}
+
 function SentReplies({
-  summary,
   sent,
   loading,
   error,
   onRetry,
 }: {
-  summary: ReplySummaryDto | null;
   sent: ReplyDraftDto[] | undefined;
   loading: boolean;
   error: ApiClientError | null;
   onRetry: () => void;
 }) {
-  const { t, locale } = useI18n();
-  const total = summary ? summary.ai.as_is + summary.ai.edited + summary.ai.manual : 0;
-  const share = (n: number) => (total ? `${(n / total) * 100}%` : "0%");
-
+  const { t } = useI18n();
+  if (loading) return <SkeletonList rows={3} />;
+  if (error) return <ErrorState error={error} onRetry={onRetry} className="m-4" />;
+  if (!sent?.length) return <EmptyState icon={History} title={t("engagement.sent.empty")} hint={t("engagement.sent.emptyHint")} className="py-12" />;
   return (
-    <div>
-      {summary && (
-        <div className="border-b border-separator p-4" data-testid="reply-summary">
-          <p className="text-caption font-semibold text-muted uppercase">{t("engagement.sent.period", { days: formatNumber(summary.days, locale) })}</p>
-          {total ? (
-            <>
-              <p className="mt-1 text-title font-semibold">
-                {t("engagement.sent.rate", { rate: formatNumber(summary.asIsRate ?? 0, locale) })}
-              </p>
-              <div className="mt-3 flex h-2 overflow-hidden rounded-pill bg-button-secondary" aria-hidden="true">
-                <span className="bg-success" style={{ width: share(summary.ai.as_is) }} />
-                <span className="bg-primary" style={{ width: share(summary.ai.edited) }} />
-                <span className="bg-muted" style={{ width: share(summary.ai.manual) }} />
-              </div>
-              <ul className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 text-caption text-muted">
-                <li className="flex items-center gap-1.5">
-                  <span className="size-2 rounded-full bg-success" aria-hidden="true" />
-                  {t("engagement.sent.outcome.as_is")} · <span className="font-semibold text-foreground tabular-nums">{formatNumber(summary.ai.as_is, locale)}</span>
-                </li>
-                <li className="flex items-center gap-1.5">
-                  <span className="size-2 rounded-full bg-primary" aria-hidden="true" />
-                  {t("engagement.sent.outcome.edited")} · <span className="font-semibold text-foreground tabular-nums">{formatNumber(summary.ai.edited, locale)}</span>
-                </li>
-                <li className="flex items-center gap-1.5">
-                  <span className="size-2 rounded-full bg-muted" aria-hidden="true" />
-                  {t("engagement.sent.outcome.manual")} · <span className="font-semibold text-foreground tabular-nums">{formatNumber(summary.ai.manual, locale)}</span>
-                </li>
-              </ul>
-            </>
-          ) : (
-            <p className="mt-1 text-body text-muted">{t("engagement.sent.noneYet")}</p>
-          )}
-          {summary.keyword > 0 && <p className="mt-2 text-caption text-muted">{t("engagement.sent.keyword", { count: formatNumber(summary.keyword, locale) })}</p>}
-        </div>
-      )}
-
-      {loading ? (
-        <SkeletonList rows={3} />
-      ) : error ? (
-        <ErrorState error={error} onRetry={onRetry} className="m-4" />
-      ) : !sent?.length ? (
-        <EmptyState icon={History} title={t("engagement.sent.empty")} hint={t("engagement.sent.emptyHint")} className="py-12" />
-      ) : (
-        <ul className="divide-y divide-separator">
-          {sent.map((reply) => (
-            <SentReply key={reply.id} reply={reply} />
-          ))}
-        </ul>
-      )}
-    </div>
+    <ul className="divide-y divide-separator">
+      {sent.map((reply) => (
+        <SentReply key={reply.id} reply={reply} />
+      ))}
+    </ul>
   );
 }
 

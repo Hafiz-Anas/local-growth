@@ -63,10 +63,16 @@ export const USER_NAV: NavItem[] = [
     pages: [{ href: "/post-generator", labelKey: "nav.postGenerator", feature: "postGenerator" }],
   },
   {
+    // Comments first (most replies are to comments); "/engagement" itself redirects to the first visible tab.
     href: "/engagement",
     labelKey: "nav.engagement",
     icon: "engagement",
-    pages: [{ href: "/engagement", labelKey: "nav.replies", feature: "engagement" }],
+    pages: [
+      { href: "/engagement/comments", labelKey: "nav.commentReplies", descriptionKey: "nav.tabHints.commentReplies", feature: "engagement.aiReplies" },
+      { href: "/engagement/messages", labelKey: "nav.dmReplies", descriptionKey: "nav.tabHints.dmReplies", feature: "engagement.aiReplies" },
+      { href: "/engagement/keywords", labelKey: "nav.keywordReplies", descriptionKey: "nav.tabHints.keywordReplies", feature: "engagement.dmRules" },
+      { href: "/engagement/settings", labelKey: "nav.replySettings", descriptionKey: "nav.tabHints.replySettings", feature: "engagement.aiReplies" },
+    ],
   },
   {
     // From "how am I doing" to "what to do" to the deeper tools.

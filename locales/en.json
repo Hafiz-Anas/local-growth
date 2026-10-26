@@ -39,6 +39,10 @@
     "postGenerator": "Post Generator",
     "experiment": "Best posting times",
     "engagement": "Engagement",
+    "commentReplies": "Comment replies",
+    "dmReplies": "DM replies",
+    "keywordReplies": "Keyword replies",
+    "replySettings": "Reply settings",
     "settings": "Settings",
     "overview": "Overview",
     "clients": "Clients",
@@ -51,7 +55,6 @@
     "home": "Home",
     "posts": "Posts",
     "insights": "Insights",
-    "replies": "Replies",
     "competitorAccounts": "Accounts",
     "competitorAnalysis": "Analysis",
     "postPerformance": "Post performance",
@@ -65,7 +68,11 @@
       "methods": "Collabs, offers and ads",
       "postMonitoring": "Track chosen posts",
       "experiment": "When to post",
-      "statistics": "Your account over time"
+      "statistics": "Your account over time",
+      "commentReplies": "Answer comments on posts",
+      "dmReplies": "Answer your messages",
+      "keywordReplies": "Reply when words appear",
+      "replySettings": "Approval and AI results"
     }
   },
   "plans": {
@@ -451,17 +458,45 @@
     }
   },
   "engagement": {
-    "title": "Engagement",
-    "subtitle": "Comments, DMs and AI replies in one place.",
+    "status": {
+      "on": "On",
+      "off": "Off",
+      "paused": "Paused",
+      "connectFirst": "Connect your Instagram account in Settings to start.",
+      "reconnect": "Reconnect Instagram in Settings to start again."
+    },
+    "commentReplies": {
+      "title": "Comment replies",
+      "intro": "When someone comments on your posts, the AI writes a reply for you. It waits here until you tap Send.",
+      "statusOn": "New comments get an AI reply to check."
+    },
+    "dmReplies": {
+      "title": "DM replies",
+      "intro": "When a customer sends you a message on Instagram, the AI writes a reply right away. Send it within 24 hours: after that Instagram won't deliver it.",
+      "statusOn": "New messages get an AI reply to check."
+    },
+    "keywordReplies": {
+      "title": "Keyword replies",
+      "intro": "When a comment contains a word you choose, like “menu”, your saved reply is posted under it at once, with an optional private DM.",
+      "statusOn": "Active rules: {count}",
+      "statusNone": "Add your first rule below.",
+      "statusPaused": "All your rules are paused.",
+      "approvals": "Waiting for your approval"
+    },
+    "replySettings": {
+      "title": "Reply settings",
+      "intro": "Choose whether AI replies wait for you, see how often the AI gets it right, and set the tone it writes in.",
+      "toneTitle": "Tone of voice",
+      "toneHint": "AI replies use your brand voice: tone, words to use and words to avoid.",
+      "toneLink": "Edit brand voice"
+    },
     "stats": {
       "commentsToday": "Comments today",
       "dmsSent": "DMs sent",
-      "awaiting": "Awaiting approval",
-      "activeRules": "Active rules"
+      "awaiting": "Awaiting approval"
     },
     "rules": {
       "title": "Keyword replies",
-      "subtitle": "When a comment contains a keyword, reply under it at once and, if you like, send the customer a private DM.",
       "add": "New rule",
       "editTitle": "Edit keyword reply",
       "newTitle": "New keyword reply",
@@ -508,7 +543,9 @@
       "delete": "Delete rule",
       "deleteTitle": "Delete this rule?",
       "deleteBody": "It stops replying right away. Its replies still waiting for approval are dismissed.",
-      "emptyTitle": "No keyword replies yet"
+      "emptyTitle": "No keyword replies yet",
+      "listTitle": "Your rules",
+      "addFirst": "Create your first rule"
     },
     "queue": {
       "title": "AI reply queue",
@@ -519,7 +556,11 @@
       "aiDraft": "AI draft",
       "on": "on",
       "empty": "You're all caught up.",
-      "emptyHint": "New comments will appear here with a drafted reply.",
+      "emptyHint": {
+        "comment": "New comments on your posts will appear here with a reply ready. Nothing is posted until you tap Send.",
+        "dm": "New messages will appear here with a reply ready. Nothing is sent until you tap Send.",
+        "keyword": "Replies from rules that need your approval will appear here."
+      },
       "whatsapp": "WhatsApp link",
       "posted": "Reply posted",
       "dm": "Direct message",
@@ -553,10 +594,12 @@
         "too_long": "Too long for Instagram: shorten it to {max} characters or fewer.",
         "too_many_hashtags": "Instagram allows at most 4 hashtags in a comment reply.",
         "too_many_links": "Instagram allows at most 1 link in a comment reply."
-      }
+      },
+      "notConnected": "Instagram isn't connected",
+      "notConnectedHint": "Connect your account in Settings and new replies will appear here."
     },
     "controls": {
-      "title": "Reply settings",
+      "title": "Before a reply goes out",
       "manualApproval": "Manual approval",
       "manualApprovalHint": "Every AI reply waits for your approval before it's posted.",
       "autoReply": "Auto-reply",

@@ -1,11 +1,16 @@
-import type { Metadata } from "next";
-import { EngagementView } from "@/components/engagement/engagement-view";
+import { notFound, redirect } from "next/navigation";
+import { USER_NAV } from "@/config/navigation";
 import { requireFeature } from "@/lib/auth/server";
+import { filterNav } from "@/lib/permissions";
 
-export const metadata: Metadata = { title: "Engagement" };
-
+/**
+ * Engagement is split into tabs (Comment replies · DM replies · Keyword replies · Reply settings).
+ * Old links to /engagement (the dashboard tile, "replies waiting" notifications) land on the first
+ * tab the client has.
+ */
 export default async function EngagementPage() {
-  // Responds with the not-found page when the feature is OFF for this business.
-  await requireFeature("engagement");
-  return <EngagementView />;
+  const { permissions } = await requireFeature("engagement");
+  const section = filterNav(USER_NAV, permissions).find((item) => item.labelKey === "nav.engagement");
+  if (!section) notFound();
+  redirect(section.href);
 }

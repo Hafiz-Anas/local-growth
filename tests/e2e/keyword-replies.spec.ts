@@ -67,9 +67,11 @@ test.afterAll(async () => {
   await page.close();
 });
 
-test("lists the business's keyword replies", async () => {
-  await page.goto("/engagement");
+test("lists the business's keyword replies on their own tab, with what the tab does and its status", async () => {
+  await page.goto("/engagement/keywords");
   await expect(page.getByRole("heading", { name: "Keyword replies" })).toBeVisible();
+  await expect(page.getByText("When a comment contains a word you choose")).toBeVisible();
+  await expect(page.getByTestId("automation-status")).toContainText("Active rules:");
   await expect(page.getByTestId("keyword-rule").first()).toBeVisible();
 });
 
@@ -181,13 +183,18 @@ test("is removed (not grayed out) when the admin turns the feature off", async (
   try {
     expect((await setFeature(false)).ok()).toBe(true);
     await page.goto("/engagement");
-    await expect(page.getByRole("heading", { name: "Engagement" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Keyword replies" })).toHaveCount(0);
+    await expect(page).toHaveURL(/\/engagement\/comments$/);
+    await expect(page.getByTestId("section-tabs")).toBeVisible();
+    await expect(page.getByTestId("section-tabs").getByRole("link", { name: "Keyword replies" })).toHaveCount(0);
+    await expect(page.getByTestId("keyword-rule")).toHaveCount(0);
     expect((await page.request.get("/api/engagement/rules")).status()).toBe(404);
+    // The tab's own URL is gone too (not-found), never grayed out.
+    await page.goto("/engagement/keywords");
+    await expect(page.getByRole("heading", { name: "Keyword replies" })).toHaveCount(0);
   } finally {
     await setFeature(true);
     await adminPage.close();
   }
-  await page.reload();
+  await page.goto("/engagement/keywords");
   await expect(page.getByRole("heading", { name: "Keyword replies" })).toBeVisible();
 });

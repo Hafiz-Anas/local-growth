@@ -49,6 +49,25 @@ describe("navigation config: one obvious home per page", () => {
   });
 });
 
+describe("Engagement tabs", () => {
+  it("splits replies into four tabs, comments first, each with a description", () => {
+    const engagement = section(filterNav(USER_NAV, allOn()), "nav.engagement")!;
+    assert.equal(engagement.href, "/engagement/comments");
+    assert.deepEqual(engagement.pages!.map((p) => p.href), ["/engagement/comments", "/engagement/messages", "/engagement/keywords", "/engagement/settings"]);
+    for (const page of engagement.pages!) assert.ok(page.descriptionKey, `no description for ${page.href}`);
+    assert.equal(activeSection(filterNav(USER_NAV, allOn()), "/engagement/keywords", "/dashboard")?.labelKey, "nav.engagement");
+  });
+
+  it("hides the tabs of switched-off features; /engagement then opens the first one left", () => {
+    const keywordsOnly = section(filterNav(USER_NAV, without("engagement.aiReplies")), "nav.engagement")!;
+    assert.equal(keywordsOnly.href, "/engagement/keywords");
+    assert.deepEqual(keywordsOnly.pages!.map((p) => p.href), ["/engagement/keywords"]);
+    const aiOnly = section(filterNav(USER_NAV, without("engagement.dmRules")), "nav.engagement")!;
+    assert.deepEqual(aiOnly.pages!.map((p) => p.href), ["/engagement/comments", "/engagement/messages", "/engagement/settings"]);
+    assert.equal(section(filterNav(USER_NAV, without("engagement")), "nav.engagement"), undefined);
+  });
+});
+
 describe("Statistics tab switch (config/insights.ts)", () => {
   it("keeps Statistics out of the navigation while it is turned off", () => {
     const hrefs = USER_NAV.flatMap((i) => i.pages ?? []).map((p) => p.href);

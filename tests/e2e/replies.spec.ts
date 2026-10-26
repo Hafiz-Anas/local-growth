@@ -5,9 +5,10 @@ import { expect, test, type Browser, type Page } from "@playwright/test";
 import { startGeminiStub } from "./gemini-stub";
 
 /**
- * The reply queue (Engagement), end to end: tap to edit with a character counter and Instagram's
+ * The reply queue (Engagement → DM replies / Keyword replies), end to end: tap to edit with a character counter and Instagram's
  * limits, Send / Cancel, Regenerate with a tone, learning from edits (the next AI draft's prompt
- * carries the anonymised edit), the Sent tab (as-is / edited / written by you), the AI being
+ * carries the anonymised edit), the Sent tab (as-is / edited / written by you) and the as-is rate on
+ * Reply settings, the AI being
  * unavailable (only Regenerate is disabled), a deleted comment, Arabic RTL and phone width.
  * Uses the seeded "Dalla & Bean" business (mock Instagram) and the Gemini stub (see playwright.config.ts).
  */
@@ -67,7 +68,7 @@ test.afterAll(async () => {
 });
 
 test("a DM draft can be edited with a counter and Instagram's limit, cancelled, then sent", async () => {
-  await page.goto("/engagement");
+  await page.goto("/engagement/messages");
   simulateDm(`Hi, I'm Sara. Do you have oat milk? ${RUN}`, CUSTOMER);
   await waitForItem(`oat milk? ${RUN}`);
   const draft = item(`oat milk? ${RUN}`);
@@ -94,16 +95,22 @@ test("a DM draft can be edited with a counter and Instagram's limit, cancelled, 
   await expect(draft).toBeHidden();
 });
 
-test("the Sent tab shows how each reply went out and the as-is rate", async () => {
+test("the Sent tab shows how each reply went out; Reply settings shows the as-is rate", async () => {
   await page.getByTestId("replies-tab-sent").click();
   const sent = page.getByTestId("sent-reply").filter({ hasText: `oat milk? ${RUN}` });
   await expect(sent).toBeVisible();
   await expect(sent.getByTestId("sent-outcome")).toHaveText("Written by you");
   await sent.getByRole("button", { name: "See AI draft" }).click();
   await expect(sent).toContainText("AI draft: Thanks for your message!");
+  // A DM reply is only on the DM tab.
+  await page.goto("/engagement/comments");
+  await page.getByTestId("replies-tab-sent").click();
+  await expect(page.getByTestId("sent-reply").filter({ hasText: `oat milk? ${RUN}` })).toHaveCount(0);
+
+  await page.goto("/engagement/settings");
   await expect(page.getByTestId("reply-summary")).toContainText("Last 30 days");
   await expect(page.getByTestId("reply-summary")).toContainText("Written by you · ");
-  await page.getByTestId("replies-tab-waiting").click();
+  await page.goto("/engagement/messages");
 });
 
 test("the next AI draft learns from the edit, without the customer's details", async () => {
@@ -159,6 +166,8 @@ test("a reply to a deleted comment shows a clear warning and can be removed", as
   expect(created.ok()).toBe(true);
   const ruleId = (await created.json()).data.id as string;
   try {
+    // Keyword replies waiting for approval are on the Keyword replies tab.
+    await page.goto("/engagement/keywords");
     simulateComment(`${keyword}?`, `e2e_deleted_${RUN}`);
     await waitForItem(`${keyword}?`);
     const draft = item(`${keyword}?`);
@@ -184,6 +193,7 @@ test("a reply to a deleted comment shows a clear warning and can be removed", as
     await expect(item(`${keyword}?`)).toHaveCount(0);
   } finally {
     await page.request.delete(`/api/engagement/rules/${ruleId}`);
+    await page.goto("/engagement/messages");
   }
 });
 
@@ -201,7 +211,7 @@ test("works in Arabic (RTL) and fits a phone screen", async () => {
   await draft.getByRole("button", { name: "إلغاء" }).click();
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(0);
-  await page.getByTestId("replies-tab-sent").click();
+  await page.goto("/engagement/settings");
   await expect(page.getByTestId("reply-summary")).toContainText("آخر");
   await switchLanguage(page, "en");
   await page.setViewportSize({ width: 1280, height: 800 });

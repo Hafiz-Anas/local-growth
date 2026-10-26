@@ -62,9 +62,8 @@ export function KeywordReplies() {
     <Card>
       <CardHeader className="border-b border-separator">
         <div>
-          <CardTitle>{t("engagement.rules.title")}</CardTitle>
-          <CardDescription>{t("engagement.rules.subtitle")}</CardDescription>
-          <CardDescription className="mt-1">{t("engagement.rules.limits")}</CardDescription>
+          <CardTitle>{t("engagement.rules.listTitle")}</CardTitle>
+          <CardDescription>{t("engagement.rules.limits")}</CardDescription>
         </div>
         <Button size="sm" onClick={() => setDialog({ open: true, rule: null })}>
           <Plus className="size-4" />
@@ -77,7 +76,17 @@ export function KeywordReplies() {
       ) : rules.isError ? (
         <ErrorState error={rules.error} onRetry={() => rules.refetch()} className="m-4" />
       ) : list.length === 0 ? (
-        <EmptyState icon={Zap} title={t("engagement.rules.emptyTitle")} hint={t("engagement.rules.empty")} />
+        <EmptyState
+          icon={Zap}
+          title={t("engagement.rules.emptyTitle")}
+          hint={t("engagement.rules.empty")}
+          action={
+            <Button onClick={() => setDialog({ open: true, rule: null })}>
+              <Plus className="size-4" />
+              {t("engagement.rules.addFirst")}
+            </Button>
+          }
+        />
       ) : (
         <ul className="divide-y divide-separator" aria-label={t("engagement.rules.title")}>
           {list.map((rule) => (
