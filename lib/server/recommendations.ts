@@ -1,8 +1,10 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { Prisma, type RecommendationConfidence, type RecommendationStatus } from "@/lib/generated/prisma/client";
+import { computeGrowthSignals, type GrowthSignals } from "@/lib/analysis/growth-signals";
 import { isFeatureEnabled, permissionsFromRows } from "@/lib/permissions";
 import { getAIService } from "@/lib/services/ai";
+import { getContentCatalog } from "@/lib/services/catalog";
 import { formatFacts } from "@/lib/services/text/assistant";
 import type { TextFailureReason } from "@/lib/services/text/errors";
 import {
@@ -10,6 +12,7 @@ import {
   compareOutcome,
   outcomeBaseline,
   outcomeSummary,
+  signalLines,
   strategyInputHash,
   type OutcomeBaseline,
   type OutcomeResult,
@@ -20,16 +23,19 @@ import { aiPace } from "./ai-pace";
 import { gatherAssistantFacts } from "./assistant";
 import { ApiError, notFound } from "./http";
 import { notify } from "./notifications";
-import { hasShareability, shareabilityFacts } from "./shareability";
+import { ownPosts } from "./post-data";
+import { hasShareability, shareabilityFacts, shareabilityInputs } from "./shareability";
 
 /**
- * AI strategy recommendations per business: a weekly analysis (cron) or a
- * manual refresh reads the same data block as the assistant, skips the AI
- * when nothing changed (input hash), and stores 3–5 recommendations. The
- * owner's decisions feed the next analysis; Done ones get a 7-day outcome.
+ * Weekly tips (AI strategy recommendations) per business: a weekly analysis (cron) or a manual
+ * refresh computes the growth signals in code (shares, saves, comments, reach by post type and
+ * by posting time — lib/analysis/growth-signals.ts), adds them to the assistant's data block,
+ * skips the AI when nothing changed (input hash), and stores at most 3 tips ranked by expected
+ * impact. Every tip quotes the owner's own numbers (checked in code). The owner's decisions feed
+ * the next analysis; Done ones get a 7-day result.
  */
 
-/** Manual refreshes that reach the AI, per business per rolling 24 hours. */
+/** Manual refreshes that reach the AI, per business per rolling 24 hours (a safety net under the weekly set). */
 export const RECOMMENDATION_REFRESH_LIMIT = 3;
 const DAY = 24 * 60 * 60 * 1000;
 const WEEK = 7 * DAY;
@@ -49,6 +55,7 @@ const REC_SELECT = {
   rationaleAr: true,
   category: true,
   metric: true,
+  impact: true,
   confidence: true,
   basedOnPosts: true,
   status: true,
@@ -58,6 +65,8 @@ const REC_SELECT = {
 } as const;
 type RecRow = Prisma.RecommendationGetPayload<{ select: typeof REC_SELECT }>;
 
+const IMPACTS = ["high", "medium", "low"];
+
 function toDto(row: RecRow): RecommendationDto {
   return {
     id: row.id,
@@ -65,6 +74,7 @@ function toDto(row: RecRow): RecommendationDto {
     rationale: { en: row.rationaleEn, ar: row.rationaleAr },
     category: row.category,
     metric: row.metric as RecommendationDto["metric"],
+    impact: row.impact && IMPACTS.includes(row.impact) ? (row.impact as RecommendationDto["impact"]) : null,
     confidence: lower(row.confidence),
     basedOnPosts: row.basedOnPosts,
     status: lower(row.status),
@@ -79,6 +89,21 @@ async function manualRefreshesToday(businessId: string): Promise<number> {
   return db.recommendationRun.count({ where: { businessId, trigger: "MANUAL", unchanged: false, createdAt: { gte: new Date(Date.now() - DAY) } } });
 }
 
+/**
+ * At most one set of tips a week: after an analysis that produced tips, a manual refresh can't
+ * replace them until 7 days later (when the weekly cron is due too). Null when a refresh may run.
+ */
+function nextSetAt(analysisAt: Date | null | undefined): Date | null {
+  if (!analysisAt) return null;
+  const at = new Date(analysisAt.getTime() + WEEK);
+  return at.getTime() > Date.now() ? at : null;
+}
+
+async function lastAnalysisAt(businessId: string): Promise<Date | null> {
+  const run = await db.recommendationRun.findFirst({ where: { businessId, unchanged: false }, orderBy: { createdAt: "desc" }, select: { createdAt: true } });
+  return run?.createdAt ?? null;
+}
+
 export async function getRecommendations(businessId: string): Promise<RecommendationsDto> {
   await evaluateDueOutcomes(businessId);
   const [latest, analysis, used, decided, accepted] = await Promise.all([
@@ -88,12 +113,12 @@ export async function getRecommendations(businessId: string): Promise<Recommenda
     db.recommendation.findMany({ where: { businessId, status: { in: ["DONE", "DISMISSED"] } }, orderBy: { statusAt: "desc" }, take: 40, select: REC_SELECT }),
     db.recommendation.findMany({ where: { businessId, status: "ACCEPTED" }, orderBy: { statusAt: "desc" }, select: REC_SELECT }),
   ]);
-  const current = analysis ? await db.recommendation.findMany({ where: { runId: analysis.id, status: "NEW" }, orderBy: { createdAt: "asc" }, select: REC_SELECT }) : [];
+  const current = analysis ? await db.recommendation.findMany({ where: { runId: analysis.id, status: "NEW" }, orderBy: [{ rank: "asc" }, { createdAt: "asc" }], select: REC_SELECT }) : [];
   return {
     lastAnalysis: analysis ? { at: analysis.createdAt.toISOString(), trigger: lower(analysis.trigger) } : null,
     lastCheckedAt: latest?.createdAt.toISOString() ?? null,
     nextScheduledAt: latest ? new Date(latest.createdAt.getTime() + WEEK).toISOString() : null,
-    refresh: { used, limit: RECOMMENDATION_REFRESH_LIMIT },
+    refresh: { used, limit: RECOMMENDATION_REFRESH_LIMIT, nextSetAt: nextSetAt(analysis?.createdAt)?.toISOString() ?? null },
     current: current.map(toDto),
     inProgress: accepted.map(toDto),
     done: decided.filter((r) => r.status === "DONE").slice(0, 20).map(toDto),
@@ -101,7 +126,7 @@ export async function getRecommendations(businessId: string): Promise<Recommenda
   };
 }
 
-/** What the owner did with earlier recommendations (newest first), for the next analysis. */
+/** What the owner did with earlier tips (newest first), for the next analysis. */
 async function pastDecisions(businessId: string): Promise<StrategyDecision[]> {
   const rows = await db.recommendation.findMany({
     where: { businessId, status: { in: ["ACCEPTED", "DISMISSED", "DONE"] } },
@@ -117,16 +142,37 @@ async function pastDecisions(businessId: string): Promise<StrategyDecision[]> {
   }));
 }
 
-export type GenerateResult = { result: "generated" } | { result: "unchanged" } | { result: "no_data" } | { result: "unavailable"; reason: TextFailureReason };
+export type GenerateResult = { result: "generated" } | { result: "unchanged" } | { result: "no_data" } | { result: "not_enough_data" } | { result: "unavailable"; reason: TextFailureReason };
 
-/** One analysis. Unchanged input → a cheap "unchanged" run (no AI call); no Instagram data → nothing. */
+/** The growth signals of the business's recent posts; share signals only with "Most shared" on. */
+async function growthSignals(businessId: string, withShares: boolean): Promise<GrowthSignals> {
+  if (withShares) {
+    const { own, data } = await shareabilityInputs(businessId);
+    return computeGrowthSignals(own.posts, { timeZone: own.timeZone, shareability: data });
+  }
+  const own = await ownPosts(businessId);
+  return computeGrowthSignals(own.posts, { timeZone: own.timeZone });
+}
+
+const catalogProducts = (businessId: string, name: string) =>
+  [...new Set(getContentCatalog(businessId, name).categories.flatMap((c) => c.productNames))].filter((p) => p !== name).slice(0, 6);
+
+/**
+ * One analysis. No Instagram data → nothing; no growth signal yet (too few posts with numbers, or
+ * nothing stands out) → nothing, without asking the AI; unchanged input → a cheap "unchanged" run.
+ */
 export async function generateRecommendations(businessId: string, trigger: "SCHEDULED" | "MANUAL", options: { userId?: string; withCompetitors: boolean }): Promise<GenerateResult> {
   const facts = await gatherAssistantFacts(businessId, "strategy", { withCompetitors: options.withCompetitors });
   if (facts.instagram.status === "not_connected") return { result: "no_data" };
-  // "Most shared" on: its numbers and the cached findings, so at least one action can be share-based.
-  if (await hasShareability(businessId)) facts.shareability = await shareabilityFacts(businessId);
+  const withShares = await hasShareability(businessId);
+  const { signals, bestSlot } = await growthSignals(businessId, withShares);
+  if (!signals.length) return { result: "not_enough_data" };
+  // "Most shared" on: its numbers and the cached findings, as context for the share tip.
+  if (withShares) facts.shareability = await shareabilityFacts(businessId);
+  // Tips name a product: the onboarding products / menu, else the Post Generator's product catalogue (read only).
+  if (!facts.business.products.length) facts.business.products = catalogProducts(businessId, facts.business.name);
   const decisions = await pastDecisions(businessId);
-  const inputHash = strategyInputHash(facts, decisions);
+  const inputHash = strategyInputHash(facts, decisions, signals);
 
   const last = await db.recommendationRun.findFirst({ where: { businessId }, orderBy: { createdAt: "desc" }, select: { inputHash: true } });
   if (last?.inputHash === inputHash) {
@@ -137,7 +183,10 @@ export async function generateRecommendations(businessId: string, trigger: "SCHE
   const business = await db.business.findUniqueOrThrow({ where: { id: businessId }, select: { name: true, nameAr: true } });
   const answer = await getAIService().strategy({
     businessId,
-    prompt: { businessName: business.name, businessNameAr: business.nameAr, facts: formatFacts(facts, "strategy"), decisions },
+    prompt: { businessName: business.name, businessNameAr: business.nameAr, facts: [formatFacts(facts, "strategy"), ...signalLines(signals, bestSlot)].join("\n"), decisions },
+    signals,
+    bestSlot,
+    business: { type: facts.business.type, products: facts.business.products },
   });
   if (!answer.ok) return { result: "unavailable", reason: answer.reason };
 
@@ -148,7 +197,8 @@ export async function generateRecommendations(businessId: string, trigger: "SCHE
       inputHash,
       userId: options.userId ?? null,
       recommendations: {
-        create: answer.recommendations.map((r) => ({
+        // Already ranked by impact and cut to 3 (parseStrategy / mockStrategyTips).
+        create: answer.recommendations.map((r, rank) => ({
           businessId,
           actionEn: r.actionEn,
           actionAr: r.actionAr,
@@ -156,6 +206,8 @@ export async function generateRecommendations(businessId: string, trigger: "SCHE
           rationaleAr: r.rationaleAr,
           category: r.category,
           metric: r.metric,
+          impact: r.impact,
+          rank,
           confidence: CONFIDENCE_TO_DB[r.confidence],
           basedOnPosts: r.basedOnPosts,
         })),
@@ -167,13 +219,18 @@ export async function generateRecommendations(businessId: string, trigger: "SCHE
   return { result: "generated" };
 }
 
-/** POST /api/recommendations/refresh: a manual analysis within the daily limit. */
+/** POST /api/recommendations/refresh: a manual analysis, once this week's tips are due and within the daily limit. */
 export async function refreshRecommendations(businessId: string, userId: string, withCompetitors: boolean): Promise<"generated" | "unchanged"> {
+  const locked = nextSetAt(await lastAnalysisAt(businessId));
+  if (locked) {
+    throw new ApiError(409, "recommendations_week_set", "This week's tips are set; new ones come 7 days after the last analysis.", [{ path: "nextSetAt", message: locked.toISOString() }]);
+  }
   if ((await manualRefreshesToday(businessId)) >= RECOMMENDATION_REFRESH_LIMIT) {
     throw new ApiError(429, "recommendations_limit", `Recommendations can be refreshed ${RECOMMENDATION_REFRESH_LIMIT} times a day.`);
   }
   const outcome = await generateRecommendations(businessId, "MANUAL", { userId, withCompetitors });
   if (outcome.result === "no_data") throw new ApiError(409, "instagram_not_connected", "Connect Instagram to get recommendations.");
+  if (outcome.result === "not_enough_data") throw new ApiError(409, "recommendations_not_enough_data", "Tips need a few more posts with Instagram's numbers.");
   if (outcome.result === "unavailable") {
     throw new ApiError(503, "recommendations_unavailable", "The AI can't analyse your account right now.", [{ path: "reason", message: outcome.reason }]);
   }
@@ -189,7 +246,7 @@ const ALLOWED: Record<RecommendationStatus, RecommendationStatus[]> = {
   DONE: [],
 };
 
-/** Accept / dismiss / done (and undo back to new). Done stores the baseline for the 7-day comparison. */
+/** Done / dismiss (accept on older tips; undo back to new). Done stores the baseline for the 7-day comparison. */
 export async function setRecommendationStatus(businessId: string, id: string, status: RecommendationStatusKey, userId: string): Promise<RecommendationDto> {
   const row = await db.recommendation.findFirst({ where: { id, businessId }, select: { status: true } });
   if (!row) throw notFound("Recommendation");
@@ -200,8 +257,8 @@ export async function setRecommendationStatus(businessId: string, id: string, st
   const now = new Date();
   let baseline: OutcomeBaseline | undefined;
   if (next === "DONE") {
-    const facts = await gatherAssistantFacts(businessId, "post");
-    baseline = outcomeBaseline(facts.posts ?? [], facts.profile?.followers ?? null, now);
+    const own = await ownPosts(businessId);
+    baseline = outcomeBaseline(own.posts, own.followers, now);
   }
   const updated = await db.recommendation.update({
     where: { id },
@@ -211,19 +268,19 @@ export async function setRecommendationStatus(businessId: string, id: string, st
   return toDto(updated);
 }
 
-/** Done recommendations whose 7 days are over get their before/after comparison. */
+/** Done tips whose 7 days are over get their before/after comparison. */
 export async function evaluateDueOutcomes(businessId: string): Promise<number> {
   const due = await db.recommendation.findMany({
     where: { businessId, status: "DONE", outcome: { equals: Prisma.DbNull }, statusAt: { lte: new Date(Date.now() - OUTCOME_DAYS * DAY) } },
     select: { id: true, metric: true, baseline: true },
   });
   if (!due.length) return 0;
-  const facts = await gatherAssistantFacts(businessId, "post");
+  const own = await ownPosts(businessId);
   const now = new Date();
   for (const rec of due) {
     const baseline = rec.baseline as unknown as OutcomeBaseline | null;
     if (!baseline) continue;
-    const outcome = compareOutcome(rec.metric as OutcomeResult["metric"], baseline, facts.posts ?? [], facts.profile?.followers ?? null, now);
+    const outcome = compareOutcome(rec.metric as OutcomeResult["metric"], baseline, own.posts, own.followers, now);
     await db.recommendation.update({ where: { id: rec.id }, data: { outcome: outcome as unknown as Prisma.InputJsonObject, outcomeAt: now } });
   }
   return due.length;
@@ -281,7 +338,7 @@ export async function runRecommendationSweep(deadlineMs = 240_000): Promise<Swee
     if (outcome.result === "generated" || outcome.result === "unavailable") calls += 1;
     if (outcome.result === "generated") summary.generated += 1;
     else if (outcome.result === "unchanged") summary.unchanged += 1;
-    else if (outcome.result === "no_data") summary.noData += 1;
+    else if (outcome.result === "no_data" || outcome.result === "not_enough_data") summary.noData += 1;
     else {
       summary.failed += 1;
       // Out of budget or misconfigured: the rest would fail the same way. They stay due for the next run.

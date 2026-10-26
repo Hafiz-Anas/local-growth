@@ -28,7 +28,8 @@ export const FINDINGS_MAX_AGE_MS = DAY;
 /** After a failed attempt (AI unavailable), wait this long before trying again. */
 const FINDINGS_RETRY_MS = HOUR;
 
-async function inputs(businessId: string): Promise<{ own: OwnPosts; data: ShareabilityData }> {
+/** The own posts and their share numbers (also the weekly tips' share signals). */
+export async function shareabilityInputs(businessId: string): Promise<{ own: OwnPosts; data: ShareabilityData }> {
   const own = await ownPosts(businessId);
   const stored = new Map(
     (await db.postMethod.findMany({ where: { businessId, igMediaId: { in: own.posts.map((p) => p.id) } }, select: { igMediaId: true, method: true } })).map((m) => [m.igMediaId, m.method]),
@@ -64,7 +65,7 @@ function findingsState(data: ShareabilityData, hash: string, cached: Cached, now
 
 /** GET /api/shareability — "Most shared" and the cached findings (no AI call). */
 export async function getShareability(businessId: string): Promise<ShareabilityDto> {
-  const { own, data } = await inputs(businessId);
+  const { own, data } = await shareabilityInputs(businessId);
   const cached = await db.shareFindings.findUnique({ where: { businessId }, select: { inputHash: true, findings: true, generatedAt: true, failedAt: true } });
   const block = shareabilityDataBlock(data, { demo: own.demo });
   return {
@@ -98,7 +99,7 @@ export async function getShareability(businessId: string): Promise<ShareabilityD
  * daily cron calls it paced (aiPace). Both go through the AI's request gate and daily budget.
  */
 export async function explainShareability(businessId: string, { from }: { from: "page" | "cron" }): Promise<AiTextState<ShareFinding[]>> {
-  const { own, data } = await inputs(businessId);
+  const { own, data } = await shareabilityInputs(businessId);
   const block = shareabilityDataBlock(data, { demo: own.demo });
   const hash = hashOf(block);
   const cached = await db.shareFindings.findUnique({ where: { businessId }, select: { inputHash: true, findings: true, generatedAt: true, failedAt: true } });
@@ -136,7 +137,7 @@ export function shareRateFor(own: OwnPosts, igMediaId: string): PostShareRate | 
 
 /** The share numbers and cached findings as labelled lines for the weekly Recommendations (no AI call). */
 export async function shareabilityFacts(businessId: string): Promise<string[]> {
-  const { own, data } = await inputs(businessId);
+  const { own, data } = await shareabilityInputs(businessId);
   if (!own.connected) return [];
   const cached = await db.shareFindings.findUnique({ where: { businessId }, select: { inputHash: true, findings: true, generatedAt: true, failedAt: true } });
   return shareabilityFactLines(data, cached ? findingsOf(cached) : []);

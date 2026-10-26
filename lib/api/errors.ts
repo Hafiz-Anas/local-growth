@@ -24,6 +24,8 @@ const KNOWN = new Set([
   "assistant_limit",
   "recommendations_unavailable",
   "recommendations_limit",
+  "recommendations_not_enough_data",
+  "recommendations_week_set",
   "image_unavailable",
   "email_unavailable",
   "dm_window_closed",

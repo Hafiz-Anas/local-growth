@@ -41,6 +41,10 @@ export type ApiErrorCode =
   | "recommendations_unavailable"
   /** The business refreshed its recommendations the allowed number of times today. */
   | "recommendations_limit"
+  /** No growth signal yet: too few posts with Instagram's numbers, or nothing stands out (lib/analysis/growth-signals.ts). */
+  | "recommendations_not_enough_data"
+  /** This week's tips are set; details: [{ path: "nextSetAt", message: ISO date }] (one set per 7 days). */
+  | "recommendations_week_set"
   /** A reply Instagram would refuse; details: [{ path: "reason", message: ReplyProblem }] (lib/replies.ts). */
   | "reply_invalid"
   /** The comment was deleted, so the reply can't be posted (the draft is UNAVAILABLE). */

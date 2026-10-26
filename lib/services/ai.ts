@@ -8,7 +8,8 @@ import { parsePrefill, type PrefillSuggestion } from "./text/prefill";
 import { parseStyleGuide, type StyleGuideText } from "./text/style";
 import { parseSuggestedHandles } from "./text/suggest";
 import { parseReportSummary } from "./text/report";
-import { parseStrategy, type StrategyRecommendation } from "./text/strategy";
+import type { BestSlot, GrowthSignal } from "@/lib/analysis/growth-signals";
+import { mockStrategyTips, parseStrategy, type StrategyRecommendation, type TipBusiness } from "./text/strategy";
 import { TextGenerationError, sanitizeTextError, type TextFailureReason } from "./text/errors";
 import { TextRequestGate } from "./text/gate";
 import { DEFAULT_GEMINI_TEXT_MODEL, DEFAULT_GEMINI_TEXT_RPD, DEFAULT_GEMINI_TEXT_RPM, generateGeminiText, readGeminiTextConfig } from "./text/gemini";
@@ -179,7 +180,7 @@ export interface AIService {
    * when the model can't answer, the result says why and the UI shows that.
    */
   chat(request: AssistantRequest): Promise<AssistantAnswer>;
-  /** Weekly strategy recommendations. Like chat(), never made-up text: a failure says why. */
+  /** Weekly tips (at most 3, ranked by impact). Like chat(), never made-up text: a failure says why. */
   strategy(request: StrategyRequest): Promise<StrategyAnswer>;
   /** The weekly report's plain-language summary (EN + AR). A failure says why; the report then has numbers only. */
   weeklySummary(request: ReportSummaryRequest): Promise<ReportSummaryAnswer>;
@@ -239,6 +240,10 @@ export type ReportSummaryAnswer = { ok: true; en: string; ar: string } | { ok: f
 export interface StrategyRequest {
   businessId: string;
   prompt: StrategyPromptInput;
+  /** The growth signals the tips rest on (ranked; their lines are in prompt.facts). */
+  signals: GrowthSignal[];
+  bestSlot: BestSlot | null;
+  business: TipBusiness;
 }
 
 export type StrategyAnswer = { ok: true; recommendations: StrategyRecommendation[] } | { ok: false; reason: TextFailureReason };
@@ -477,9 +482,10 @@ export class MockAIService implements AIService {
     return { ok: false, reason: "not_configured" };
   }
 
-  /** MOCK: no model, so no recommendations (never template ones presented as analysis). */
-  async strategy(): Promise<StrategyAnswer> {
-    return { ok: false, reason: "not_configured" };
+  /** MOCK: tips written in code from the growth signals (lib/services/text/strategy.ts), every number from the data. */
+  async strategy(request: StrategyRequest): Promise<StrategyAnswer> {
+    const recommendations = mockStrategyTips(request.signals, request.bestSlot, request.business, request.prompt.decisions);
+    return recommendations.length ? { ok: true, recommendations } : { ok: false, reason: "bad_output" };
   }
 
   /** MOCK: no summary; the report is published with numbers only. */
@@ -799,7 +805,7 @@ export class GeminiAIService implements AIService {
       "ai.strategy",
       request.businessId,
       () => strategyPrompt(request.prompt),
-      (answer) => ({ ok: true, recommendations: parseStrategy(answer) }),
+      (answer) => ({ ok: true, recommendations: parseStrategy(answer, { data: request.prompt.facts, signals: request.signals }) }),
       (reason) => ({ ok: false, reason }),
     );
   }

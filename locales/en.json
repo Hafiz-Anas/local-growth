@@ -695,35 +695,47 @@
   },
   "recommendations": {
     "title": "Recommendations",
-    "subtitle": "Concrete actions for the week, based on your own Instagram data. Mark what you'll try and what you've done — we'll compare the results after 7 days.",
+    "subtitle": "Up to 3 tips a week from what Instagram rewards on your own posts: shares, saves, comments and reach. Mark a tip as done and we'll show what changed 7 days later.",
     "refresh": "Refresh",
     "analysing": "Analysing…",
-    "emptyTitle": "No recommendations yet",
-    "emptyHint": "We analyse your account every week. You can also analyse it now.",
-    "previewHint": "Recommendations and decisions are the business's own, so they aren't shown in preview.",
-    "disclaimer": "Recommendations are patterns in your past posts — correlation, not causation. Results also depend on things outside the data, like season and offers.",
+    "emptyTitle": "No tips yet",
+    "emptyHint": "We look at your account every week. You can also check it now.",
+    "previewHint": "Tips and decisions are the business's own, so they aren't shown in preview.",
+    "disclaimer": "Tips come from patterns in your past posts — correlation, not causation. Results also depend on things outside the data, like season and offers.",
+    "why": "Why:",
+    "tipNumber": "Tip {n}",
     "basedOn": "Based on {count} posts",
     "basedOnNone": "Not based on your posts",
+    "impact": {
+      "high": "High impact",
+      "medium": "Medium impact",
+      "low": "Low impact"
+    },
     "meta": {
       "analysed": "Analysed",
       "checked": "checked",
-      "next": "Next automatic analysis: {date}",
-      "refreshes": "{left} of {limit} refreshes left today"
+      "next": "Next automatic check: {date}",
+      "refreshes": "{left} of {limit} refreshes left today",
+      "nextSet": "New tips on {date}"
     },
     "notice": {
-      "unchanged": "Nothing has changed since the last analysis, so your recommendations stay the same.",
+      "unchanged": "Nothing has changed since the last check, so your tips stay the same.",
       "busy": "The AI is busy right now. Please try again in a minute.",
-      "today": "The AI has reached today's limit. Your recommendations will refresh tomorrow.",
-      "unavailable": "We couldn't analyse your account right now. Please try again in a little while — your recommendations haven't changed.",
+      "today": "The AI has reached today's limit. Your tips will refresh tomorrow.",
+      "unavailable": "We couldn't analyse your account right now. Please try again in a little while — your tips haven't changed.",
       "limit": "You can refresh {limit} times a day. Please try again tomorrow.",
-      "noData": "Connect Instagram first: recommendations are based on your own posts."
+      "noData": "Connect Instagram first: tips are based on your own posts.",
+      "notEnough": "We need a few more posts with Instagram's numbers (reach, saves, shares) before we can suggest tips. Keep posting — we check every week.",
+      "weekSet": "These are this week's tips. You'll get new ones on {date}."
     },
     "sections": {
-      "current": "This week",
-      "currentEmpty": "You've decided on all of this week's recommendations.",
-      "inProgress": "In progress",
-      "done": "Done",
-      "dismissed": "Dismissed"
+      "current": "This week's tips",
+      "currentEmpty": "You've worked through this week's tips. New ones come with the next weekly check.",
+      "inProgress": "Still to do",
+      "results": "Last week's results",
+      "resultsHint": "What changed in the 7 days after you marked a tip as done.",
+      "resultsEmpty": "Mark a tip as done and we'll show here what changed 7 days later.",
+      "dismissed": "Not for me"
     },
     "confidence": {
       "strong": "Strong",
@@ -733,21 +745,34 @@
     "categories": {
       "content": "Content",
       "timing": "Timing",
-      "format": "Format",
+      "format": "Post type",
       "engagement": "Engagement",
       "hashtags": "Hashtags",
       "competitors": "Competitors",
-      "shares": "Shares"
+      "shares": "Shares",
+      "saves": "Saves",
+      "comments": "Comments"
     },
     "metrics": {
-      "reach": "average reach per post",
-      "interactions": "average likes + comments per post",
-      "followers": "followers"
+      "reach": "your average reach per post",
+      "interactions": "your average likes + comments per post",
+      "followers": "your followers",
+      "shares": "your average shares per post",
+      "saves": "your average saves per post",
+      "comments": "your average comments per post"
+    },
+    "metricNames": {
+      "reach": "Reach",
+      "interactions": "Likes + comments",
+      "followers": "Followers",
+      "shares": "Shares",
+      "saves": "Saves",
+      "comments": "Comments"
     },
     "actions": {
       "accept": "Accept",
-      "done": "Mark done",
-      "dismiss": "Dismiss",
+      "done": "Mark as done",
+      "dismiss": "Not for me",
       "restore": "Restore"
     },
     "status": {
@@ -756,14 +781,17 @@
       "done": "Done {date}"
     },
     "outcome": {
-      "pending": "We'll compare your {metric} on {date}.",
-      "up": "{metric}: up {change}",
-      "down": "{metric}: down {change}",
+      "pending": "Results on {date}",
+      "pendingHint": "We'll compare {metric} in the 7 days after with the 14 days before.",
+      "up": "{metric} up {change}",
+      "down": "{metric} down {change}",
       "noChange": "{metric}: no clear change ({change})",
-      "notEnough": "{metric}: not enough new posts to compare yet",
-      "postsNote": "Based on {before} posts in the 14 days before and {after} in the 7 days after.",
-      "followersNote": "Followers when marked done vs. at the check.",
-      "correlation": "Other things changed too, so this shows correlation, not proof."
+      "notEnough": "Not enough data to tell yet",
+      "notEnoughHint": "We need at least 2 posts in the 14 days before and 2 in the 7 days after to compare, so we can't say what changed.",
+      "beforeAfter": "{before} before → {after} after, per post",
+      "followersBeforeAfter": "{before} when marked done → {after} at the check",
+      "postsNote": "{before} posts before, {after} after.",
+      "correlation": "Other things change too, so a result shows correlation, not proof."
     }
   },
   "reports": {
@@ -1259,6 +1287,8 @@
     "assistant_limit": "You've reached today's limit of questions for the assistant. Please try again tomorrow.",
     "recommendations_unavailable": "We couldn't analyse your account right now. Please try again in a little while.",
     "recommendations_limit": "You've refreshed your recommendations the maximum number of times today. Please try again tomorrow.",
+    "recommendations_not_enough_data": "We need a few more posts with Instagram's numbers before we can suggest tips.",
+    "recommendations_week_set": "You already have this week's tips. New ones come 7 days after the last analysis.",
     "comment_unavailable": "The comment was deleted on Instagram, so this reply can't be posted.",
     "regenerate_unavailable": "The AI can't write a new draft right now. You can still edit the reply and send it.",
     "regenerate_limit": "You've asked for a lot of new drafts in the last hour. Edit this one, or try again later.",

@@ -20,6 +20,10 @@ import { defineConfig } from "@playwright/test";
  * E2E_BROWSER_CHANNEL=chrome uses the installed Chrome instead of Playwright's Chromium;
  * E2E_SERVER_STDOUT=1 prints the server's log (e.g. the `[email:console]` lines).
  * Run it from the correctly-cased project path (see CLAUDE.md): Next starts in this directory.
+ *
+ * E2E_AI_PROVIDER=mock starts the app with the mock AI instead (no Gemini at all) for the specs that test
+ * demo mode. Run only those specs then (the others expect the Gemini stub):
+ *   E2E_AI_PROVIDER=mock npx playwright test recommendations-mock
  */
 const port = Number(process.env.E2E_PORT ?? 3001);
 const baseURL = `http://localhost:${port}`;
@@ -33,6 +37,7 @@ if (!/@(localhost|127\.0\.0\.1)[:/]/.test(databaseUrl) || !/\/[^/?]*(e2e|test)[^
 // The specs default to the same secret and stub port.
 const cronSecret = process.env.CRON_SECRET ?? "e2e-cron";
 const geminiStubPort = process.env.E2E_GEMINI_STUB_PORT ?? "4010";
+const aiProvider = process.env.E2E_AI_PROVIDER === "mock" ? "mock" : "gemini";
 
 /** The e2e server's environment. Next never overrides variables that are already set with .env values. */
 const E2E_SERVER_ENV: Record<string, string> = {
@@ -44,7 +49,7 @@ const E2E_SERVER_ENV: Record<string, string> = {
   STORAGE_PROVIDER: "local",
   META_APP_SECRET: "e2e-secret",
   CRON_SECRET: cronSecret,
-  AI_PROVIDER: "gemini",
+  AI_PROVIDER: aiProvider,
   GEMINI_API_KEY: "e2e-not-a-real-key",
   GEMINI_API_BASE: `http://127.0.0.1:${geminiStubPort}/v1beta`,
 };

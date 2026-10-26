@@ -3,7 +3,8 @@ import { createServer } from "node:http";
 /**
  * A local stand-in for Gemini's generateContent, for the e2e app started with
  * GEMINI_API_BASE=http://127.0.0.1:<port>/v1beta (see playwright.config.ts). Google is never called.
- * - recommendations requests (responseSchema with "recommendations") get 3 numbered recommendations;
+ * - weekly tips (responseSchema with "recommendations") get one numbered tip per growth signal in the data, weakest first,
+ *   quoting that signal's line (the app must rank them and keep 3), plus one with an invented number (must be dropped);
  * - weekly report summaries (responseSchema with "summary_en") get a summary without numbers, or —
  *   for the business named in `state.inventNumbersFor` — one with an invented number (must be rejected);
  * - onboarding pre-fill (responseSchema with "business_type") gets a bakery niche, tone 70, the first
@@ -42,23 +43,29 @@ interface RequestBody {
   generationConfig?: { responseSchema?: { properties?: Record<string, unknown> } };
 }
 
-/** The n-th analysis: three recommendations whose confidence the app must cap by the post counts. */
-export function stubRecommendations(n: number) {
-  const rec = (action: string, actionAr: string, posts: number, category: string, metric: string) => ({
-    action_en: `${action} (#${n})`,
-    action_ar: `${actionAr} (#${n})`,
-    rationale_en: `Your Thursday evening Reels averaged 120 likes and comments, based on ${posts} posts. This is a pattern, not proof.`,
-    rationale_ar: `حققت الريلز مساء الخميس متوسط ١٢٠ إعجاباً وتعليقاً، بناءً على ${posts} منشورات. هذا نمط وليس دليلاً.`,
-    category,
-    metric,
-    confidence: "strong",
-    based_on_posts: posts,
-  });
+/** "[s1] SHARES — Reels: 5% of … (+52%), over 5 posts." lines of the data block → id, kind and the numbers part. */
+export function stubSignals(system: string): Array<{ id: string; kind: string; numbers: string }> {
+  return [...system.matchAll(/^\[(s\d+)\] ([A-Z ]+) — (.+?), over \d+ posts?\./gm)].map((m) => ({ id: m[1], kind: m[2], numbers: m[3] }));
+}
+
+export const stubRun = (n: number) => "ABCDEFGHIJKLMNOPQRSTUVWXYZ"[(n - 1) % 26];
+
+/** The n-th analysis (#A, #B…): "Tip <kind> (#A)" per signal, weakest first, after one tip quoting an invented number. */
+export function stubRecommendations(n: number, system: string) {
+  const signals = stubSignals(system);
+  // A letter, not a number: the app drops tips with numbers that aren't in the data.
+  const run = stubRun(n);
   return {
     recommendations: [
-      rec("Post a Reel on Thursday evening", "انشروا ريل مساء الخميس", 12, "timing", "interactions"),
-      rec("Reply to every comment within an hour", "ردّوا على كل تعليق خلال ساعة", 3, "engagement", "reach"),
-      rec("Show the roasting process in a carousel", "اعرضوا مراحل التحميص في منشور متعدد الصور", 7, "format", "interactions"),
+      // First, on the strongest signal, so the number check (not the one-tip-per-signal rule) must drop it.
+      ...(signals[0] ? [{ signal_id: signals[0].id, action_en: `Invented tip (#${run})`, action_ar: `نصيحة مختلقة (#${run})`, why_en: "Reach jumped 987654%.", why_ar: "قفز الوصول ٩٨٧٦٥٤٪." }] : []),
+      ...[...signals].reverse().map((s) => ({
+        signal_id: s.id,
+        action_en: `Tip ${s.kind.toLowerCase()} (#${run})`,
+        action_ar: `نصيحة ${s.kind.toLowerCase()} (#${run})`,
+        why_en: `Your numbers: ${s.numbers}.`,
+        why_ar: `أرقامكم: ${s.numbers}.`,
+      })),
     ],
   };
 }
@@ -110,7 +117,7 @@ export async function startGeminiStub(port = STUB_PORT) {
       let text: string;
       if (kind === "strategy") {
         state.analyses += 1;
-        text = JSON.stringify(stubRecommendations(state.analyses));
+        text = JSON.stringify(stubRecommendations(state.analyses, system));
       } else if (kind === "prefill") {
         const system = body.systemInstruction?.parts[0]?.text ?? "";
         const candidates = (system.match(/<hashtag_candidates>\n([^<]*)\n<\/hashtag_candidates>/)?.[1] ?? "").split(/\s+/).filter((t) => t.startsWith("#"));

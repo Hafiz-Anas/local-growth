@@ -143,13 +143,16 @@ test("invented numbers are rejected, and with the AI down the numbers still show
 test("the weekly Recommendations get the share numbers and findings", async () => {
   await page.goto("/post-performance");
   await expect(card().getByTestId("share-findings")).toBeVisible();
+  // A fresh analysis: earlier specs may have used today's refreshes or left the same input.
+  await pool.query(`DELETE FROM "RecommendationRun" WHERE "businessId" = $1`, [businessId]);
   const res = await page.request.post("/api/recommendations/refresh");
   expect(res.ok()).toBe(true);
   const system = calls("strategy").at(-1)!.system;
   expect(system).toContain("## Shareability");
   expect(system).toMatch(/Account average: [\d.]+%/);
   expect(system).toContain("Findings (written from these numbers):");
-  expect(system).toContain('make at least one action share-based (category "shares")');
+  expect(system).toContain("## Growth signals");
+  expect(system).toContain("Instagram rewards posts people send to friends (shares)");
 });
 
 test("Arabic, right to left, on a phone", async () => {

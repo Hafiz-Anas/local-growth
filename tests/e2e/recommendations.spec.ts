@@ -1,23 +1,32 @@
 import { expect, test, type Browser, type Locator, type Page } from "@playwright/test";
+import { Pool } from "pg";
 import { startGeminiStub } from "./gemini-stub";
 
 /**
- * AI strategy recommendations, end to end (see playwright.config.ts for how to run): first
- * analysis, the "unchanged" cache, accept / dismiss / done with the outcome note, past decisions
- * fed into the next analysis, "AI unavailable" without changing anything, the daily refresh
- * limit, Arabic (RTL), the weekly cron and the admin feature toggle. The app must run with
- * AI_PROVIDER=gemini, GEMINI_API_BASE at the Gemini stub and CRON_SECRET (default "e2e-cron").
- * Uses the seeded "Mathanet Baity" demo business, which must have no analysis yet (fresh seed).
+ * Weekly tips with the AI, end to end (see playwright.config.ts for how to run): the first analysis
+ * (the growth signals in the prompt, the model's tips ranked by impact and cut to 3, a tip with an
+ * invented number dropped), one set of tips a week (Refresh locked until 7 days later — the tests
+ * move the analyses back a week in the database to get past it), the "unchanged" cache, Mark as
+ * done / Not for me with "Last week's results", past decisions fed into the next analysis, "AI
+ * unavailable" without changing anything, Arabic (RTL), the weekly cron and the admin feature toggle.
+ * The app must run with AI_PROVIDER=gemini, GEMINI_API_BASE at the Gemini stub and CRON_SECRET
+ * (default "e2e-cron").
+ * Uses the seeded "Mathanet Baity" demo business; clears every business's tips first (DATABASE_URL).
+ * The demo mode (mock AI) has its own spec: recommendations-mock.spec.ts.
  */
+
+test.skip(process.env.E2E_AI_PROVIDER === "mock", "Needs the Gemini stub (the default e2e AI provider).");
 
 const USER = { email: "user@mathanetbaity.dev", password: "User@123" };
 const ADMIN = { email: "admin@localgrowth.dev", password: "Admin@123" };
 const CRON_SECRET = process.env.CRON_SECRET ?? "e2e-cron";
+const IMPACT_ORDER = ["high", "medium", "low"];
 
 test.describe.configure({ mode: "serial" });
 
 let stub: Awaited<ReturnType<typeof startGeminiStub>>;
 let page: Page;
+let pool: Pool;
 
 async function login(p: Page, account: { email: string; password: string }) {
   await p.goto("/login");
@@ -36,7 +45,8 @@ async function switchLanguage(p: Page, to: "en" | "ar") {
   await saved;
 }
 
-const card = (p: Page, action: string): Locator => p.getByTestId("recommendation").filter({ hasText: action });
+const tips = (p: Page): Locator => p.getByTestId("recommendation");
+const card = (p: Page, action: string): Locator => tips(p).filter({ has: p.locator("h3", { hasText: action }) });
 const strategyCalls = () => stub.calls.filter((c) => c.kind === "strategy").length;
 
 /** Clicks a decision button on a card and waits until it's saved. */
@@ -46,9 +56,9 @@ async function decide(p: Page, action: string, button: string) {
   expect((await saved).ok()).toBe(true);
 }
 
-/** Opens the collapsed "Dismissed" list (a <details>; clicking its summary would toggle it). */
+/** Opens the collapsed "Not for me" list (a <details>; clicking its summary would toggle it). */
 async function openDismissed(p: Page) {
-  await p.locator("details").filter({ hasText: "Dismissed (" }).evaluate((d) => ((d as HTMLDetailsElement).open = true));
+  await p.locator("details").filter({ hasText: "Not for me (" }).evaluate((d) => ((d as HTMLDetailsElement).open = true));
 }
 
 async function refresh(p: Page) {
@@ -57,7 +67,24 @@ async function refresh(p: Page) {
   return done;
 }
 
+/** Moves Mathanet's analyses back 8 days, as if this week's tips were from last week (Refresh opens again). */
+async function nextWeek() {
+  await pool.query(
+    `UPDATE "RecommendationRun" SET "createdAt" = "createdAt" - interval '8 days'
+     WHERE "businessId" = (SELECT "id" FROM "Business" WHERE "instagramHandle" = 'mathanet_baity')`,
+  );
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Refresh" })).toBeEnabled();
+}
+
+const actions = async (p: Page) => (await tips(p).locator("h3").allTextContents()).map((t) => t.trim());
+
 test.beforeAll(async ({ browser }: { browser: Browser }) => {
+  const url = process.env.DATABASE_URL ?? "";
+  if (!/@(localhost|127\.0\.0\.1)[:/]/.test(url)) throw new Error("Set DATABASE_URL to the local e2e database.");
+  pool = new Pool({ connectionString: url });
+  // Every business starts without tips, so the first analysis and the weekly cron are due.
+  await pool.query(`DELETE FROM "RecommendationRun"`);
   stub = await startGeminiStub();
   page = await browser.newPage();
   await login(page, USER);
@@ -67,76 +94,101 @@ test.beforeAll(async ({ browser }: { browser: Browser }) => {
 test.afterAll(async () => {
   await page.close();
   await stub.close();
+  await pool.end();
 });
 
-test("first analysis: 3–5 actions with rationale, confidence and post counts", async () => {
+let first: string[] = [];
+
+test("first analysis: at most 3 tips ranked by impact, each with a Why line; invented numbers are dropped", async () => {
   // Insights opens on Post performance; Recommendations is its second tab.
   await page.goto("/dashboard", { waitUntil: "networkidle" });
   await page.locator("aside").getByRole("link", { name: "Insights" }).click();
   await page.waitForURL(/\/post-performance$/);
   await page.getByTestId("section-tabs").getByRole("link", { name: "Recommendations" }).click();
   await expect(page).toHaveURL(/\/recommendations$/);
-  await expect(page.getByText("No recommendations yet")).toBeVisible();
+  await expect(page.getByText("No tips yet")).toBeVisible();
 
   await refresh(page);
-  await expect(page.getByTestId("recommendation")).toHaveCount(3);
-  const reel = card(page, "Post a Reel on Thursday evening (#1)");
-  await expect(reel).toContainText("Strong");
-  await expect(reel).toContainText("Based on 12 posts");
-  await expect(reel).toContainText("This is a pattern, not proof.");
-  // The app caps the model's "strong" by the evidence: 3 posts → early signal, 7 → moderate.
-  await expect(card(page, "Reply to every comment within an hour (#1)")).toContainText("Early signal");
-  await expect(card(page, "Show the roasting process in a carousel (#1)")).toContainText("Moderate");
-  await expect(page.getByText("2 of 3 refreshes left today")).toBeVisible();
-
+  await expect(page.getByRole("heading", { name: "This week's tips" })).toBeVisible();
   const call = stub.calls.findLast((c) => c.kind === "strategy")!;
+  const signals = [...call.system.matchAll(/^\[(s\d+)\] /gm)].length;
+  expect(signals).toBeGreaterThan(0);
+  // The stub answers one tip per signal, weakest first, plus an invented one: the app ranks and keeps 3.
+  await expect(tips(page)).toHaveCount(Math.min(3, signals));
+  first = await actions(page);
+  expect(first.every((a) => /^Tip .+ \(#A\)$/.test(a))).toBe(true);
+  await expect(page.getByText("Invented tip")).toHaveCount(0);
+  const impacts = await tips(page).evaluateAll((cards) => cards.map((c) => c.getAttribute("data-impact")!));
+  expect([...impacts].sort((a, b) => IMPACT_ORDER.indexOf(a) - IMPACT_ORDER.indexOf(b))).toEqual(impacts);
+  await expect(tips(page).first().getByTestId("why")).toHaveText(/^Why: Your numbers: .*\d/);
+  await expect(tips(page).first().getByTestId("impact")).toHaveText(/impact$/);
+  // One set a week: Refresh is off until 7 days after this analysis.
+  await expect(page.getByTestId("next-set")).toHaveText(/^New tips on /);
+  await expect(page.getByRole("button", { name: "Refresh" })).toBeDisabled();
+
   expect(call.system).toContain("<business_data>");
+  expect(call.system).toContain("## Growth signals");
+  expect(call.system).toContain("Best time to post");
   expect(call.system).toContain("By weekday");
   expect(call.system).toContain("<past_decisions>\nNone yet.");
 });
 
-test("unchanged data isn't re-analysed", async () => {
+test("this week's tips can't be replaced by a manual refresh", async () => {
   const before = strategyCalls();
-  await refresh(page);
-  await expect(page.getByTestId("recommendations-notice")).toContainText("Nothing has changed since the last analysis");
+  const res = await page.request.post("/api/recommendations/refresh");
+  expect(res.status()).toBe(409);
+  const error = (await res.json()).error as { code: string; details: Array<{ path: string; message: string }> };
+  expect(error.code).toBe("recommendations_week_set");
+  expect(new Date(error.details.find((d) => d.path === "nextSetAt")!.message).getTime()).toBeGreaterThan(Date.now() + 6 * 24 * 60 * 60 * 1000);
   expect(strategyCalls()).toBe(before);
-  await expect(page.getByText("2 of 3 refreshes left today")).toBeVisible();
+  await page.reload();
+  await expect(tips(page)).toHaveCount(first.length);
+  expect(await actions(page)).toEqual(first);
 });
 
-test("accept, dismiss and done are saved with their date; done waits 7 days for its outcome", async () => {
-  await decide(page, "Post a Reel on Thursday evening (#1)", "Accept");
-  await decide(page, "Reply to every comment within an hour (#1)", "Dismiss");
-  await decide(page, "Show the roasting process in a carousel (#1)", "Mark done");
+test("a week later, unchanged data isn't re-analysed", async () => {
+  await nextWeek();
+  const before = strategyCalls();
+  await refresh(page);
+  await expect(page.getByTestId("recommendations-notice")).toContainText("Nothing has changed since the last check");
+  expect(strategyCalls()).toBe(before);
+  // An unchanged check doesn't start a new week: Refresh stays open.
+  await expect(page.getByRole("button", { name: "Refresh" })).toBeEnabled();
+});
+
+test("Mark as done and Not for me are saved; done tips wait 7 days in Last week's results", async () => {
+  test.skip(first.length < 2, "Needs two tips.");
+  await decide(page, first[0], "Mark as done");
+  await decide(page, first[1], "Not for me");
 
   await page.reload();
-  await expect(page.getByRole("heading", { name: "In progress" })).toBeVisible();
-  await expect(card(page, "Post a Reel on Thursday evening (#1)")).toHaveAttribute("data-status", "accepted");
-  await expect(card(page, "Post a Reel on Thursday evening (#1)")).toContainText(/Accepted (\w+ \d+|\d+ \w+)/);
-  const done = card(page, "Show the roasting process in a carousel (#1)");
-  await expect(done).toHaveAttribute("data-status", "done");
-  await expect(done.getByTestId("outcome-pending")).toContainText("We'll compare your average likes + comments per post on");
+  await expect(card(page, first[0])).toHaveCount(0);
+  const result = page.getByTestId("results").getByTestId("result").filter({ hasText: first[0] });
+  await expect(result).toHaveAttribute("data-verdict", "pending");
+  await expect(result.getByTestId("result-headline")).toHaveText(/^Results on /);
   await openDismissed(page);
-  await expect(card(page, "Reply to every comment within an hour (#1)")).toHaveAttribute("data-status", "dismissed");
+  await expect(card(page, first[1])).toHaveAttribute("data-status", "dismissed");
 });
 
-test("the next analysis gets the past decisions and doesn't repeat dismissed ideas", async () => {
+test("the next analysis gets the past decisions", async () => {
   const before = strategyCalls();
   await refresh(page);
-  await expect(card(page, "Post a Reel on Thursday evening (#2)")).toBeVisible();
+  await expect(tips(page).first().locator("h3")).toHaveText(/\(#B\)$/);
   expect(strategyCalls()).toBe(before + 1);
   const system = stub.calls.findLast((c) => c.kind === "strategy")!.system;
-  expect(system).toMatch(/- DISMISSED on \d{4}-\d{2}-\d{2}: Reply to every comment within an hour \(#1\)/);
-  expect(system).toMatch(/- ACCEPTED \(in progress\) on .*: Post a Reel on Thursday evening \(#1\)/);
-  expect(system).toMatch(/- DONE on .*: Show the roasting process in a carousel \(#1\)/);
+  expect(system).toMatch(new RegExp(`- DONE on \\d{4}-\\d{2}-\\d{2}: ${first[0].replace(/[()#]/g, "\\$&")}`));
+  expect(system).toMatch(new RegExp(`- DISMISSED on .*: ${first[1].replace(/[()#]/g, "\\$&")}`));
   expect(system).toContain("never repeat or rephrase a DISMISSED idea");
-  await expect(page.getByText("1 of 3 refreshes left today")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Refresh" })).toBeDisabled();
 });
 
 test("AI unavailable: a friendly message and nothing changes", async () => {
+  await nextWeek();
   // Restoring the dismissed one changes the decisions, so the next refresh would ask the AI.
   await openDismissed(page);
-  await decide(page, "Reply to every comment within an hour (#1)", "Restore");
-  await expect(page.getByText(/Dismissed \(/)).toHaveCount(0);
+  await decide(page, first[1], "Restore");
+  await expect(page.getByText(/Not for me \(/)).toHaveCount(0);
+  const shown = await actions(page);
   stub.state.fail = true;
   try {
     await refresh(page);
@@ -144,26 +196,26 @@ test("AI unavailable: a friendly message and nothing changes", async () => {
   } finally {
     stub.state.fail = false;
   }
-  await expect(card(page, "Post a Reel on Thursday evening (#2)")).toBeVisible();
-  await expect(page.getByText("1 of 3 refreshes left today")).toBeVisible();
+  expect(await actions(page)).toEqual(shown);
+  // A failed analysis doesn't use up the week: Refresh stays open.
+  await expect(page.getByRole("button", { name: "Refresh" })).toBeEnabled();
 });
 
-test("manual refreshes are limited per day", async () => {
+test("after a failed analysis the refresh works and locks the new week", async () => {
   await refresh(page);
-  await expect(card(page, "Post a Reel on Thursday evening (#3)")).toBeVisible();
-  await expect(page.getByText("0 of 3 refreshes left today")).toBeVisible();
+  await expect(tips(page).first().locator("h3")).toHaveText(/\(#C\)$/);
+  await expect(page.getByTestId("next-set")).toBeVisible();
   await expect(page.getByRole("button", { name: "Refresh" })).toBeDisabled();
-  const res = await page.request.post("/api/recommendations/refresh");
-  expect(res.status()).toBe(429);
-  expect((await res.json()).error.code).toBe("recommendations_limit");
 });
 
-test("shows the recommendations in Arabic, right to left", async () => {
+test("shows the tips in Arabic, right to left", async () => {
   await switchLanguage(page, "ar");
   await expect(page.getByRole("heading", { name: "التوصيات" })).toBeVisible();
-  const reel = card(page, "انشروا ريل مساء الخميس (#3)");
-  await expect(reel).toContainText(/مبنية على (12|١٢) منشور/);
-  await expect(reel.locator("h3")).toHaveAttribute("dir", "auto");
+  const tip = tips(page).first();
+  await expect(tip.locator("h3")).toHaveText(/^نصيحة .+ \(#C\)$/);
+  await expect(tip.locator("h3")).toHaveAttribute("dir", "auto");
+  await expect(tip.getByTestId("why")).toContainText("السبب:");
+  await expect(tip.getByTestId("impact")).toHaveText(/^تأثير /);
   await switchLanguage(page, "en");
 });
 
@@ -194,6 +246,7 @@ test("is removed (not grayed out) when the admin turns the feature off", async (
     await page.goto("/recommendations");
     await expect(page.getByText("Sorry, this page isn't available.")).toBeVisible();
     expect((await page.request.get("/api/recommendations")).status()).toBe(404);
+    expect((await page.request.patch("/api/recommendations/anything", { data: { status: "done" } })).status()).toBe(404);
   } finally {
     await setFeature(true);
     await adminPage.close();

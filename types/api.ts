@@ -516,8 +516,11 @@ export interface AssistantReplyDto {
 
 export type RecommendationStatusKey = "new" | "accepted" | "dismissed" | "done";
 
+/** What a tip's 7-day result is measured on (interactions / followers only on tips from before the growth signals). */
+export type RecommendationMetric = "reach" | "interactions" | "followers" | "shares" | "saves" | "comments";
+
 export interface RecommendationOutcomeDto {
-  metric: "reach" | "interactions" | "followers";
+  metric: RecommendationMetric;
   before: number | null;
   after: number | null;
   changePct: number | null;
@@ -532,7 +535,9 @@ export interface RecommendationDto {
   action: { en: string; ar: string };
   rationale: { en: string; ar: string };
   category: string;
-  metric: "reach" | "interactions" | "followers";
+  metric: RecommendationMetric;
+  /** Expected impact from the growth signal; null on tips from before the signals. */
+  impact: "high" | "medium" | "low" | null;
   confidence: "strong" | "moderate" | "early";
   basedOnPosts: number;
   status: RecommendationStatusKey;
@@ -550,8 +555,9 @@ export interface RecommendationsDto {
   /** Last time the data was checked (an unchanged check reuses the last analysis). */
   lastCheckedAt: string | null;
   nextScheduledAt: string | null;
-  refresh: { used: number; limit: number };
-  /** New recommendations from the latest analysis. */
+  /** `nextSetAt`: this week's tips are set; a manual refresh can run again from then (null = now). */
+  refresh: { used: number; limit: number; nextSetAt: string | null };
+  /** New tips from the latest analysis (at most 3), highest impact first. */
   current: RecommendationDto[];
   inProgress: RecommendationDto[];
   done: RecommendationDto[];

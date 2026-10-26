@@ -1217,9 +1217,10 @@ model RecommendationRun {
   @@index([businessId, createdAt])
 }
 
-/// A concrete action with its rationale (both languages), confidence and the posts it rests on.
-/// The owner marks it Accepted, Dismissed or Done; Done stores the metrics before (`baseline`)
-/// and, 7 days later, the comparison (`outcome`).
+/// A weekly tip: a concrete action with its "Why" line (both languages), the growth signal's
+/// expected impact, confidence and the posts it rests on. The owner marks it Done (or Dismissed;
+/// Accepted is from before the tips); Done stores the metrics before (`baseline`) and, 7 days
+/// later, the comparison (`outcome`).
 model Recommendation {
   id           String                   @id @default(cuid())
   businessId   String
@@ -1228,10 +1229,14 @@ model Recommendation {
   actionAr     String
   rationaleEn  String
   rationaleAr  String
-  /// content | timing | format | engagement | hashtags | competitors
+  /// content | timing | format | engagement | hashtags | competitors | shares | saves | comments
   category     String
-  /// The metric the outcome is measured on: reach | interactions | followers.
+  /// The metric the outcome is measured on: reach | shares | saves | comments (interactions | followers on older tips).
   metric       String
+  /// high | medium | low, from the growth signal (null on tips from before the signals).
+  impact       String?
+  /// Order within its analysis (0 = highest impact).
+  rank         Int                      @default(0)
   confidence   RecommendationConfidence
   basedOnPosts Int
   status       RecommendationStatus     @default(NEW)
