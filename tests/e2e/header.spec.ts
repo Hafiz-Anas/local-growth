@@ -42,6 +42,11 @@ test("the header shows the account, the Instagram connection, the bell and the a
   await expect(h.getByRole("button", { name: "Change language" })).toHaveCount(0);
   await expect(h.getByRole("button", { name: /Switch to (light|dark) mode/ })).toHaveCount(0);
   await expect(page.getByTestId("notification-bell")).toBeVisible();
+  // The sidebar's profile row (at its bottom) opens the same menu; the header keeps its own avatar.
+  await expect(page.getByTestId("profile-menu-trigger")).toHaveCount(1);
+  await page.getByTestId("sidebar").getByTestId("sidebar-profile").click();
+  await expect(page.getByRole("menu").getByTestId("menu-logout")).toBeVisible();
+  await page.keyboard.press("Escape");
 
   await openMenu(page);
   const menu = page.getByRole("menu");

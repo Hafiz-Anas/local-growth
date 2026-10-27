@@ -17,13 +17,19 @@ import { AdminShield, ProfileMenuTrigger, type MenuUser } from "./profile-menu";
 
 /*
  * Width/visibility is pure CSS so the saved state applies before paint:
- *  - <768px: hidden (bottom tab bar)
- *  - 768–1279px: icon rail (auto-collapsed)
+ *  - below `from` (768px admin, 1024px client): hidden (bottom tab bar)
+ *  - from there to 1279px: icon rail (auto-collapsed)
  *  - ≥1280px: expanded, unless <html data-sidebar="collapsed">
  */
 const SHOW_WHEN_EXPANDED = "opacity-0 xl:opacity-100 xl:sidebar-collapsed:opacity-0";
 const SHOW_WHEN_COLLAPSED = "opacity-100 xl:opacity-0 xl:sidebar-collapsed:opacity-100";
 const FADE = "transition-opacity duration-200 ease-out";
+const SHOW_FROM = { md: "md:flex", lg: "lg:flex" } as const;
+
+/** The client shell's main column and fixed bars start beside the sidebar (from 1024px, where the phone tab bar goes). */
+export const CLIENT_CONTENT_INSET =
+  "transition-[padding] duration-200 ease-out lg:ps-(--sidebar-width-collapsed) xl:ps-(--sidebar-width) xl:sidebar-collapsed:ps-(--sidebar-width-collapsed)";
+export const CLIENT_FIXED_START = "lg:start-(--sidebar-width-collapsed) xl:start-(--sidebar-width) xl:sidebar-collapsed:start-(--sidebar-width-collapsed)";
 
 /** Instagram web sidebar with collapse toggle and a profile row at the bottom. */
 export function Sidebar({
@@ -31,11 +37,14 @@ export function Sidebar({
   bottomItems = [],
   homeHref,
   user,
+  from = "md",
 }: {
   items: NavItem[];
   bottomItems?: NavItem[];
   homeHref: string;
   user: MenuUser;
+  /** Where the sidebar takes over from the phone tab bar. */
+  from?: keyof typeof SHOW_FROM;
 }) {
   const pathname = usePathname();
   const { t, dir } = useI18n();
@@ -51,7 +60,14 @@ export function Sidebar({
       <li key={item.labelKey}>
         <Tooltip label={label} side={tooltipSide} disabled={!iconOnly}>
           <Link href={item.href} aria-current={active ? "page" : undefined} aria-label={iconOnly ? label : undefined} className={ROW}>
-            <NavIcon name={item.icon} active={active} />
+            {item.icon === "ai" ? (
+              // The AI section gets the Instagram gradient.
+              <span className="grid size-6 shrink-0 place-items-center rounded-[7px] bg-ig-gradient text-white transition-transform group-hover:scale-105">
+                <NavIcon name="ai" active={active} className="size-4 group-hover:scale-100" />
+              </span>
+            ) : (
+              <NavIcon name={item.icon} active={active} />
+            )}
             <span className={cn("truncate text-title", active ? "font-bold" : "font-normal", SHOW_WHEN_EXPANDED, FADE)}>{label}</span>
           </Link>
         </Tooltip>
@@ -66,10 +82,12 @@ export function Sidebar({
   return (
     <aside
       className={cn(
-        "fixed inset-y-0 start-0 z-30 hidden flex-col overflow-x-hidden border-e border-border bg-background px-3 pt-2 pb-4 md:flex",
+        "fixed inset-y-0 start-0 z-30 hidden flex-col overflow-x-hidden border-e border-border bg-background px-3 pt-2 pb-4",
+        SHOW_FROM[from],
         "w-(--sidebar-width-collapsed) xl:w-(--sidebar-width) xl:sidebar-collapsed:w-(--sidebar-width-collapsed)",
         "transition-[width] duration-200 ease-out",
       )}
+      data-testid="sidebar"
     >
       <Link href={homeHref} className="relative mb-5 flex h-[73px] shrink-0 items-center px-3 pt-4" aria-label="AI Growth Engine">
         <LogoMark className={cn("absolute size-7", SHOW_WHEN_COLLAPSED, FADE)} />
@@ -119,6 +137,7 @@ const ProfileRowButton = forwardRef<HTMLButtonElement, ComponentPropsWithoutRef<
       type="button"
       {...props}
       aria-label={`${user.name} · ${user.secondary}`}
+      data-testid="sidebar-profile"
       className="flex w-full items-center gap-3 rounded-button px-2 py-2 text-start whitespace-nowrap transition-colors outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-primary/40"
     >
       <Avatar
@@ -136,7 +155,7 @@ const ProfileRowButton = forwardRef<HTMLButtonElement, ComponentPropsWithoutRef<
       />
       <span className={cn("min-w-0 flex-1 leading-4", SHOW_WHEN_EXPANDED, FADE)}>
         <span className="block truncate text-body font-semibold">{user.name}</span>
-        <span className="block truncate text-caption text-muted">{user.secondary}</span>
+        <bdi className="block truncate text-caption text-muted">{user.secondary}</bdi>
       </span>
     </button>
   );

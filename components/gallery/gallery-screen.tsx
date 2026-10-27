@@ -16,6 +16,7 @@ import { SMART_ALBUMS } from "./albums";
 import { PhotoImage } from "./photo-image";
 import { PhotoTile } from "./photo-tile";
 import { usePhotoActions } from "./use-photo-actions";
+import { CLIENT_FIXED_START } from "@/components/layout/sidebar";
 
 type Tab = "library" | "albums";
 
@@ -285,7 +286,7 @@ function SelectionBar({ ids, fromAlbumId, onDone, onSelectAll }: { ids: string[]
     if (done) onDone();
   };
   return (
-    <div className="fixed inset-x-0 bottom-[calc(52px+env(safe-area-inset-bottom))] z-30 px-3 pb-2 lg:start-[244px] lg:bottom-5 lg:flex lg:justify-center lg:px-8">
+    <div className={`fixed inset-x-0 bottom-[calc(52px+env(safe-area-inset-bottom))] z-30 px-3 pb-2 lg:bottom-5 lg:flex lg:justify-center lg:px-8 ${CLIENT_FIXED_START}`}>
       <div className="flex items-center gap-1 rounded-2xl border bg-ge-elevated/95 p-1.5 shadow-[0_8px_30px_-10px_rgb(0_0_0/0.3)] backdrop-blur-xl lg:w-[560px]">
         <button type="button" onClick={onSelectAll} className="min-w-0 flex-1 truncate rounded-xl px-2 text-start text-[13px] font-semibold">
           {none ? t("selectPhotos") : t("selectedCount", { n: num(ids.length, lang) })}

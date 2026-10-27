@@ -1,8 +1,9 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
 
 /**
- * Client navigation (config/navigation.ts), end to end: the design proposal's five sections in the
- * sidebar (Gallery, Engagement, AI, Insights, Competitors; Settings is in the profile menu only),
+ * Client navigation (config/navigation.ts), end to end: the five sections in the Instagram sidebar
+ * (Gallery, Engagement, AI, Insights, Competitors; Settings, the collapse button and the profile row
+ * with Log out at the bottom; the collapsed state survives a reload),
  * Insights with its pages as tabs, the old Home and Posts URLs landing on the Gallery, the phone tab
  * bar (icons with accessible labels, active section, no footer banner), Arabic RTL, and
  * per-client feature switches removing pages and sections everywhere.
@@ -33,7 +34,9 @@ async function switchLanguage(p: Page, to: "en" | "ar") {
 const SECTIONS = ["Gallery", "Engagement", "AI", "Insights", "Competitors"];
 
 const sidebar = (p: Page) => p.getByTestId("sidebar");
-const sidebarLabels = (p: Page) => sidebar(p).locator("nav").getByRole("link").allInnerTexts();
+// The sections list (the first one); Settings and the collapse button are in the list at the bottom.
+const sidebarLabels = (p: Page) => sidebar(p).locator("nav > ul").first().getByRole("link").allInnerTexts();
+const collapseButton = (p: Page) => sidebar(p).getByRole("button", { name: /^(Collapse|Expand|طي القائمة|توسيع القائمة)$/ });
 const tabBar = (p: Page) => p.getByTestId("tab-bar");
 // The phone tab bar shows icons only; each tab is named by its aria-label.
 const tabBarLabels = (p: Page) => tabBar(p).getByRole("link").evaluateAll((links) => links.map((l) => l.getAttribute("aria-label")));
@@ -56,8 +59,16 @@ test("desktop: one sidebar entry per section; Insights holds its pages as tabs",
   await page.goto("/gallery");
   await page.waitForLoadState("networkidle");
   expect((await sidebarLabels(page)).map((l) => l.trim())).toEqual(SECTIONS);
-  // Settings lives in the profile menu, not the sidebar.
-  await expect(sidebar(page).getByRole("link", { name: "Settings" })).toHaveCount(0);
+  // The AI section is the one with the Instagram gradient.
+  await expect(sidebar(page).getByRole("link", { name: "AI", exact: true }).locator(".bg-ig-gradient")).toHaveCount(1);
+  await expect(sidebar(page).locator(".bg-ig-gradient")).toHaveCount(1);
+  // At the bottom, as before the port: Settings, the collapse button and the profile row (with Log out).
+  const bottom = sidebar(page).locator("nav > ul").last();
+  await expect(bottom.getByRole("link", { name: "Settings" })).toBeVisible();
+  await expect(bottom.getByRole("button", { name: "Collapse" })).toBeVisible();
+  await sidebar(page).getByTestId("sidebar-profile").click();
+  await expect(page.getByRole("menu").getByTestId("menu-logout")).toContainText("Log out");
+  await page.keyboard.press("Escape");
   await expect(sidebar(page).getByRole("link", { name: "Gallery" })).toHaveAttribute("aria-current", "page");
   // No section tabs on single-page sections.
   await expect(sectionTabs(page)).toHaveCount(0);
@@ -96,6 +107,49 @@ test("desktop: one sidebar entry per section; Insights holds its pages as tabs",
   await page.goto("/post-generator");
   await expect(page).toHaveURL(/\/gallery$/);
   await expect(sidebar(page).getByRole("link", { name: "Gallery" })).toHaveAttribute("aria-current", "page");
+});
+
+test("desktop: the sidebar collapses to icons and expands again; the choice survives a reload, also in Arabic", async () => {
+  await page.goto("/gallery");
+  await page.waitForLoadState("networkidle");
+  const width = async () => (await sidebar(page).boundingBox())!.width;
+  expect(await width()).toBe(244);
+  await collapseButton(page).click();
+  await expect(page.locator("html")).toHaveAttribute("data-sidebar", "collapsed");
+  await expect.poll(width).toBe(72);
+  // The labels fade out; the sections, Settings and the profile row stay as icons.
+  await expect(sidebar(page).getByRole("link", { name: "Engagement" }).getByText("Engagement")).toHaveCSS("opacity", "0");
+  await expect(sidebar(page).getByTestId("sidebar-profile")).toBeVisible();
+  // The main column follows the sidebar.
+  expect((await page.locator("main").boundingBox())!.x).toBeLessThan(400);
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-sidebar", "collapsed");
+  expect(await width()).toBe(72);
+  await expect(collapseButton(page)).toHaveAccessibleName("Expand");
+
+  // Arabic: the sidebar sits on the right, with the same button and the saved state.
+  await switchLanguage(page, "ar");
+  await expect.poll(async () => (await sidebar(page).boundingBox())!.x).toBeGreaterThan(1000);
+  await collapseButton(page).click();
+  await expect(page.locator("html")).not.toHaveAttribute("data-sidebar", "collapsed");
+  await expect.poll(width).toBe(244);
+  await expect(sidebar(page).getByRole("link", { name: "الإعدادات" })).toBeVisible();
+  await switchLanguage(page, "en");
+  await page.reload();
+  expect(await width()).toBe(244);
+});
+
+// Between 1024 and 1279px the sidebar is the icon rail, as before the port; the tab bar takes over below 1024px.
+test("tablet widths: icon rail from 1024px, the tab bar below", async () => {
+  await page.setViewportSize({ width: 1100, height: 800 });
+  await page.goto("/gallery");
+  await expect.poll(async () => (await sidebar(page).boundingBox())!.width).toBe(72);
+  await expect(tabBar(page)).toBeHidden();
+  await expect(collapseButton(page)).toBeHidden();
+  await page.setViewportSize({ width: 900, height: 800 });
+  await expect(sidebar(page)).toBeHidden();
+  await expect(tabBar(page)).toBeVisible();
+  await page.setViewportSize({ width: 1366, height: 800 });
 });
 
 test("phone: five icon tabs with accessible labels, active section, no footer banner", async () => {

@@ -18,7 +18,6 @@ import { VerifyEmailBanner } from "@/components/shared/verify-email-banner";
 import { EdgeSwipeBack } from "@/components/shell/edge-swipe";
 import { HOME_HREF } from "@/components/shell/nav";
 import { MenuUserProvider } from "@/components/shell/shell-context";
-import { Sidebar } from "@/components/shell/sidebar";
 import { TabBar } from "@/components/shell/tab-bar";
 import { TopBar } from "@/components/shell/top-bar";
 import { Button } from "@/components/ui/button";
@@ -32,13 +31,14 @@ import type { UiPreferences } from "@/types";
 import { NavIcon } from "./nav-icon";
 import { type MenuUser, type MenuUserBase } from "./profile-menu";
 import { SectionTabs } from "./section-tabs";
+import { CLIENT_CONTENT_INSET, Sidebar } from "./sidebar";
 
 /** Pages laid out edge to edge by the design proposal's own screens (Gallery, AI). */
 const PROPOSAL_PAGES = ["/gallery", "/ai"];
 
 /**
- * The client app's shell: the design proposal's navigation (components/shell) — sidebar on desktop,
- * Instagram-style header, phone tab bar with AI in the centre — around the app's pages.
+ * The client app's shell: the platform's Instagram sidebar on desktop (collapsible, Settings and the
+ * profile row at the bottom), the Instagram-style header and the proposal's phone tab bar with AI in the centre.
  * `nav` is built on the server from the enabled features — hidden items never reach the browser.
  */
 export function UserShell({
@@ -88,8 +88,9 @@ export function UserShell({
           shortcuts,
         };
 
-  // Settings lives in the profile menu, like the proposal's profile picture.
+  // Settings sits at the bottom of the sidebar (and in the profile menu).
   const sections = nav.filter((i) => i.placement !== "bottom");
+  const bottom = nav.filter((i) => i.placement === "bottom");
   // Room for the tab bar (phones) so nothing hides behind it.
   const bottomRoom = "pb-[calc(76px+env(safe-area-inset-bottom))] lg:pb-12";
 
@@ -100,8 +101,8 @@ export function UserShell({
           <div className="min-h-dvh">
             <PreferencesSync saved={preferences} />
             <GallerySync />
-            <Sidebar items={sections} />
-            <div className="min-h-dvh lg:ms-[244px]">
+            <Sidebar items={sections} bottomItems={bottom} homeHref={HOME_HREF} user={user} from="lg" />
+            <div className={cn("min-h-dvh", CLIENT_CONTENT_INSET)}>
               {isPreview && (
                 <div className="flex items-center gap-3 bg-foreground px-4 py-2 text-background md:px-8">
                   <Eye className="size-4 shrink-0" />

@@ -6,6 +6,7 @@ import { IconBtn } from "@/components/gallery/kit";
 import { useIsDesktop, useT } from "@/lib/gallery/hooks";
 import { useActiveChat, useStore } from "@/lib/gallery/store";
 import { HeaderActions } from "@/components/shell/header-actions";
+import { CLIENT_FIXED_START } from "@/components/layout/sidebar";
 import { ChatView } from "./chat-view";
 
 /** The AI tab: a full-screen chat between the header and the tab bar (or beside the sidebar, below the header, on desktop). */
@@ -16,7 +17,7 @@ export function AiScreen() {
   const [history, setHistory] = useState(false);
 
   return (
-    <div className="fixed inset-x-0 top-0 bottom-[calc(53px+env(safe-area-inset-bottom))] z-20 flex flex-col bg-ge-background pt-safe lg:start-[244px] lg:top-(--topbar-height) lg:bottom-0">
+    <div className={`fixed inset-x-0 top-0 bottom-[calc(53px+env(safe-area-inset-bottom))] z-20 flex flex-col bg-ge-background pt-safe lg:top-(--topbar-height) lg:bottom-0 ${CLIENT_FIXED_START}`}>
       <header className="flex h-14 shrink-0 items-center gap-1 px-2 lg:hidden">
         <IconBtn label={t("chats")} onClick={() => setHistory((h) => !h)}>
           <History strokeWidth={1.8} />
