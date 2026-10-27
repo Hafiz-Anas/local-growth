@@ -5,10 +5,9 @@ import { statisticsDataBlock } from "./statistics";
 import type { AccountStats, MetricComparison } from "../../analysis/posts";
 import { statsLines } from "./analysis";
 import { focusLines, type BusinessFocus } from "./focus";
-import { isArabic } from "./output";
 
 /**
- * The AI assistant's data: what the server gathers about a business (its
+ * The AI data block (Recommendations, Weekly reports; once the old AI assistant's): what the server gathers about a business (its
  * stored Instagram data, brand profile and tracked competitors), the derived
  * numbers we compute in code so the model never has to (averages, best and
  * weakest posts), and the plain-text block the model is given. Only facts in
@@ -20,9 +19,6 @@ export type AssistantMode = (typeof ASSISTANT_MODES)[number];
 /** Which sections the data block holds: an assistant mode, or "strategy" (everything, for recommendations). */
 export type FactsScope = AssistantMode | "strategy";
 
-/** Messages of the conversation the model sees (oldest dropped first). */
-export const ASSISTANT_HISTORY_TURNS = 12;
-export const ASSISTANT_MAX_QUESTION = 1000;
 
 export interface AssistantMetric {
   value: number;
@@ -155,15 +151,6 @@ export function monitoringLines(m: AssistantMonitoring): string[] {
     );
   }
   return lines;
-}
-
-/** The answer follows the question: any Arabic letter → Arabic. */
-export const questionLanguage = (text: string): "en" | "ar" => (isArabic(text) ? "ar" : "en");
-
-/** Conversation title: the first question on one line, shortened. */
-export function chatTitle(question: string): string {
-  const line = question.replace(/\s+/g, " ").trim();
-  return line.length > 60 ? `${line.slice(0, 57).trimEnd()}…` : line;
 }
 
 const round = (n: number, digits = 1) => Math.round(n * 10 ** digits) / 10 ** digits;
@@ -373,14 +360,3 @@ export function formatFacts(facts: AssistantFacts, mode: FactsScope, now = new D
   return lines.join("\n");
 }
 
-/** The model's answer as plain text: no markdown emphasis or headings, "- " bullets. */
-export function cleanAssistantAnswer(answer: string): string {
-  return answer
-    .replace(/\r\n/g, "\n")
-    .replace(/\*\*(.+?)\*\*/g, "$1")
-    .replace(/__(.+?)__/g, "$1")
-    .replace(/^#{1,6}\s+/gm, "")
-    .replace(/^\s*[*•]\s+/gm, "- ")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-}

@@ -1,4 +1,6 @@
 @import "tailwindcss";
+/* Animations of the Gallery / AI chat dropdowns (copied from the design proposal). */
+@import "tw-animate-css";
 
 /*
  * AI Growth Engine — design tokens.
@@ -239,3 +241,184 @@
 .heat-3 { background: var(--lge-heat-3); }
 .heat-4 { background: var(--lge-heat-4); }
 .heat-5 { background: var(--lge-heat-5); }
+
+/*
+ * Gallery, AI chat and the app navigation, copied from the design proposal (ai-growth-proposal).
+ * Its palette ("za'atar green") lives here as ge-* tokens so it never collides with the
+ * Instagram tokens above (the proposal's `muted` is a surface, ours is text). Everything the
+ * proposal renders sits inside `.ge`, which also gives it the proposal's base type and borders.
+ */
+:root {
+  --ge-background: #ffffff;
+  --ge-foreground: #0c0c0c;
+  --ge-card: #ffffff;
+  --ge-card-foreground: #0c0c0c;
+  --ge-elevated: #ffffff;
+  --ge-popover: #ffffff;
+  --ge-popover-foreground: #0c0c0c;
+  --ge-primary: #2e7d4f;
+  --ge-primary-foreground: #ffffff;
+  --ge-brand: #2e7d4f;
+  --ge-brand-soft: #e9f3ec;
+  --ge-brand-ink: #1f5c39;
+  --ge-secondary: #efefef;
+  --ge-secondary-foreground: #0c0c0c;
+  --ge-muted: #f2f2f2;
+  --ge-muted-foreground: #6b6b6b;
+  --ge-accent: #f2f2f2;
+  --ge-accent-foreground: #0c0c0c;
+  --ge-destructive: #d93a3a;
+  --ge-border: #e6e6e6;
+  --ge-input: #dbdbdb;
+  --ge-ring: #2e7d4f;
+  --ge-good: #1f8a4c;
+  --ge-warn: #b26b00;
+  --ge-bad: #d93a3a;
+  --ge-series-1: #2a78d6;
+  --ge-series-2: #eb6834;
+  --ge-series-3: #1baf7a;
+  --ge-neutral-series: #a3a3a0;
+}
+
+/* True dark mode, like Instagram's: pure black canvas with near-black cards. */
+.dark {
+  --ge-background: #000000;
+  --ge-foreground: #f5f5f5;
+  --ge-card: #121212;
+  --ge-card-foreground: #f5f5f5;
+  --ge-elevated: #1c1c1e;
+  --ge-popover: #1c1c1e;
+  --ge-popover-foreground: #f5f5f5;
+  --ge-primary: #45b06f;
+  --ge-primary-foreground: #04140a;
+  --ge-brand: #45b06f;
+  --ge-brand-soft: #10291a;
+  --ge-brand-ink: #7fd3a0;
+  --ge-secondary: #262626;
+  --ge-secondary-foreground: #f5f5f5;
+  --ge-muted: #1a1a1a;
+  --ge-muted-foreground: #a8a8a8;
+  --ge-accent: #262626;
+  --ge-accent-foreground: #f5f5f5;
+  --ge-destructive: #ff5c5c;
+  --ge-border: #262626;
+  --ge-input: #363636;
+  --ge-ring: #45b06f;
+  --ge-good: #4cc27c;
+  --ge-warn: #f0a83a;
+  --ge-bad: #ff6b6b;
+  --ge-series-1: #3987e5;
+  --ge-series-2: #d95926;
+  --ge-series-3: #199e70;
+  --ge-neutral-series: #6f6f6c;
+}
+
+@theme inline {
+  --color-ge-background: var(--ge-background);
+  --color-ge-foreground: var(--ge-foreground);
+  --color-ge-card: var(--ge-card);
+  --color-ge-card-foreground: var(--ge-card-foreground);
+  --color-ge-elevated: var(--ge-elevated);
+  --color-ge-popover: var(--ge-popover);
+  --color-ge-popover-foreground: var(--ge-popover-foreground);
+  --color-ge-primary: var(--ge-primary);
+  --color-ge-primary-foreground: var(--ge-primary-foreground);
+  --color-ge-brand: var(--ge-brand);
+  --color-ge-brand-soft: var(--ge-brand-soft);
+  --color-ge-brand-ink: var(--ge-brand-ink);
+  --color-ge-secondary: var(--ge-secondary);
+  --color-ge-secondary-foreground: var(--ge-secondary-foreground);
+  --color-ge-muted: var(--ge-muted);
+  --color-ge-muted-foreground: var(--ge-muted-foreground);
+  --color-ge-accent: var(--ge-accent);
+  --color-ge-accent-foreground: var(--ge-accent-foreground);
+  --color-ge-destructive: var(--ge-destructive);
+  --color-ge-border: var(--ge-border);
+  --color-ge-input: var(--ge-input);
+  --color-ge-ring: var(--ge-ring);
+  --color-ge-good: var(--ge-good);
+  --color-ge-warn: var(--ge-warn);
+  --color-ge-bad: var(--ge-bad);
+  --color-ge-series-1: var(--ge-series-1);
+  --color-ge-series-2: var(--ge-series-2);
+  --color-ge-series-3: var(--ge-series-3);
+  --color-ge-neutral-series: var(--ge-neutral-series);
+}
+
+/* Base Ui / shadcn state variants used by the proposal's dropdown menu. */
+@custom-variant data-open {
+  &:where([data-state="open"]),
+  &:where([data-open]:not([data-open="false"])) {
+    @slot;
+  }
+}
+@custom-variant data-closed {
+  &:where([data-state="closed"]),
+  &:where([data-closed]:not([data-closed="false"])) {
+    @slot;
+  }
+}
+@custom-variant data-highlighted {
+  &:where([data-highlighted]:not([data-highlighted="false"])) {
+    @slot;
+  }
+}
+@custom-variant data-disabled {
+  &:where([data-disabled="true"]),
+  &:where([data-disabled]:not([data-disabled="false"])) {
+    @slot;
+  }
+}
+
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@layer base {
+  .ge {
+    /* Plain `border` / `divide-*` inside take the proposal's border colour. */
+    --lge-border: var(--ge-border);
+    font-family: var(--font-inter), var(--font-arabic), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    color: var(--ge-foreground);
+    -webkit-tap-highlight-color: transparent;
+  }
+  html[lang="ar"] .ge {
+    font-family: var(--font-arabic), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  }
+  /* Visible keyboard focus everywhere; mouse/touch focus stays quiet. */
+  .ge :focus-visible,
+  .ge:focus-visible {
+    outline: 2px solid var(--ge-ring);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+  .ge button,
+  .ge [role="button"],
+  .ge a {
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: manipulation;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ge *,
+  .ge *::before,
+  .ge *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

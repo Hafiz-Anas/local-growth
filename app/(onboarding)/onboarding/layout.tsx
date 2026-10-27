@@ -16,7 +16,7 @@ export default async function OnboardingLayout({ children }: LayoutProps<"/onboa
   const business = await db.business.findUnique({ where: { id: session.businessId }, select: { onboardingStatus: true } });
   if (!business) redirect("/login");
   if (await needsInstagramConnection(session.businessId)) redirect("/signup/instagram");
-  if (business.onboardingStatus === "COMPLETED") redirect("/dashboard");
+  if (business.onboardingStatus === "COMPLETED") redirect("/gallery");
   const preferences = await getUiPreferences(session.userId);
   return (
     <>

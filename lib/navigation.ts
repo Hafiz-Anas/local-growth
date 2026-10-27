@@ -39,3 +39,8 @@ export function splitForPhone(nav: NavItem[], max = MAX_PHONE_TABS): { tabs: Nav
   const eligible = nav.filter((item) => item.mobile !== false);
   return { tabs: eligible.slice(0, max), more: eligible.slice(max) };
 }
+
+/** A client's landing page: the Gallery, or the first section they have when it's off (Settings at worst). */
+export function clientHome(nav: NavItem[]): string {
+  return (nav.find((item) => item.icon === "gallery") ?? nav.find((item) => item.placement !== "bottom") ?? nav[0])?.href ?? "/settings";
+}

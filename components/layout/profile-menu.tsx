@@ -2,6 +2,7 @@
 
 import { startTransition, type ReactNode } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { CircleUserRound, Languages, LogOut, Moon, Settings, ShieldCheck, Sun } from "lucide-react";
 import { PlanBadge } from "@/components/shared/client-row";
 import { useTheme } from "next-themes";
@@ -19,6 +20,7 @@ import {
 import { logOutOf, useDeviceAccounts } from "@/lib/api/device-accounts";
 import { logoutAction } from "@/lib/auth/actions";
 import { useI18n } from "@/lib/i18n/provider";
+import { cn } from "@/lib/utils";
 import type { MediaTone, PlanId, Role } from "@/types";
 
 export interface MenuUser {
@@ -146,13 +148,27 @@ function DeviceLogoutItems({ accountLabel }: { accountLabel: string }) {
   );
 }
 
-/** Top-bar avatar trigger. */
-export function ProfileMenu({ user }: { user: MenuUser }) {
+/** Top-bar avatar trigger. `look="proposal"`: the design proposal's 30px picture in a 40px button, ringed on Settings. */
+export function ProfileMenu({ user, look }: { user: MenuUser; look?: "proposal" }) {
+  const onSettings = usePathname().startsWith(user.settingsHref);
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="rounded-pill outline-none focus-visible:ring-2 focus-visible:ring-primary/40" aria-label={user.name} data-testid="profile-menu-trigger">
-        <Avatar src={user.avatarUrl} initials={user.initials} tone={user.tone} size="sm" />
-      </DropdownMenuTrigger>
+      {look === "proposal" ? (
+        <DropdownMenuTrigger
+          className="grid size-10 shrink-0 place-items-center rounded-full transition-transform active:scale-95"
+          aria-label={user.name}
+          title={user.name}
+          data-testid="profile-menu-trigger"
+        >
+          <span className={cn("inline-grid size-[30px] shrink-0 place-items-center rounded-full", onSettings && "ring-2 ring-ge-foreground ring-offset-2 ring-offset-ge-background")}>
+            <Avatar src={user.avatarUrl} initials={user.initials} tone={user.tone} size="sm" className="size-[30px]" />
+          </span>
+        </DropdownMenuTrigger>
+      ) : (
+        <DropdownMenuTrigger className="rounded-pill outline-none focus-visible:ring-2 focus-visible:ring-primary/40" aria-label={user.name} data-testid="profile-menu-trigger">
+          <Avatar src={user.avatarUrl} initials={user.initials} tone={user.tone} size="sm" />
+        </DropdownMenuTrigger>
+      )}
       <DropdownMenuContent align="end">
         <ProfileMenuBody user={user} />
       </DropdownMenuContent>

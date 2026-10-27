@@ -1,4 +1,4 @@
-import { FEATURE_KEYS, FEATURE_MODULES } from "@/config/features";
+import { DEFAULT_ON_WITHOUT_ROW, FEATURE_KEYS, FEATURE_MODULES } from "@/config/features";
 import type { NavItem } from "@/config/navigation";
 import type { FeatureKey, Permissions } from "@/types";
 
@@ -44,9 +44,13 @@ export function isFeatureKey(key: string): key is FeatureKey {
   return (FEATURE_KEYS as readonly string[]).includes(key);
 }
 
-/** Builds the ON/OFF map from stored rows. Unknown keys are ignored, missing keys are OFF. */
+/**
+ * Builds the ON/OFF map from stored rows. Unknown keys are ignored, missing keys are OFF —
+ * except the modules in DEFAULT_ON_WITHOUT_ROW, which are ON until a row says otherwise.
+ */
 export function permissionsFromRows(rows: Array<{ featureKey: string; enabled: boolean }>): Permissions {
   const permissions = allOff();
+  for (const key of DEFAULT_ON_WITHOUT_ROW) permissions[key] = true;
   for (const row of rows) if (isFeatureKey(row.featureKey)) permissions[row.featureKey] = row.enabled;
   return permissions;
 }

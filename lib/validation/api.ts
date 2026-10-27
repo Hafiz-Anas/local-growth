@@ -25,7 +25,7 @@ import { MONITOR_DURATIONS } from "@/lib/analysis/monitoring";
 import { STAT_RANGES } from "@/lib/analysis/statistics";
 import { METHODS } from "@/lib/analysis/methods";
 import { MAX_RULE_KEYWORDS, MAX_RULE_POSTS, PRIVATE_REPLY_MAX, PUBLIC_REPLY_MAX, normalizeText } from "@/lib/keyword-replies";
-import { ASSISTANT_MAX_QUESTION, ASSISTANT_MODES } from "@/lib/services/text/assistant";
+import { AI_CHAT_MAX_QUESTION, AI_CHAT_MODES } from "@/lib/services/text/ai-chat";
 import { normalizeTheme } from "@/lib/theme-script";
 import { emailSchema, newPasswordSchema } from "./auth";
 
@@ -444,11 +444,10 @@ export const activityQuery = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(25),
 });
 
-/** POST /api/assistant/messages — a question for the AI assistant (no conversationId = a new chat). */
-export const assistantMessageSchema = z.object({
-  conversationId: z.string().min(1).max(64).regex(/^[\w-]+$/).optional(),
-  mode: z.enum(ASSISTANT_MODES),
-  text: text(ASSISTANT_MAX_QUESTION),
+/** POST /api/ai-chat — a question typed in the AI tab that none of its sample answers matches. */
+export const aiChatSchema = z.object({
+  mode: z.enum(AI_CHAT_MODES),
+  question: text(AI_CHAT_MAX_QUESTION),
 });
 
 /** PATCH /api/recommendations/:id — the owner's decision ("new" undoes accept/dismiss). */

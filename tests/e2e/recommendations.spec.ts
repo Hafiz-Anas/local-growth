@@ -101,8 +101,8 @@ let first: string[] = [];
 
 test("first analysis: at most 3 tips ranked by impact, each with a Why line; invented numbers are dropped", async () => {
   // Insights opens on Post performance; Recommendations is its second tab.
-  await page.goto("/dashboard", { waitUntil: "networkidle" });
-  await page.locator("aside").getByRole("link", { name: "Insights" }).click();
+  await page.goto("/gallery", { waitUntil: "networkidle" });
+  await page.getByTestId("sidebar").getByRole("link", { name: "Insights" }).click();
   await page.waitForURL(/\/post-performance$/);
   await page.getByTestId("section-tabs").getByRole("link", { name: "Recommendations" }).click();
   await expect(page).toHaveURL(/\/recommendations$/);
@@ -241,7 +241,7 @@ test("is removed (not grayed out) when the admin turns the feature off", async (
 
   try {
     expect((await setFeature(false)).ok()).toBe(true);
-    await page.goto("/dashboard");
+    await page.goto("/gallery");
     await expect(page.getByRole("link", { name: "Recommendations" })).toHaveCount(0);
     await page.goto("/recommendations");
     await expect(page.getByText("Sorry, this page isn't available.")).toBeVisible();

@@ -46,7 +46,7 @@ async function unwrap<T>(res: Response): Promise<T> {
   if (!payload) throw new ApiClientError(res.status, res.status >= 500 ? "internal_error" : "invalid_response", "Unexpected response.");
   if (!payload.ok) {
     // Another Instagram account became active (another tab): reload into it, nothing of this screen survives.
-    if (payload.error.code === "account_switched" && typeof window !== "undefined") window.location.assign(new URL("/dashboard", window.location.origin));
+    if (payload.error.code === "account_switched" && typeof window !== "undefined") window.location.assign(new URL("/gallery", window.location.origin));
     throw new ApiClientError(res.status, payload.error.code, payload.error.message, payload.error.details);
   }
   return payload.data;

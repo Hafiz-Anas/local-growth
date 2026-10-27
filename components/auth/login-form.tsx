@@ -131,7 +131,7 @@ export function AddingNotice({ hint }: { hint: string }) {
     <div className="mb-5 rounded-card bg-secondary-bg px-3 py-2.5 text-center" data-testid="adding-account">
       <p className="text-body font-semibold">{t("deviceAccounts.addTitle")}</p>
       <p className="mt-0.5 text-caption text-muted">{hint}</p>
-      <a href="/dashboard" className="mt-1.5 inline-block text-caption font-semibold text-primary hover:text-link" data-testid="adding-cancel">
+      <a href="/gallery" className="mt-1.5 inline-block text-caption font-semibold text-primary hover:text-link" data-testid="adding-cancel">
         {t("deviceAccounts.cancel")}
       </a>
     </div>

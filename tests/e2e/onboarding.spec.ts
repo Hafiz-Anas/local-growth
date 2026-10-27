@@ -12,10 +12,11 @@ import { startGeminiStub } from "./gemini-stub";
  *   connects (cancel → back with the email filled in; an account connected elsewhere is refused), then the
  *   business is named after it; a login without Instagram is still sent to the connect screen;
  * - the five steps with the AI pre-fill, picked posts + an upload for the style guide, goals,
- *   location and AI-suggested competitors, then "You're all set" → Home; the answers reach the AI;
+ *   location and AI-suggested competitors, then "You're all set" → the Gallery; Settings shows the answers;
  * - every step can be skipped, and "Finish later" keeps the place;
  * - AI unavailable → empty fields, onboarding carries on (Arabic, phone width);
- * - existing clients get a one-time prompt for the new steps, and the goals prompt still works.
+ * - existing clients get a one-time prompt for the new steps, and the goals prompt still works (the
+  set-up prompts sit at the top of Settings now that Home is gone).
  * Mock Instagram flow (the demo Instagram screen stands in for Facebook Login), Gemini stub. Presses
  * "Continue with Instagram" 4 times (5 per 15 min allowed; device-accounts uses the 5th). The last two tests
  * adjust prompt dates of their businesses directly in the e2e database (DATABASE_URL), so they don't
@@ -160,8 +161,7 @@ test("sign-up is one page, the account exists only once Instagram connects, and 
   console.log(`[onboarding] sign-up + 5 steps finished in ${seconds.toFixed(1)} s (automated)`);
   expect(seconds).toBeLessThan(120);
   await page.getByRole("link", { name: "Go to Home" }).click();
-  await page.waitForURL(/\/dashboard/);
-  for (const prompt of ["new-steps-prompt", "goals-prompt", "finish-setup"]) await expect(page.getByTestId(prompt)).toHaveCount(0);
+  await page.waitForURL(/\/gallery/);
 
   // Saved, and the business is named after the Instagram account.
   const goals = await api(page, "/api/brand/goals");
@@ -172,16 +172,9 @@ test("sign-up is one page, the account exists only once Instagram connects, and 
   expect(details).toMatchObject({ name: `Kbakes A ${RUN.charAt(0).toUpperCase()}${RUN.slice(1)}`, governorate: "hawalli", area: "salmiya", serviceMode: "both" });
   expect(details.products).toContain("Cakes");
 
-  // Every answer reaches the AI's data block (here: the assistant).
-  const asked = await page.request.post("/api/assistant/messages", { data: { mode: "post", text: "What should I post this week?" } });
-  expect(asked.status()).toBe(201);
-  const data = stub.calls.find((c) => c.kind === "chat" && c.turns.at(-1)?.text.includes("What should I post this week?"))!.system;
-  for (const line of ["Photo style: Warm colors, close-up, top-down angle", "Location: Salmiya, Hawalli, Kuwait", "Wants: more sales, more followers (target: 500)", "Posts should feel: tempting (makes people want it now), cosy", "Cakes"]) {
-    expect(data).toContain(line);
-  }
-
-  // Settings lets them change it all.
+  // Settings lets them change it all, and has no set-up prompt left.
   await page.goto("/settings");
+  for (const prompt of ["new-steps-prompt", "goals-prompt", "finish-setup"]) await expect(page.getByTestId(prompt)).toHaveCount(0);
   await expect(page.locator("#business-name")).toHaveValue(details.name);
   await expect(page.getByLabel("Area")).toHaveValue("salmiya");
   await expect(page.locator("#style-summary")).toHaveValue("Warm colors, close-up, top-down angle");
@@ -221,7 +214,9 @@ test("an Instagram account connected to another login is refused; every step can
   await expect(step(page)).toContainText("Step 3 of 5");
 
   await page.getByRole("button", { name: "Finish later" }).click();
-  await page.waitForURL(/\/dashboard/);
+  await page.waitForURL(/\/gallery/);
+  // "Finish setting up" lives at the top of Settings.
+  await page.goto("/settings");
   const card = page.getByTestId("finish-setup");
   await expect(card).toContainText("3 quick steps left");
   await card.getByRole("link", { name: "Continue setup" }).click();
@@ -235,7 +230,8 @@ test("an Instagram account connected to another login is refused; every step can
   await page.getByTestId("skip-step").click();
   await expect(page.getByTestId("all-set")).toBeVisible();
   await page.getByRole("link", { name: "Go to Home" }).click();
-  await page.waitForURL(/\/dashboard/);
+  await page.waitForURL(/\/gallery/);
+  await page.goto("/settings");
   await expect(page.getByTestId("finish-setup")).toHaveCount(0);
 
   // Nothing was saved from the skipped steps…
@@ -251,13 +247,13 @@ test("an Instagram account connected to another login is refused; every step can
   // A login whose business has no Instagram connection is still sent to the connect screen, as before.
   const business = await businessOf(email("b"));
   await pool.query(`DELETE FROM "InstagramConnection" WHERE "businessId" = $1`, [business]);
-  await page.goto("/dashboard");
+  await page.goto("/gallery");
   await page.waitForURL(/\/signup\/instagram/);
   await page.locator("#ob-handle").fill(handle("b"));
   await page.getByRole("button", { name: "Connect Instagram", exact: true }).click();
-  await page.waitForURL(/\/(onboarding|dashboard)/);
-  await page.goto("/dashboard");
-  await expect(page).toHaveURL(/\/dashboard/);
+  await page.waitForURL(/\/(onboarding|gallery)/);
+  await page.goto("/gallery");
+  await expect(page).toHaveURL(/\/gallery/);
 });
 
 test("AI unavailable: the fields stay empty and onboarding carries on — in Arabic, on a phone", async ({ browser }: { browser: Browser }) => {
@@ -301,7 +297,7 @@ test("existing clients get a one-time prompt for the new steps: skip it, or answ
 
   const first = await browser.newPage();
   await logIn(first, email("a"));
-  await first.goto("/dashboard");
+  await first.goto("/settings");
   const prompt = first.getByTestId("new-steps-prompt");
   await expect(prompt).toContainText("Help your AI know you better");
   await prompt.getByRole("button", { name: "Skip" }).click();
@@ -312,7 +308,7 @@ test("existing clients get a one-time prompt for the new steps: skip it, or answ
 
   const second = await browser.newPage();
   await logIn(second, email("b"));
-  await second.goto("/dashboard");
+  await second.goto("/settings");
   await second.getByTestId("new-steps-prompt").getByRole("button", { name: "Answer now" }).click();
   await second.waitForURL(/\/onboarding/);
   await expect(step(second)).toContainText("Step 1 of 5");
@@ -322,9 +318,10 @@ test("existing clients get a one-time prompt for the new steps: skip it, or answ
   await second.getByRole("checkbox", { name: "Messages" }).click();
   await second.getByRole("button", { name: "Continue" }).click();
   await expect(step(second)).toContainText("Step 4 of 5");
-  // The app stays open meanwhile; the dashboard links back instead of prompting again.
+  // The app stays open meanwhile; Settings links back instead of prompting again.
   await second.getByRole("button", { name: "Finish later" }).click();
-  await second.waitForURL(/\/dashboard/);
+  await second.waitForURL(/\/gallery/);
+  await second.goto("/settings");
   await expect(second.getByTestId("finish-setup")).toBeVisible();
   await expect(second.getByTestId("new-steps-prompt")).toHaveCount(0);
   expect((await api(second, "/api/brand/goals")).targets).toEqual([{ key: "messages", number: null }]);
@@ -340,7 +337,7 @@ test("existing businesses still get the one-time goals prompt (save or not now)"
     await pool.query(`UPDATE "Business" SET "setupPromptDoneAt" = now(), "goalsPromptDoneAt" = NULL, aim = NULL WHERE id = $1`, [await businessOf(login)]);
     const page = await browser.newPage();
     await logIn(page, login, "User@123");
-    await page.goto("/dashboard");
+    await page.goto("/settings");
     const prompt = page.getByTestId("goals-prompt");
     await expect(prompt).toBeVisible();
     if (action === "save") {
@@ -357,7 +354,6 @@ test("existing businesses still get the one-time goals prompt (save or not now)"
       const goals = await api(page, "/api/brand/goals");
       expect(goals.niche).toBe("Nuts and coffee roastery");
       expect(goals.goals).toContain("promote_offers");
-      await page.goto("/settings");
       await expect(page.getByLabel("Niche / theme")).toHaveValue("Nuts and coffee roastery");
     }
     await page.close();

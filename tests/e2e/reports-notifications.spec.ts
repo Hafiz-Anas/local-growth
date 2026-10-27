@@ -87,7 +87,7 @@ test("the daily cron publishes weekly reports and notifies (and needs the secret
 });
 
 test("the bell shows the unread count; opening a notification goes to its page and marks it read", async () => {
-  await page.goto("/dashboard");
+  await page.goto("/gallery");
   const before = await unreadCount(page);
   expect(before).toBeGreaterThan(0);
   await expect(bell(page)).toHaveAttribute("aria-label", `Notifications, ${before} unread`);
@@ -145,14 +145,14 @@ test("replies waiting: switched off in Settings → nothing; on → one notifica
   simulateDm("And do you deliver to Jahra?");
   await expect.poll(async () => (await repliesNotification())?.read, { timeout: 20_000 }).toBe(false);
   expect((await repliesNotification())!.params.count).toBeGreaterThanOrEqual(2);
-  await page.goto("/dashboard");
+  await page.goto("/gallery");
   await bell(page).click();
   await expect(items(page).filter({ hasText: "Replies waiting for approval" })).toContainText(/\d+ comment or DM replies are waiting for you/);
   await page.keyboard.press("Escape");
 });
 
 test("mark all as read clears the count", async () => {
-  await page.goto("/dashboard");
+  await page.goto("/gallery");
   await bell(page).click();
   await page.getByRole("button", { name: "Mark all as read" }).click();
   await expect(bell(page)).toHaveAttribute("aria-label", "Notifications");
@@ -184,7 +184,7 @@ test("reports and notifications are removed (not grayed out) when the admin turn
   const set = (changes: Record<string, boolean>) => adminPage.request.patch(`/api/admin/businesses/${business.id}/permissions`, { data: { changes } });
   try {
     expect((await set({ notifications: false, reports: false })).ok()).toBe(true);
-    await page.goto("/dashboard");
+    await page.goto("/gallery");
     await expect(bell(page)).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Reports" })).toHaveCount(0);
     expect((await page.request.get("/api/notifications")).status()).toBe(404);
@@ -196,6 +196,6 @@ test("reports and notifications are removed (not grayed out) when the admin turn
     await set({ notifications: true, reports: true });
     await adminPage.close();
   }
-  await page.goto("/dashboard");
+  await page.goto("/gallery");
   await expect(bell(page)).toBeVisible();
 });

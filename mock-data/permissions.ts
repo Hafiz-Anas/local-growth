@@ -14,6 +14,5 @@ export const MOCK_PERMISSIONS: Record<string, Permissions> = {
   },
   cl_boutique: {
     ...PLAN_PRESETS.starter,
-    "dashboard.topPost": false,
   },
 };

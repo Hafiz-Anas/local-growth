@@ -1,10 +1,13 @@
-import type { Metadata } from "next";
-import { DashboardView } from "@/components/dashboard/dashboard-view";
+import { redirect } from "next/navigation";
+import { USER_NAV } from "@/config/navigation";
+import { getActiveClientContext } from "@/lib/auth/server";
+import { clientHome } from "@/lib/navigation";
+import { filterNav } from "@/lib/permissions";
 
-export const metadata: Metadata = { title: "Dashboard" };
-
+/** Home was removed: old links (bookmarks, emails, other tabs) land on the Gallery. */
 export default async function DashboardPage({ searchParams }: PageProps<"/dashboard">) {
-  // Set when the onboarding wizard finishes.
-  const { welcome } = await searchParams;
-  return <DashboardView welcome={welcome === "1"} />;
+  const { permissions } = await getActiveClientContext();
+  const query = new URLSearchParams(Object.entries(await searchParams).flatMap(([k, v]) => (typeof v === "string" ? [[k, v]] : [])));
+  const home = clientHome(filterNav(USER_NAV, permissions));
+  redirect(query.size ? `${home}?${query}` : home);
 }

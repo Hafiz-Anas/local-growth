@@ -7,7 +7,7 @@ import { LOGIN_HAS_SEVERAL_ACCOUNTS } from "../../config/accounts";
  * at the plan's limit (1) the switcher shows a note; the admin raises the limit on the System
  * page; "Add account" runs the onboarding for the new account only (the same Instagram can't be
  * added twice); every API stays scoped to the active account — ids of the other account, another
- * client's account and a stale tab all fail; switching back lands on Home; Arabic on a phone;
+ * client's account and a stale tab all fail; switching back lands on the Gallery; Arabic on a phone;
  * the admin sees both accounts against the limit. Afterwards the added account is deleted (the
  * login keeps its first one) and the limit is set back to 1.
  */
@@ -69,7 +69,7 @@ test.afterAll(async () => {
 });
 
 test("the switcher shows the active Instagram account; at the plan's limit a note replaces “Add account”", async () => {
-  await page.goto("/dashboard");
+  await page.goto("/gallery");
   await expect(switcher(page)).toContainText(`@${FIRST.handle}`);
   // Separate from the profile menu.
   await expect(page.getByTestId("profile-menu-trigger")).toBeVisible();
@@ -107,8 +107,8 @@ test("the admin sets the Instagram accounts per plan on the System page", async 
   await p.close();
 });
 
-test("“Add account” sets up only the new account; the same Instagram can't be added twice; Finish later lands on its Home", async () => {
-  await page.goto("/dashboard");
+test("“Add account” sets up only the new account; the same Instagram can't be added twice; Finish later lands on its Gallery", async () => {
+  await page.goto("/gallery");
   await openSwitcher(page);
   await page.getByTestId("account-add").click();
   // The new account connects Instagram first (sign-up's connect screen), then gets the wizard.
@@ -127,7 +127,7 @@ test("“Add account” sets up only the new account; the same Instagram can't b
   await expect(switcher(page)).toBeVisible();
 
   await page.getByRole("button", { name: "Finish later" }).click();
-  await page.waitForURL("**/dashboard");
+  await page.waitForURL("**/gallery");
   await expect(switcher(page)).toContainText(`@${SECOND_HANDLE}`);
 
   const accounts = (await (await page.request.get("/api/accounts")).json()).data;
@@ -159,9 +159,9 @@ test("everything is scoped to the active account: other accounts' ids, other cli
   expect((await stale.json()).error.code).toBe("account_switched");
 });
 
-test("switching is instant, keeps the login, lands on Home, and a stale tab reloads into the active account", async () => {
+test("switching is instant, keeps the login, lands on the Gallery, and a stale tab reloads into the active account", async () => {
   const staleTab = await user.newPage();
-  await staleTab.goto("/post-generator");
+  await staleTab.goto("/gallery");
   await expect(switcher(staleTab)).toContainText(`@${SECOND_HANDLE}`);
 
   await page.goto("/post-performance");
@@ -169,7 +169,7 @@ test("switching is instant, keeps the login, lands on Home, and a stale tab relo
   await expect(page.getByTestId("account-row")).toHaveCount(2);
   await expect(page.getByTestId("account-limit")).toHaveText("Your plan includes 2 Instagram accounts and they're all in use. Contact us to add more.");
   await page.locator(`[data-testid="account-row"][data-account-id="${FIRST.id}"]`).click();
-  await page.waitForURL("**/dashboard");
+  await page.waitForURL("**/gallery");
   await expect(switcher(page)).toContainText(`@${FIRST.handle}`);
 
   // Same person: the profile menu still shows the login's name and email.
@@ -184,7 +184,7 @@ test("switching is instant, keeps the login, lands on Home, and a stale tab relo
 
   // The other tab still shows the second account; its next call reloads it into the first.
   await openSwitcher(staleTab).catch(() => undefined);
-  await staleTab.waitForURL("**/dashboard");
+  await staleTab.waitForURL("**/gallery");
   await expect(switcher(staleTab)).toContainText(`@${FIRST.handle}`);
   await staleTab.close();
 });
@@ -193,7 +193,7 @@ test("Arabic on a phone: right-to-left, no sideways scroll", async ({ browser })
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const p = await context.newPage();
   await login(p, USER);
-  await p.goto("/dashboard");
+  await p.goto("/gallery");
   const toggleLanguage = async () => {
     await p.getByTestId("profile-menu-trigger").click();
     await p.getByTestId("menu-language").click();

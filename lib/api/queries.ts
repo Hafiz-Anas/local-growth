@@ -5,13 +5,9 @@ import { useActiveClient } from "@/components/providers/active-client-provider";
 import { useI18n } from "@/lib/i18n/provider";
 import { notify } from "@/store/ui-store";
 import type {
-  AiStatusDto,
-  AssistantOverviewDto,
-  AssistantThreadDto,
   BrandProfileDto,
   BrandVoiceDto,
   CompetitorDto,
-  DashboardDto,
   EngagementDto,
   EngagementRuleDto,
   ExperimentDto,
@@ -48,7 +44,6 @@ export const qk = {
   /** The logins remembered on this browser (account switcher). */
   deviceAccounts: ["device-accounts"] as const,
   me: ["me"] as const,
-  dashboard: ["dashboard"] as const,
   competitors: ["competitors"] as const,
   trends: ["trends"] as const,
   generatorOptions: ["generator-options"] as const,
@@ -79,10 +74,7 @@ export const qk = {
   brand: ["brand"] as const,
   brandColors: ["brand", "colors"] as const,
   instagramMedia: ["instagram-media"] as const,
-  assistant: ["assistant"] as const,
-  assistantThread: (id: string) => ["assistant", "thread", id] as const,
   recommendations: ["recommendations"] as const,
-  aiStatus: ["dashboard", "ai-status"] as const,
   notificationCenter: ["notification-center"] as const,
   reports: ["reports"] as const,
   goals: ["brand", "goals"] as const,
@@ -144,8 +136,6 @@ export function useNotifications(): UseQueryResult<NotificationPrefs, ApiClientE
   });
   return isPreview ? preview : own;
 }
-export const useDashboard = (enabled = true) =>
-  useClientData<DashboardDto>(qk.dashboard, "/api/dashboard", (d) => d.dashboard, enabled);
 export const useCompetitors = (enabled = true) =>
   useClientData<CompetitorDto[]>(qk.competitors, "/api/competitors", (d) => d.competitors ?? [], enabled);
 /**
@@ -235,35 +225,10 @@ export function useAction<TData = unknown, TVars = void, TContext = unknown>(opt
   };
 }
 
-/**
- * The AI assistant: modes, recent chats and today's allowance. Chats are the
- * business's own, so admin preview doesn't load them (the panel says so instead).
- */
-export function useAssistant(): UseQueryResult<AssistantOverviewDto, ApiClientError> {
-  const { isPreview } = useActiveClient();
-  return useQuery<AssistantOverviewDto, ApiClientError>({ queryKey: qk.assistant, queryFn: () => apiFetch<AssistantOverviewDto>("/api/assistant"), enabled: !isPreview });
-}
-
-/** One chat's messages; `null` = a new, empty chat. */
-export function useAssistantThread(id: string | null): UseQueryResult<AssistantThreadDto, ApiClientError> {
-  const { isPreview } = useActiveClient();
-  return useQuery<AssistantThreadDto, ApiClientError>({
-    queryKey: qk.assistantThread(id ?? "new"),
-    queryFn: () => apiFetch<AssistantThreadDto>(`/api/assistant/conversations/${id}`),
-    enabled: Boolean(id) && !isPreview,
-  });
-}
-
 /** AI strategy recommendations (not loaded in admin preview: decisions are the business's own). */
 export function useRecommendations(): UseQueryResult<RecommendationsDto, ApiClientError> {
   const { isPreview } = useActiveClient();
   return useQuery<RecommendationsDto, ApiClientError>({ queryKey: qk.recommendations, queryFn: () => apiFetch<RecommendationsDto>("/api/recommendations"), enabled: !isPreview });
-}
-
-/** The dashboard's AI status card (not in admin preview). Pass `enabled: false` when no AI module is on. */
-export function useAiStatus(enabled = true): UseQueryResult<AiStatusDto, ApiClientError> {
-  const { isPreview } = useActiveClient();
-  return useQuery<AiStatusDto, ApiClientError>({ queryKey: qk.aiStatus, queryFn: () => apiFetch<AiStatusDto>("/api/dashboard/ai-status"), enabled: enabled && !isPreview });
 }
 
 /** The notification center (bell): latest notifications and the unread count, refreshed every minute. */

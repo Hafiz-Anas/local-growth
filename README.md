@@ -91,7 +91,7 @@ Sign-up is **one page**: `/signup` asks for **email and password** and has one b
 4. **Your location** — Kuwait governorate and area (English/Arabic list) and delivery only / shop / both
 5. **Your competitors** — optional; the AI suggests similar local accounts (each checked with Instagram first) and the owner can add their own
 
-A short **"You're all set"** screen leads to Home. The current step is saved on the business, so logging out and back in resumes it; the (user) layout sends anyone with onboarding in progress back to the wizard unless they chose *Finish later* (the dashboard then links back). The answers reach every AI call (captions, replies, the assistant, recommendations) and can be changed in *Settings → Business* and *Settings → Goals*. Clients who finished the older wizard see a one-time dashboard prompt to answer the new steps (or skip them). Admins can send an existing client through the wizard with *Send onboarding invite* on the client page.
+A short **"You're all set"** screen leads to the Gallery. The current step is saved on the business, so logging out and back in resumes it; the (user) layout sends anyone with onboarding in progress back to the wizard unless they chose *Finish later* (Settings then links back). The answers reach every AI call (captions, replies, recommendations, weekly reports) and can be changed in *Settings → Business* and *Settings → Goals*. Clients who finished the older wizard see a one-time prompt at the top of Settings to answer the new steps (or skip them). Admins can send an existing client through the wizard with *Send onboarding invite* on the client page.
 
 **Testing helpers (mock services):**
 
@@ -130,7 +130,7 @@ app/
   (auth)/                 login, signup, forgot-password, reset-password
   (onboarding)/onboarding full-screen self-onboarding wizard
   verify-email/           email verification link target
-  (user)/                 client screens: dashboard, competitors, post-generator,
+  (user)/                 client screens: gallery, ai, competitors,
                           experiment, engagement, settings
   (admin)/admin/          overview, clients, clients/[clientId], onboarding, system
   api/                    JSON API (route handlers) — see "API" below
@@ -158,7 +158,7 @@ types/                    shared types; types/api.ts is the API contract
 
 ## How feature permissions work
 
-1. **Catalogue.** `config/features.ts` declares every switchable feature. Keys are either a module (`engagement`) or a sub-feature (`engagement.dmRules`). A sub-feature only counts when its module is also on. Dashboard and Settings are always available; their widgets are sub-features.
+1. **Catalogue.** `config/features.ts` declares every switchable feature. Keys are either a module (`engagement`) or a sub-feature (`engagement.dmRules`). A sub-feature only counts when its module is also on. Settings is always available. Gallery (`gallery`) and AI chat (`aiChat`) count as ON for businesses without a saved row (they were added without a data migration).
 2. **Storage.** Each business has one `FeaturePermission` row per key. A new business gets its plan's preset (`config/plans.ts`: Starter / Growth / Pro), and admins can then switch individual features.
 3. **Session.** The signed-in user's effective feature list is stored in the session. Every request checks the database cheaply, so when an admin changes a business's permissions (or suspends a user, or a password changes), the user's next request picks it up.
 4. **Enforced on the server, everywhere:**
@@ -173,7 +173,7 @@ types/                    shared types; types/api.ts is the API contract
 Every route returns `{ ok: true, data }` or `{ ok: false, error: { code, message, details? } }`, validates input with Zod, and never returns password hashes or tokens. The business is always taken from the session; requesting another business's record by id returns 404.
 
 - **Account:** `GET /api/me`, `PATCH /api/me/preferences`, `PATCH /api/me/notifications`, `PATCH /api/me/password`, `POST /api/me/avatar`
-- **Client screens:** `/api/dashboard`, `/api/competitors` (list, add) and `/api/competitors/:id` (get, edit, remove), `/api/competitors/trends`, `/api/post-generator/options`, `/api/post-drafts` (+ `generate`, `:id`, `:id/regenerate`, `:id/queue`, `:id/reject`), `/api/scheduled-posts[/:id]`, `/api/experiment` (+ `apply-window`), `/api/engagement` (+ `settings`, `rules[/:id]`), `/api/reply-drafts` (+ `:id`, `:id/approve`, `:id/dismiss`), `/api/brand-voice`, `/api/instagram/connection`
+- **Client screens:** `/api/ai-chat` (typed AI-tab questions), `/api/competitors` (list, add) and `/api/competitors/:id` (get, edit, remove), `/api/competitors/trends`, `/api/post-generator/options`, `/api/post-drafts` (+ `generate`, `:id`, `:id/regenerate`, `:id/queue`, `:id/reject`), `/api/scheduled-posts[/:id]`, `/api/experiment` (+ `apply-window`), `/api/engagement` (+ `settings`, `rules[/:id]`), `/api/reply-drafts` (+ `:id`, `:id/approve`, `:id/dismiss`), `/api/brand-voice`, `/api/instagram/connection`
 - **Onboarding & brand:** `GET /api/onboarding`, `POST /api/onboarding/prefill`, `PUT /api/onboarding/business`, `PUT /api/onboarding/style` (+ `POST style/photos`), `PUT /api/onboarding/goals`, `PUT /api/onboarding/location`, `GET/POST /api/onboarding/competitors/suggestions`, `POST/DELETE /api/onboarding/new-steps`, `POST /api/onboarding/defer`, `POST /api/onboarding/progress`, `POST /api/onboarding/competitors` (+ `DELETE :id`), `POST /api/onboarding/events`, `POST /api/onboarding/feedback`, `POST /api/onboarding/complete`, `GET /api/brand`, `GET/PUT /api/brand/business`, `GET/PATCH /api/brand/style`, `GET/PUT /api/brand/goals`, `/api/brand/posts` (+ `:id`, `:id/media`), `PUT /api/brand/basics`, `GET /api/brand/colors`, `/api/brand/logo`, `/api/brand/context` (GET, POST = build/rebuild, PATCH = edit), `GET /api/instagram/media`, `POST /api/me/verify-email`
 - **Admin:** `/api/admin/overview`, `/api/admin/businesses[/:id]` (+ `permissions`, `permissions/preset`, `brand`, `onboarding-invite`), `/api/admin/users[/:id]` (+ `reset-password`, `suspend`, `reactivate`), `/api/admin/activity`, `/api/admin/preview/:businessId`, `/api/admin/system`, `/api/admin/onboarding`, `/api/admin/settings`
 - **Auth:** `/api/auth/*` (Auth.js), `/api/password-reset/request`, `/api/password-reset/confirm`
@@ -246,6 +246,7 @@ Real Instagram data comes through **"Instagram API with Facebook Login"** (Faceb
 | Brand profile (`buildBrandContext`) | Template sentences built from the onboarding answers | Same interface, real model |
 | Competitor validation (`lookupBusinessAccount`) for mock connections | Handle prefixes decide the status (see *Self-onboarding*) | Real for Meta connections (business discovery) |
 | Instagram posts in the post picker for mock connections | Generated posts with stand-in images from `public/mock-media` (`node scripts/generate-mock-media.mjs`) | Real for Meta connections (synced posts) |
+| Gallery and AI chat (`/gallery`, `/ai`, the footer banner) | Front-end only, copied from the design proposal: sample photos, albums and chat answers from `mock-data/gallery`, held in the browser's memory (a reload starts over); uploads, scheduling, "Post now" and Save to gallery change nothing on the server. Typed questions the sample answers don't cover ask Gemini through `AIService.chatReply` (`POST /api/ai-chat`) and fall back to the sample answer | Real photo storage, posts and publishing behind the same screens |
 | Product catalogue for the Post Generator | `lib/services/catalog.ts` reads `mock-data/`; other businesses use their onboarding products and post purposes | A table or the AI provider |
 | Email | `ConsoleEmailService` prints messages (reset links) to the server log; `EMAIL_PROVIDER="resend"` sends real HTML + text emails (EN/AR) through Resend | Set `RESEND_API_KEY` and a verified `EMAIL_FROM` |
 | File storage | `LocalStorageService` writes to `UPLOAD_DIR`, served by `/api/uploads/*`; `VercelBlobStorageService` for production | Set `STORAGE_PROVIDER="vercel-blob"` (see [DEPLOY.md](DEPLOY.md)) |

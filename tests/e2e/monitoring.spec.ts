@@ -7,7 +7,7 @@ import { startGeminiStub } from "./gemini-stub";
  * post's detail view (durations, extend, stop), the plan's limit and one monitor per post, the hourly
  * job (CRON_SECRET, readings, a notable-change alert, the end with an AI summary that may only use
  * the data's numbers, numbers only when the AI is down), daily monitoring reusing the daily snapshot,
- * the Post monitoring tab and full view, the assistant's data, Arabic RTL on a phone and the feature
+ * the Post monitoring tab and full view, Arabic RTL on a phone and the feature
  * switch. Uses the seeded "Mathanet Baity" business (Pro, mock Instagram) and the Gemini stub. The
  * spec moves monitors' clocks forward in the e2e database (DATABASE_URL) instead of waiting hours,
  * and stops any monitor it finds first, so it doesn't need a fresh seed.
@@ -270,7 +270,7 @@ test("the Post monitoring tab: status, time left and a mini chart per post, and 
   await page.goto("/post-monitoring");
   await expect(page.getByRole("heading", { name: "Post monitoring" })).toBeVisible();
   await expect(page.getByTestId("section-tabs").getByRole("link", { name: "Post monitoring" })).toHaveAttribute("aria-current", "page");
-  await expect(page.locator("aside").getByRole("link", { name: "Insights" })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByTestId("sidebar").getByRole("link", { name: "Insights" })).toHaveAttribute("aria-current", "page");
   await expect(page.getByTestId("monitor-limit")).toHaveText("Monitoring 2 of 5 posts on your plan.");
   const rows = page.getByTestId("monitor-row");
   await expect(rows).toHaveCount(2);
@@ -322,15 +322,6 @@ test("monitor a post from the tab's picker", async () => {
   await expect(page.getByText("Monitoring started. The first reading is in.")).toBeVisible();
   await expect(page.getByTestId("monitor-row")).toHaveCount(3);
   await expect(page.getByTestId("monitor-limit")).toHaveText("Monitoring 3 of 5 posts on your plan.");
-});
-
-test("the assistant's Analytics mode gets the monitoring numbers", async () => {
-  const res = await page.request.post("/api/assistant/messages", { data: { mode: "analytics", text: "How are my monitored posts doing?" } });
-  expect(res.status()).toBe(201);
-  const system = stub.calls.filter((c) => c.kind === "chat").at(-1)!.system;
-  expect(system).toContain("## Post monitoring");
-  expect(system).toContain("Monitoring now:");
-  expect(system).toMatch(/Monitoring ended \d{4}-\d{2}-\d{2}: .*readings/);
 });
 
 test("Arabic, right to left, on a phone", async () => {

@@ -6,7 +6,7 @@ import { FEATURE_KEYS } from "../config/features";
 import { SHOW_STATISTICS } from "../config/insights";
 import { MAX_PHONE_TABS, ROUTE_FEATURES, USER_NAV, type NavItem, type NavPage } from "../config/navigation";
 import { PLAN_IDS, PLAN_PRESETS } from "../config/plans";
-import { activePage, activeSection, isActiveItem, splitForPhone } from "../lib/navigation";
+import { activePage, activeSection, clientHome, isActiveItem, splitForPhone } from "../lib/navigation";
 import { allOff, filterNav } from "../lib/permissions";
 import type { FeatureKey, Permissions } from "../types";
 
@@ -16,8 +16,11 @@ const labels = (nav: NavItem[]) => nav.map((i) => i.labelKey);
 const section = (nav: NavItem[], key: string) => nav.find((i) => i.labelKey === key);
 
 describe("navigation config: one obvious home per page", () => {
-  it("has six sections in order, Settings pinned to the bottom", () => {
-    assert.deepEqual(labels(filterNav(USER_NAV, allOn())), ["nav.home", "nav.posts", "nav.engagement", "nav.insights", "nav.competitors", "nav.settings"]);
+  it("has the design proposal's sections in order (AI in the centre), Settings pinned to the bottom", () => {
+    assert.deepEqual(labels(filterNav(USER_NAV, allOn())), ["nav.gallery", "nav.engagement", "nav.ai", "nav.insights", "nav.competitors", "nav.settings"]);
+    // Home and Posts are gone from the navigation (their URLs redirect to the Gallery).
+    const hrefs = USER_NAV.flatMap<NavPage>((i) => i.pages ?? [i]).map((p) => p.href);
+    for (const gone of ["/dashboard", "/post-generator", "/assistant"]) assert.ok(!hrefs.includes(gone), gone);
     assert.deepEqual(
       USER_NAV.filter((i) => i.placement === "bottom").map((i) => i.href),
       ["/settings"],
@@ -55,7 +58,7 @@ describe("Engagement tabs", () => {
     assert.equal(engagement.href, "/engagement/comments");
     assert.deepEqual(engagement.pages!.map((p) => p.href), ["/engagement/comments", "/engagement/messages", "/engagement/keywords", "/engagement/settings"]);
     for (const page of engagement.pages!) assert.ok(page.descriptionKey, `no description for ${page.href}`);
-    assert.equal(activeSection(filterNav(USER_NAV, allOn()), "/engagement/keywords", "/dashboard")?.labelKey, "nav.engagement");
+    assert.equal(activeSection(filterNav(USER_NAV, allOn()), "/engagement/keywords", "/gallery")?.labelKey, "nav.engagement");
   });
 
   it("hides the tabs of switched-off features; /engagement then opens the first one left", () => {
@@ -87,14 +90,20 @@ describe("feature switches: hidden modules appear nowhere", () => {
 
   it("removes a section whose pages are all hidden", () => {
     const nav = filterNav(USER_NAV, without("recommendations", "reports", "statistics", "postInsights", "monitoring", "methods", "experiment", "competitors"));
-    assert.deepEqual(labels(nav), ["nav.home", "nav.posts", "nav.engagement", "nav.settings"]);
+    assert.deepEqual(labels(nav), ["nav.gallery", "nav.engagement", "nav.ai", "nav.settings"]);
     const { tabs, more } = splitForPhone(nav);
-    assert.deepEqual(labels(tabs), ["nav.home", "nav.posts", "nav.engagement"]);
+    assert.deepEqual(labels(tabs), ["nav.gallery", "nav.engagement", "nav.ai"]);
     assert.deepEqual(more, []);
   });
 
-  it("with everything off only Home and Settings are left", () => {
-    assert.deepEqual(labels(filterNav(USER_NAV, allOff())), ["nav.home", "nav.settings"]);
+  it("with everything off only Settings is left", () => {
+    assert.deepEqual(labels(filterNav(USER_NAV, allOff())), ["nav.settings"]);
+  });
+
+  it("lands on the Gallery, or the first section left when it's off", () => {
+    assert.equal(clientHome(filterNav(USER_NAV, allOn())), "/gallery");
+    assert.equal(clientHome(filterNav(USER_NAV, without("gallery"))), "/engagement/comments");
+    assert.equal(clientHome(filterNav(USER_NAV, allOff())), "/settings");
   });
 
   it("matches each plan preset", () => {
@@ -109,7 +118,7 @@ describe("phone: tab bar and profile menu", () => {
   it("puts the five main sections in the tab bar; Settings stays in the profile menu", () => {
     const { tabs, more } = splitForPhone(filterNav(USER_NAV, allOn()));
     assert.equal(tabs.length, MAX_PHONE_TABS);
-    assert.deepEqual(labels(tabs), ["nav.home", "nav.posts", "nav.engagement", "nav.insights", "nav.competitors"]);
+    assert.deepEqual(labels(tabs), ["nav.gallery", "nav.engagement", "nav.ai", "nav.insights", "nav.competitors"]);
     assert.deepEqual(more, []);
   });
 
@@ -125,11 +134,12 @@ describe("phone: tab bar and profile menu", () => {
 describe("active section", () => {
   const nav = filterNav(USER_NAV, allOn());
   it("follows the page, including sub-pages and section pages", () => {
-    assert.equal(activeSection(nav, "/reports", "/dashboard")?.labelKey, "nav.insights");
-    assert.equal(activeSection(nav, "/experiment", "/dashboard")?.labelKey, "nav.insights");
-    assert.equal(activeSection(nav, "/competitors/abc", "/dashboard")?.labelKey, "nav.competitors");
-    assert.equal(activeSection(nav, "/dashboard", "/dashboard")?.labelKey, "nav.home");
-    assert.equal(activeSection(nav, "/assistant", "/dashboard"), null);
+    assert.equal(activeSection(nav, "/reports", "/gallery")?.labelKey, "nav.insights");
+    assert.equal(activeSection(nav, "/experiment", "/gallery")?.labelKey, "nav.insights");
+    assert.equal(activeSection(nav, "/competitors/abc", "/gallery")?.labelKey, "nav.competitors");
+    assert.equal(activeSection(nav, "/gallery", "/gallery")?.labelKey, "nav.gallery");
+    assert.equal(activeSection(nav, "/ai", "/gallery")?.labelKey, "nav.ai");
+    assert.equal(activeSection(nav, "/dashboard", "/gallery"), null);
   });
 
   it("picks the most specific page of a section", () => {
@@ -138,7 +148,7 @@ describe("active section", () => {
     assert.equal(activePage(competitors, "/competitors/abc")?.href, "/competitors");
   });
 
-  it("matches Home exactly", () => {
-    assert.equal(isActiveItem("/dashboard/x", section(nav, "nav.home")!, "/dashboard"), false);
+  it("matches the Gallery (home) exactly", () => {
+    assert.equal(isActiveItem("/gallery/x", section(nav, "nav.gallery")!, "/gallery"), false);
   });
 });

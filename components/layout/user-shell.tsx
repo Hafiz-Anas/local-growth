@@ -2,32 +2,46 @@
 
 import type { ReactNode } from "react";
 import { startTransition, useEffect } from "react";
-import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { DirectionProvider } from "@base-ui/react/direction-provider";
+import { MotionConfig } from "framer-motion";
+import { useTheme } from "next-themes";
+import { Toaster } from "sonner";
 import { Eye } from "lucide-react";
 import type { NavItem } from "@/config/navigation";
-import { LogoMark } from "@/components/brand/logo";
+import { PhotoViewer } from "@/components/gallery/photo-viewer";
+import { GallerySync } from "@/components/gallery/gallery-sync";
+import { SheetHost } from "@/components/gallery/sheets/sheet-host";
 import { useActiveClient } from "@/components/providers/active-client-provider";
-import { ConnectionPill } from "@/components/shared/connection-pill";
 import { InstagramIssueBanner } from "@/components/shared/instagram-issue-banner";
 import { VerifyEmailBanner } from "@/components/shared/verify-email-banner";
+import { AiBanner } from "@/components/shell/ai-banner";
+import { EdgeSwipeBack } from "@/components/shell/edge-swipe";
+import { HOME_HREF } from "@/components/shell/nav";
+import { MenuUserProvider } from "@/components/shell/shell-context";
+import { Sidebar } from "@/components/shell/sidebar";
+import { TabBar } from "@/components/shell/tab-bar";
+import { TopBar } from "@/components/shell/top-bar";
 import { Button } from "@/components/ui/button";
 import { exitPreviewAction } from "@/lib/auth/actions";
 import { useI18n } from "@/lib/i18n/provider";
-import { splitForPhone } from "@/lib/navigation";
+import { isActivePath, splitForPhone } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 import { notify } from "@/store/ui-store";
 import { PreferencesSync } from "@/components/providers/preferences-sync";
 import type { UiPreferences } from "@/types";
-import { AssistantBanner, useAssistantBanner } from "@/components/assistant/assistant-panel";
-import { NotificationBell } from "@/components/notifications/notification-bell";
-import { MobileTabBar } from "./mobile-tab-bar";
 import { NavIcon } from "./nav-icon";
-import { ActiveAccountSwitcher } from "./login-switcher";
-import { CONTENT_INSET, ProfileMenu, type MenuUser, type MenuUserBase } from "./profile-menu";
+import { type MenuUser, type MenuUserBase } from "./profile-menu";
 import { SectionTabs } from "./section-tabs";
-import { Sidebar } from "./sidebar";
 
-/** `nav` is built on the server from the enabled features — hidden items never reach the browser. */
+/** Pages laid out edge to edge by the design proposal's own screens (Gallery, AI). */
+const PROPOSAL_PAGES = ["/gallery", "/ai"];
+
+/**
+ * The client app's shell: the design proposal's navigation (components/shell) — sidebar on desktop,
+ * header, phone tab bar with AI in the centre, the AI footer banner — around the app's pages.
+ * `nav` is built on the server from the enabled features — hidden items never reach the browser.
+ */
 export function UserShell({
   user: base,
   nav,
@@ -42,9 +56,14 @@ export function UserShell({
   emailUnverified?: boolean;
   children: ReactNode;
 }) {
-  const { client, isPreview } = useActiveClient();
-  const { t, locale } = useI18n();
-  const withBanner = useAssistantBanner();
+  const { client, isPreview, permissions } = useActiveClient();
+  const { t, locale, dir } = useI18n();
+  const { resolvedTheme } = useTheme();
+  const pathname = usePathname();
+  const onAi = isActivePath(pathname, "/ai");
+  const proposalPage = PROPOSAL_PAGES.some((href) => isActivePath(pathname, href));
+  const aiChat = permissions.aiChat === true;
+  const withBanner = aiChat && !onAi;
   const accountLabel = client.instagramHandle ? `@${client.instagramHandle}` : locale === "ar" ? client.businessNameAr : client.businessName;
 
   // After switching to another login (?switched=1, a full page load): "Switched to @handle", once.
@@ -72,73 +91,75 @@ export function UserShell({
           shortcuts,
         };
 
-  const main = nav.filter((i) => i.placement !== "bottom");
-  const bottom = nav.filter((i) => i.placement === "bottom");
+  // Settings lives in the profile menu, like the proposal's profile picture.
+  const sections = nav.filter((i) => i.placement !== "bottom");
+  // Room for the AI banner and the tab bar (phones) so nothing hides behind them.
+  const bottomRoom = withBanner ? "pb-[calc(118px+env(safe-area-inset-bottom))] lg:pb-28" : "pb-[calc(76px+env(safe-area-inset-bottom))] lg:pb-12";
 
   return (
-    <div className="min-h-dvh">
-      <PreferencesSync saved={preferences} />
-      <Sidebar items={main} bottomItems={bottom} homeHref="/dashboard" user={user} />
-      <div className={CONTENT_INSET}>
-        {isPreview && (
-          <div className="flex items-center gap-3 bg-foreground px-4 py-2 text-background md:px-8">
-            <Eye className="size-4 shrink-0" />
-            <p className="min-w-0 flex-1 truncate text-caption font-semibold">
-              {t("preview.banner", { name: locale === "ar" ? client.businessNameAr : client.businessName })}
-            </p>
-            <Button
-              size="sm"
-              variant="primary"
-              className="h-7 px-3 text-caption"
-              onClick={() => startTransition(() => exitPreviewAction())}
-            >
-              {t("preview.exit")}
-            </Button>
-          </div>
-        )}
+    <DirectionProvider direction={dir}>
+      <MotionConfig reducedMotion="user">
+        <MenuUserProvider user={user}>
+          <div className="min-h-dvh">
+            <PreferencesSync saved={preferences} />
+            <GallerySync />
+            <Sidebar items={sections} />
+            <div className="min-h-dvh lg:ms-[244px]">
+              {isPreview && (
+                <div className="flex items-center gap-3 bg-foreground px-4 py-2 text-background md:px-8">
+                  <Eye className="size-4 shrink-0" />
+                  <p className="min-w-0 flex-1 truncate text-caption font-semibold">
+                    {t("preview.banner", { name: locale === "ar" ? client.businessNameAr : client.businessName })}
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    className="h-7 px-3 text-caption"
+                    onClick={() => startTransition(() => exitPreviewAction())}
+                  >
+                    {t("preview.exit")}
+                  </Button>
+                </div>
+              )}
 
-        {!isPreview && <VerifyEmailBanner unverified={emailUnverified} email={base.email} />}
-        {client.instagramIssue && !isPreview && <InstagramIssueBanner />}
+              {!isPreview && <VerifyEmailBanner unverified={emailUnverified} email={base.email} />}
+              {client.instagramIssue && !isPreview && <InstagramIssueBanner />}
 
-        <header className="sticky top-0 z-20 h-(--topbar-height) border-b border-border bg-background">
-          <div className="mx-auto flex h-full max-w-(--content-max-width) items-center gap-3 px-4 md:px-8">
-            <Link href="/dashboard" className="md:hidden" aria-label="AI Growth Engine">
-              <LogoMark className="size-7" />
-            </Link>
-            {/* The active Instagram account; tapping it switches between the logins remembered on this device. */}
-            <ActiveAccountSwitcher
-              readOnly={isPreview}
-              current={{
-                handle: client.instagramHandle ?? null,
-                name: locale === "ar" ? client.businessNameAr : client.businessName,
-                avatarUrl: client.avatarUrl,
-                avatarInitials: client.avatarInitials,
-                avatarTone: client.avatarTone,
+              {/* The AI tab has its own header on phones; desktop keeps the regular one. */}
+              <TopBar className={cn(onAi && "max-lg:hidden")} />
+
+              {proposalPage ? (
+                <main className={cn("ge mx-auto w-full max-w-[935px] lg:px-8", bottomRoom)}>{children}</main>
+              ) : (
+                <main className={cn("mx-auto max-w-(--content-max-width) px-4 pt-6 md:px-8", bottomRoom)}>
+                  <SectionTabs nav={nav} homeHref={HOME_HREF} />
+                  {children}
+                </main>
+              )}
+            </div>
+            {withBanner && <AiBanner />}
+            <TabBar items={phone.tabs} />
+            <PhotoViewer />
+            <SheetHost aiChat={aiChat} />
+            <EdgeSwipeBack />
+            <Toaster
+              dir={dir}
+              position="top-center"
+              theme={resolvedTheme === "dark" ? "dark" : "light"}
+              className="ge"
+              offset={{ top: "calc(env(safe-area-inset-top) + 12px)" }}
+              mobileOffset={{ top: "calc(env(safe-area-inset-top) + 10px)" }}
+              toastOptions={{
+                classNames: {
+                  toast: "!rounded-2xl !border !bg-ge-elevated !text-ge-foreground !shadow-lg !font-sans !text-[14px] !gap-2",
+                  actionButton: "!bg-transparent !text-ge-brand !font-semibold",
+                  icon: "!text-ge-brand",
+                },
               }}
             />
-
-            <div className="ms-auto flex items-center gap-1 sm:gap-2">
-              {/* Only the Instagram connection here; plan, language and appearance are in the profile menu. */}
-              <ConnectionPill status={client.connection} withIcon />
-              <NotificationBell />
-              <ProfileMenu user={user} />
-            </div>
           </div>
-        </header>
-
-        <main
-          className={cn(
-            "mx-auto max-w-(--content-max-width) px-4 pt-6 md:px-8",
-            // Room for the assistant banner (and the tab bar on phones) so nothing hides behind them.
-            withBanner ? "pb-[calc(var(--tabbar-height)+var(--assistant-bar-height)+32px)] md:pb-[calc(var(--assistant-bar-height)+48px)]" : "pb-[calc(var(--tabbar-height)+32px)] md:pb-12",
-          )}
-        >
-          <SectionTabs nav={nav} homeHref="/dashboard" />
-          {children}
-        </main>
-      </div>
-      <AssistantBanner />
-      <MobileTabBar items={phone.tabs} homeHref="/dashboard" />
-    </div>
+        </MenuUserProvider>
+      </MotionConfig>
+    </DirectionProvider>
   );
 }

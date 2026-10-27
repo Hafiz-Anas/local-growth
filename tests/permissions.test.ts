@@ -5,21 +5,27 @@ import { USER_NAV, ROUTE_FEATURES } from "../config/navigation";
 import { PLAN_IDS, PLAN_PRESETS } from "../config/plans";
 import { filterNav, isFeatureEnabled, permissionsFromRows } from "../lib/permissions";
 
-describe("AI assistant feature", () => {
-  it("is a module of its own, ON in every plan", () => {
-    assert.ok(FEATURE_KEYS.includes("assistant"));
-    assert.deepEqual(FEATURE_MODULES.find((m) => m.id === "assistant"), { id: "assistant", moduleKey: "assistant", subFeatures: [] });
-    for (const plan of PLAN_IDS) assert.equal(PLAN_PRESETS[plan].assistant, true, plan);
+describe("Gallery and AI chat features", () => {
+  it("are modules of their own, ON in every plan; the old assistant's switch is gone", () => {
+    assert.ok(!(FEATURE_KEYS as readonly string[]).includes("assistant"));
+    for (const key of ["gallery", "aiChat"] as const) {
+      assert.deepEqual(FEATURE_MODULES.find((m) => m.id === key), { id: key, moduleKey: key, subFeatures: [] });
+      for (const plan of PLAN_IDS) assert.equal(PLAN_PRESETS[plan][key], true, `${plan} ${key}`);
+    }
   });
 
-  it("opens from the footer banner (no nav item), gated by the feature", () => {
-    assert.ok(!USER_NAV.some((i) => i.href === "/assistant"));
-    const on = permissionsFromRows([{ featureKey: "assistant", enabled: true }]);
-    const off = permissionsFromRows([{ featureKey: "assistant", enabled: false }]);
-    assert.equal(isFeatureEnabled(on, "assistant"), true);
-    assert.equal(isFeatureEnabled(off, "assistant"), false);
-    // A business without the row (before the data migration) doesn't get it by accident.
-    assert.equal(isFeatureEnabled(permissionsFromRows([]), "assistant"), false);
+  it("gate the Gallery and centre AI tabs; ON for businesses without a row (no data migration)", () => {
+    assert.equal(ROUTE_FEATURES["/gallery"], "gallery");
+    assert.equal(ROUTE_FEATURES["/ai"], "aiChat");
+    for (const key of ["gallery", "aiChat"] as const) {
+      assert.equal(isFeatureEnabled(permissionsFromRows([]), key), true, key);
+      assert.equal(isFeatureEnabled(permissionsFromRows([{ featureKey: key, enabled: false }]), key), false, key);
+    }
+    const off = filterNav(USER_NAV, permissionsFromRows([{ featureKey: "gallery", enabled: false }, { featureKey: "aiChat", enabled: false }]));
+    assert.ok(!off.some((i) => i.href === "/gallery" || i.href === "/ai"));
+    // Other modules still need their row; the old assistant's rows are ignored.
+    assert.equal(isFeatureEnabled(permissionsFromRows([]), "recommendations"), false);
+    assert.ok(!("assistant" in permissionsFromRows([{ featureKey: "assistant", enabled: true }])));
   });
 });
 

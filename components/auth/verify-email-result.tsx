@@ -24,7 +24,7 @@ export function VerifyEmailResult({ result, signedIn }: { result: VerifyResult; 
       description={t(`verifyEmail.${result}.body`)}
     >
       <Button asChild className="w-full">
-        <Link href={signedIn ? "/dashboard" : "/login"}>{signedIn ? t("verifyEmail.continue") : t("auth.login")}</Link>
+        <Link href={signedIn ? "/gallery" : "/login"}>{signedIn ? t("verifyEmail.continue") : t("auth.login")}</Link>
       </Button>
     </AuthCard>
   );

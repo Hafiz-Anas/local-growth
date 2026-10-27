@@ -74,7 +74,7 @@ export async function listAccounts(userId: string, activeId: string): Promise<In
  * 404 (whether it exists or not). Returns where to land: Home, or the setup of an account
  * whose onboarding isn't finished (and wasn't put off with "Finish later").
  */
-export async function switchAccount(userId: string, businessId: string): Promise<{ home: "/dashboard" | "/onboarding" }> {
+export async function switchAccount(userId: string, businessId: string): Promise<{ home: "/gallery" | "/onboarding" }> {
   const member = await db.businessMember.findUnique({
     where: { userId_businessId: { userId, businessId } },
     select: { business: { select: { onboardingStatus: true, onboardingDeferredAt: true } } },
@@ -82,7 +82,7 @@ export async function switchAccount(userId: string, businessId: string): Promise
   if (!member) throw notFound("Instagram account");
   await db.user.update({ where: { id: userId }, data: { businessId } });
   const { onboardingStatus, onboardingDeferredAt } = member.business;
-  return { home: onboardingStatus === "IN_PROGRESS" && !onboardingDeferredAt ? "/onboarding" : "/dashboard" };
+  return { home: onboardingStatus === "IN_PROGRESS" && !onboardingDeferredAt ? "/onboarding" : "/gallery" };
 }
 
 /**

@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { cookies } from "next/headers";
-import { Inter } from "next/font/google";
+import { IBM_Plex_Sans_Arabic, Inter } from "next/font/google";
 import { AppProviders } from "@/components/providers/app-providers";
 import { SIDEBAR_INIT_SCRIPT } from "@/lib/sidebar-script";
 import { THEME_INIT_SCRIPT, normalizeTheme } from "@/lib/theme-script";
@@ -10,6 +10,8 @@ import { getLocale } from "@/lib/i18n/server";
 import "./globals.css";
 
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"], display: "swap" });
+// The Gallery / AI chat / navigation (from the design proposal) use it for Arabic (`.ge` in globals.css).
+const arabic = IBM_Plex_Sans_Arabic({ variable: "--font-arabic", subsets: ["arabic"], weight: ["400", "500", "600", "700"], display: "swap" });
 
 export const metadata: Metadata = {
   title: { default: SITE.name, template: `%s · ${SITE.name}` },
@@ -26,7 +28,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   // Rendered on the server too, so even the HTML before any script runs has the right theme.
   const theme = normalizeTheme((await cookies()).get(COOKIES.theme)?.value);
   return (
-    <html lang={locale} dir={directionOf(locale)} className={`${inter.variable} ${theme}`} style={{ colorScheme: theme }} suppressHydrationWarning>
+    <html lang={locale} dir={directionOf(locale)} className={`${inter.variable} ${arabic.variable} ${theme}`} style={{ colorScheme: theme }} suppressHydrationWarning>
       {/*
         Browser extensions add attributes to <head> and <body> before hydration (e.g. LocatorJS's
         data-locator-hook-status-message, ColorZilla's cz-shortcut-listen). This only silences

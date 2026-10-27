@@ -36,7 +36,6 @@ export const GET = handler(async (_request, context: RouteContext<"/api/admin/pr
     business: await data.getBusinessSummary(businessId),
     features: enabled,
     data: {
-      dashboard: await data.getDashboard(businessId, permissions),
       instagram: await getConnectionDto(businessId),
       brand: await getBrandProfile(businessId),
       notifications: notificationPrefsSchema.catch(notificationPrefsSchema.parse({})).parse(owner?.notificationPrefs ?? {}),

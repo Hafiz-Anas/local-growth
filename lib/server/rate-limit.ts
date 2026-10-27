@@ -58,6 +58,8 @@ export const STYLE_GUIDE_LIMIT: RateLimitRule = { name: "style-guide", limit: 6,
 export const STYLE_UPLOAD_LIMIT: RateLimitRule = { name: "style-upload", limit: 30, windowMs: 60 * 60 * 1000 };
 /** AI competitor suggestions asked for per business (stored once they worked). */
 export const COMPETITOR_SUGGEST_LIMIT: RateLimitRule = { name: "competitor-suggest", limit: 3, windowMs: 60 * 60 * 1000 };
+/** Typed questions the AI tab sends to the AI per business (the rest are answered from sample data in the browser). */
+export const AI_CHAT_LIMIT: RateLimitRule = { name: "ai-chat", limit: 30, windowMs: 60 * 60 * 1000 };
 
 interface Bucket {
   count: number;

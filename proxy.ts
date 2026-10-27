@@ -16,7 +16,7 @@ const OPEN_PATHS = new Set(["/verify-email", "/signup/demo-instagram"]);
 /**
  * Route protection (Next.js 16 renamed `middleware.ts` to `proxy.ts`).
  *  - logged out          → /login
- *  - user on /admin/*    → /dashboard
+ *  - user on /admin/*    → /gallery
  *  - admin on user pages → /admin, unless previewing a client
  *  - logged in on a public page or / → role home (a client may open /login or /signup with ?add=1: "Add account")
  *
@@ -44,7 +44,7 @@ export const proxy = auth((request) => {
 
   const isAdminRoute = pathname === "/admin" || pathname.startsWith("/admin/");
   if (isAdminRoute && user.role !== "admin") {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+    return NextResponse.redirect(new URL(HOME_BY_ROLE.user, request.url));
   }
   if (!isAdminRoute && user.role === "admin" && !request.cookies.has(COOKIES.preview)) {
     return NextResponse.redirect(new URL("/admin", request.url));

@@ -27,9 +27,10 @@ import { isFeatureEnabled } from "@/lib/permissions";
 import { useMounted } from "@/lib/hooks";
 import { useI18n } from "@/lib/i18n/provider";
 import { normalizeTheme } from "@/lib/theme-script";
-import { cn, formatDateTime, timeAgo } from "@/lib/utils";
+import { cn, formatCompact, formatDateTime, timeAgo } from "@/lib/utils";
 import { notify } from "@/store/ui-store";
 import type { BrandVoiceDto, InstagramConnectionDto, MeDto, NotificationPrefs } from "@/types";
+import { SetupPrompts } from "@/components/onboarding/setup-prompts";
 import { BrandProfileSection } from "./brand-profile";
 import { BusinessCard } from "./business-card";
 import { ChangePassword } from "./change-password";
@@ -46,6 +47,7 @@ export function SettingsView() {
   return (
     <div className="max-w-2xl">
       <PageHeader title={t("settings.title")} />
+      <SetupPrompts />
 
       <div className="space-y-6">
         {/* Photo and password belong to the signed-in account — not shown while an admin previews. */}
@@ -160,6 +162,12 @@ function InstagramCard() {
           <Avatar src={client.avatarUrl} initials={client.avatarInitials} tone={client.avatarTone} size="md" ring={connected ? "story" : "seen"} />
           <div className="min-w-0 flex-1">
             <p className="truncate text-body font-semibold">{client.handle}</p>
+            {/* From the old Home profile header: followers and posts of the connected account. */}
+            {client.instagramHandle !== null && status !== "disconnected" && (
+              <p className="truncate text-caption text-muted" data-testid="instagram-counts">
+                {t("settings.instagram.counts", { followers: formatCompact(client.followers, locale), posts: formatCompact(client.posts, locale) })}
+              </p>
+            )}
             <p className="truncate text-caption text-muted">
               {status !== "disconnected" && connectedAt
                 ? t("settings.instagram.connectedSince", { date: formatDateTime(connectedAt, locale, { day: "numeric", month: "long", year: "numeric" }) })

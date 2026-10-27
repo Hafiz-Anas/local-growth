@@ -6,7 +6,7 @@ import { startGeminiStub } from "./gemini-stub";
 /**
  * The Statistics page, end to end (see playwright.config.ts for how to run): numbers and charts per
  * range, from when data is available, the AI summary (cached, invented numbers rejected, numbers and
- * charts only when the AI is down), the daily follower count, the assistant's data, navigation,
+ * charts only when the AI is down), the daily follower count, navigation,
  * Arabic RTL on a phone and the feature switch. Uses the seeded "Mathanet Baity" business (Pro, mock
  * Instagram) and the Gemini stub. Clears the business's cached summaries first (DATABASE_URL), so it
  * doesn't need a fresh seed.
@@ -163,14 +163,6 @@ test("the daily job stores one follower count a day", async ({ request }) => {
   expect(stats.series.at(-1).followers).toBe(rows.rows[0].followers);
 });
 
-test("the assistant's Analytics mode gets the statistics", async () => {
-  const res = await page.request.post("/api/assistant/messages", { data: { mode: "analytics", text: "How did my account do this month?" } });
-  expect(res.status()).toBe(201);
-  const system = calls("chat").at(-1)!.system;
-  expect(system).toContain("## Statistics: the last 30 days vs the 30 before");
-  expect(system).toContain("This period:");
-});
-
 test("Arabic, right to left, on a phone", async () => {
   await page.setViewportSize({ width: 390, height: 844 });
   await switchLanguage(page, "ar");
@@ -201,9 +193,6 @@ test("feature switch: Statistics off is gone from the navigation and answers 404
     await expect(page.getByTestId("section-tabs").getByRole("link", { name: "Statistics" })).toHaveCount(0);
     expect((await page.request.get("/api/statistics")).status()).toBe(404);
     expect((await page.request.get("/statistics")).status()).toBe(404);
-    const res = await page.request.post("/api/assistant/messages", { data: { mode: "analytics", text: "Any numbers?" } });
-    expect(res.status()).toBe(201);
-    expect(calls("chat").at(-1)!.system).not.toContain("## Statistics");
   } finally {
     await set(true);
   }

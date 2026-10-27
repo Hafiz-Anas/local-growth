@@ -3,11 +3,12 @@ import type { FeatureKey } from "@/types";
 
 export type NavIcon =
   | "home"
+  | "gallery"
+  | "ai"
   | "competitors"
   | "generator"
   | "experiment"
   | "engagement"
-  | "assistant"
   | "recommendations"
   | "reports"
   | "insights"
@@ -51,17 +52,14 @@ export const MAX_PHONE_TABS = 5;
 
 /**
  * The client app's sections — the single source for the sidebar, the phone tab bar, the profile
- * menu on phones and the tabs at the top of a section. To add a page, add one entry to a section's
- * `pages` (it becomes a tab there) or add a section. Pages keep their own URLs, so links from notifications and emails don't change.
+ * menu on phones and the tabs at the top of a section. The order is the design proposal's:
+ * Gallery, Engagement, AI (the centre tab), Insights, Competitors. To add a page, add one entry to
+ * a section's `pages` (it becomes a tab there) or add a section. Pages keep their own URLs, so links
+ * from notifications and emails don't change. Home (/dashboard) and Posts (/post-generator) are gone
+ * from the navigation; their URLs redirect to the Gallery.
  */
 export const USER_NAV: NavItem[] = [
-  { href: "/dashboard", labelKey: "nav.home", icon: "home", pages: [{ href: "/dashboard", labelKey: "nav.home" }] },
-  {
-    href: "/post-generator",
-    labelKey: "nav.posts",
-    icon: "generator",
-    pages: [{ href: "/post-generator", labelKey: "nav.postGenerator", feature: "postGenerator" }],
-  },
+  { href: "/gallery", labelKey: "nav.gallery", icon: "gallery", pages: [{ href: "/gallery", labelKey: "nav.gallery", feature: "gallery" }] },
   {
     // Comments first (most replies are to comments); "/engagement" itself redirects to the first visible tab.
     href: "/engagement",
@@ -74,6 +72,7 @@ export const USER_NAV: NavItem[] = [
       { href: "/engagement/settings", labelKey: "nav.replySettings", descriptionKey: "nav.tabHints.replySettings", feature: "engagement.aiReplies" },
     ],
   },
+  { href: "/ai", labelKey: "nav.ai", icon: "ai", pages: [{ href: "/ai", labelKey: "nav.ai", feature: "aiChat" }] },
   {
     // From "how am I doing" to "what to do" to the deeper tools.
     href: "/post-performance",
@@ -115,7 +114,8 @@ export const ROUTE_FEATURES: Record<string, FeatureKey> = Object.fromEntries(
     .map((page) => [page.href, page.feature!]),
 );
 
+/** Where each role lands after logging in. Clients land on the Gallery (see app/(user)/gallery/page.tsx when it's off). */
 export const HOME_BY_ROLE = {
   admin: "/admin",
-  user: "/dashboard",
+  user: "/gallery",
 } as const;

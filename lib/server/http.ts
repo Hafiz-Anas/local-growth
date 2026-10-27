@@ -33,10 +33,6 @@ export type ApiErrorCode =
   | "dm_window_closed"
   /** details: [{ path: "reason", message: "recipient_unavailable" | "message_rejected" | "too_long" }] */
   | "dm_failed"
-  /** The AI assistant couldn't answer; details: [{ path: "reason", message: TextFailureReason }] (lib/server/assistant.ts). */
-  | "assistant_unavailable"
-  /** The business asked the assistant its daily number of questions. */
-  | "assistant_limit"
   /** Recommendations couldn't be generated; details: [{ path: "reason", message: TextFailureReason }] (lib/server/recommendations.ts). */
   | "recommendations_unavailable"
   /** The business refreshed its recommendations the allowed number of times today. */

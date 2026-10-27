@@ -13,7 +13,7 @@ export default async function StatisticsPage() {
     // The tab is turned off (config/insights.ts): old links land on Insights' first page (Post performance,
     // which has its "What works best" card), or Home when the client has no Insights page.
     const { permissions } = await getActiveClientContext();
-    redirect(filterNav(USER_NAV, permissions).find((item) => item.labelKey === "nav.insights")?.href ?? "/dashboard");
+    redirect(filterNav(USER_NAV, permissions).find((item) => item.labelKey === "nav.insights")?.href ?? "/gallery");
   }
   await requireFeature("statistics");
   return <StatisticsView />;

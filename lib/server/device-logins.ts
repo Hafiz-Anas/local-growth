@@ -180,13 +180,13 @@ export async function switchDeviceLogin(session: Session, loginId: string): Prom
   const logins = await readDeviceLogins();
   const login = logins.find((l) => l.i === loginId);
   if (!login) throw new ApiError(404, "not_found", "This account isn't remembered on this device.");
-  if (login.u === session.userId) return { to: "/dashboard" };
+  if (login.u === session.userId) return { to: "/gallery" };
   if ((await problemOf(login)) || !(await signInAs(logins, login))) {
     await forgetRows([login]);
     await writeDeviceLogins(logins.filter((l) => l !== login));
     throw new ApiError(409, "login_expired", "This account needs its password again.");
   }
-  return { to: "/dashboard?switched=1" };
+  return { to: "/gallery?switched=1" };
 }
 
 /** Removes another login from this device (the signed-in one is logged out of instead → 409 `login_active`). */
@@ -214,7 +214,7 @@ export async function logOutOfDevice(session: Session | null, all: boolean): Pro
     await forgetRows(logins.filter((l) => l.u === session.userId));
     const { valid } = await usable(withoutUser(logins, session.userId));
     for (const next of [...valid].sort((a, b) => b.a - a.a)) {
-      if (await signInAs(valid, next)) return { to: "/dashboard?switched=1" };
+      if (await signInAs(valid, next)) return { to: "/gallery?switched=1" };
     }
     await writeDeviceLogins([]);
   }

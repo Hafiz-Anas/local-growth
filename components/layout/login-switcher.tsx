@@ -20,8 +20,8 @@ import { AccountSwitcher, type CurrentAccount } from "./account-switcher";
 const DOT: Record<ConnectionStatus, string> = { connected: "bg-success", needs_attention: "bg-warning", disconnected: "bg-danger" };
 
 /** The account switcher at the top of the client area and the set-up screens (config/accounts.ts picks which). */
-export function ActiveAccountSwitcher(props: { current: CurrentAccount; readOnly?: boolean; compact?: boolean }) {
-  return LOGIN_HAS_SEVERAL_ACCOUNTS ? <AccountSwitcher {...props} /> : <LoginSwitcher {...props} />;
+export function ActiveAccountSwitcher({ look, ...props }: { current: CurrentAccount; readOnly?: boolean; compact?: boolean; look?: "proposal" }) {
+  return LOGIN_HAS_SEVERAL_ACCOUNTS ? <AccountSwitcher {...props} /> : <LoginSwitcher {...props} look={look} />;
 }
 
 const labelOf = (a: { handle: string | null; name: string }, fallback: string) => (a.handle ? `@${a.handle}` : a.name || fallback);
@@ -34,7 +34,18 @@ const labelOf = (a: { handle: string | null; name: string }, fallback: string) =
  * Switching signs in on the server and loads Home fresh, where a "Switched to @handle" toast shows.
  * `readOnly` (admin preview) shows the account without the list. Phones get a bottom sheet.
  */
-export function LoginSwitcher({ current, readOnly = false, compact = false }: { current: CurrentAccount; readOnly?: boolean; compact?: boolean }) {
+/** `look="proposal"`: the design proposal's header trigger (bold @handle and a chevron, no picture). */
+export function LoginSwitcher({
+  current,
+  readOnly = false,
+  compact = false,
+  look,
+}: {
+  current: CurrentAccount;
+  readOnly?: boolean;
+  compact?: boolean;
+  look?: "proposal";
+}) {
   const { t, locale } = useI18n();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -75,7 +86,12 @@ export function LoginSwitcher({ current, readOnly = false, compact = false }: { 
   const busy = switchTo.isPending || switchTo.isSuccess || remove.isPending || leaving !== null;
   const items = accounts.data?.items ?? [];
 
-  const identity = (
+  const proposal = look === "proposal";
+  const identity = proposal ? (
+    <span className="truncate text-[17px] font-bold tracking-tight" dir="ltr">
+      {label}
+    </span>
+  ) : (
     <>
       <Avatar src={current.avatarUrl} initials={current.avatarInitials} tone={current.avatarTone} size="sm" ring="story" />
       <span className={cn("truncate text-body font-semibold", compact ? "max-w-[40vw]" : "max-w-[44vw] sm:max-w-[260px]")}>
@@ -84,13 +100,17 @@ export function LoginSwitcher({ current, readOnly = false, compact = false }: { 
     </>
   );
 
-  if (readOnly) return <div className="flex min-w-0 items-center gap-2.5" data-testid="account-switcher">{identity}</div>;
+  if (readOnly) return <div className={cn("flex min-w-0 items-center", proposal ? "px-1.5 py-1" : "gap-2.5")} data-testid="account-switcher">{identity}</div>;
 
   return (
     <>
       <button
         type="button"
-        className="flex min-w-0 items-center gap-2.5 rounded-button py-1 pe-1 outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        className={
+          proposal
+            ? "flex min-w-0 items-center gap-1 rounded-lg px-1.5 py-1 hover:bg-ge-muted"
+            : "flex min-w-0 items-center gap-2.5 rounded-button py-1 pe-1 outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        }
         aria-label={t("deviceAccounts.switcherLabel", { account: label })}
         aria-haspopup="dialog"
         onClick={() => {
@@ -102,7 +122,7 @@ export function LoginSwitcher({ current, readOnly = false, compact = false }: { 
         data-testid="account-switcher"
       >
         {identity}
-        <ChevronDown className="size-4 shrink-0 text-muted" aria-hidden="true" />
+        {proposal ? <ChevronDown className="size-4 shrink-0" strokeWidth={2.5} aria-hidden="true" /> : <ChevronDown className="size-4 shrink-0 text-muted" aria-hidden="true" />}
       </button>
 
       <Dialog open={open} onOpenChange={setOpen}>

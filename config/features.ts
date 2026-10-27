@@ -8,19 +8,13 @@ import type { FeatureKey } from "@/types";
 
 /**
  * Feature catalogue. Every module and sub-feature that can be switched ON/OFF
- * per client is declared here — navigation, dashboard widgets, route guards and
+ * per client is declared here — navigation, widgets, route guards and
  * the admin permissions page all read from this single list.
  *
  * Key convention: a module key has no dot ("engagement"); a sub-feature key is
  * "<module>.<feature>". A sub-feature is only effective when its module is ON.
  */
 export const FEATURE_KEYS = [
-  "dashboard.profileHeader",
-  "dashboard.keyMetrics",
-  "dashboard.followerGrowth",
-  "dashboard.topPost",
-  "dashboard.quickTiles",
-
   "competitors",
   "competitors.accounts",
   "competitors.trendingAudio",
@@ -43,7 +37,9 @@ export const FEATURE_KEYS = [
   "engagement.autoReply",
   "engagement.whatsappPricing",
 
-  "assistant",
+  "gallery",
+
+  "aiChat",
 
   "recommendations",
 
@@ -65,24 +61,13 @@ export const FEATURE_KEYS = [
 
 export interface FeatureModuleDef {
   /** Translation namespace: features.<id>.* */
-  id: "dashboard" | "competitors" | "postGenerator" | "experiment" | "engagement" | "assistant" | "recommendations" | "reports" | "postInsights" | "methods" | "monitoring" | "statistics" | "notifications" | "settings";
-  /** Module-level toggle; `null` when the module itself is always available (dashboard, settings). */
+  id: "competitors" | "postGenerator" | "experiment" | "engagement" | "gallery" | "aiChat" | "recommendations" | "reports" | "postInsights" | "methods" | "monitoring" | "statistics" | "notifications" | "settings";
+  /** Module-level toggle; `null` when the module itself is always available (settings). */
   moduleKey: FeatureKey | null;
   subFeatures: FeatureKey[];
 }
 
 export const FEATURE_MODULES: FeatureModuleDef[] = [
-  {
-    id: "dashboard",
-    moduleKey: null,
-    subFeatures: [
-      "dashboard.profileHeader",
-      "dashboard.keyMetrics",
-      "dashboard.followerGrowth",
-      "dashboard.topPost",
-      "dashboard.quickTiles",
-    ],
-  },
   {
     id: "competitors",
     moduleKey: "competitors",
@@ -109,8 +94,13 @@ export const FEATURE_MODULES: FeatureModuleDef[] = [
     ],
   },
   {
-    id: "assistant",
-    moduleKey: "assistant",
+    id: "gallery",
+    moduleKey: "gallery",
+    subFeatures: [],
+  },
+  {
+    id: "aiChat",
+    moduleKey: "aiChat",
     subFeatures: [],
   },
   {
@@ -154,3 +144,9 @@ export const FEATURE_MODULES: FeatureModuleDef[] = [
     subFeatures: ["settings.brandVoice"],
   },
 ];
+
+/**
+ * Modules added without a data migration (no FeaturePermission rows for existing businesses):
+ * until an admin saves a value for a business, a missing row counts as ON.
+ */
+export const DEFAULT_ON_WITHOUT_ROW: readonly FeatureKey[] = ["gallery", "aiChat"];

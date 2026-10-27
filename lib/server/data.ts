@@ -11,7 +11,6 @@ import type {
   BrandVoiceDto,
   BusinessSummaryDto,
   CompetitorDto,
-  DashboardDto,
   EngagementDto,
   EngagementRuleDto,
   ExperimentDto,
@@ -50,7 +49,6 @@ import { queueWhere } from "./replies";
 
 const DAY = 24 * 60 * 60 * 1000;
 const on = (permissions: Permissions, key: Parameters<typeof isFeatureEnabled>[1]) => isFeatureEnabled(permissions, key);
-const hh = (hour: number) => `${String(hour).padStart(2, "0")}:00`;
 
 export async function getBusinessSummary(businessId: string): Promise<BusinessSummaryDto> {
   const row = await db.business.findUnique({ where: { id: businessId }, select: BUSINESS_SUMMARY_SELECT });
@@ -69,33 +67,6 @@ export async function catalogFor(businessId: string) {
   const row = await db.business.findUnique({ where: { id: businessId }, select: { name: true } });
   if (!row) throw notFound("Business");
   return getContentCatalog(businessId, row.name, await catalogProfile(businessId));
-}
-
-// Dashboard ----------------------------------------------------------------------
-
-export async function getDashboard(businessId: string, permissions: Permissions): Promise<DashboardDto> {
-  const ig = getInstagramService();
-  const account = await getInstagramAccount(businessId);
-  const insights = await ig.getInsights(account);
-  const dto: DashboardDto = {};
-
-  if (on(permissions, "dashboard.profileHeader")) dto.profile = await ig.getProfile(account);
-  if (on(permissions, "dashboard.keyMetrics")) dto.metrics = insights.metrics;
-  if (on(permissions, "dashboard.followerGrowth")) dto.followerSeries = insights.followerSeries;
-  if (on(permissions, "dashboard.topPost")) dto.topPost = (await ig.getMedia(account, { limit: 1 }))[0] ?? null;
-  if (on(permissions, "dashboard.quickTiles")) {
-    const tiles: NonNullable<DashboardDto["quickTiles"]> = {};
-    if (on(permissions, "engagement")) tiles.commentsHandledToday = insights.commentsHandledToday;
-    if (on(permissions, "engagement.aiReplies")) {
-      tiles.repliesAwaitingApproval = await db.replyDraft.count({ where: { businessId, status: "PENDING" } });
-    }
-    if (on(permissions, "experiment.windows")) {
-      const best = insights.opportunity && insights.windows.find((w) => w.id === insights.opportunity!.window);
-      tiles.nextWindow = best ? { window: best.id, start: hh(best.startHour), end: hh(best.endHour), liftPct: insights.opportunity!.liftPct } : null;
-    }
-    dto.quickTiles = tiles;
-  }
-  return dto;
 }
 
 // Competitors ------------------------------------------------------------------

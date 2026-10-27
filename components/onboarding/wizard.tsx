@@ -79,7 +79,7 @@ export function OnboardingWizard({
     current.current = null;
     try {
       await apiFetch("/api/onboarding/defer", { method: "POST" });
-      router.push("/dashboard");
+      router.push("/gallery");
       router.refresh();
     } catch {
       setDeferring(false);
@@ -197,7 +197,7 @@ function AllSet({ style }: { style: StyleGuideDto | null }) {
     refetchInterval: (q) => (q.state.data?.status === "building" && q.state.dataUpdateCount < 20 ? 3000 : false),
   });
   // The (user) layout reads the finished onboarding from the server.
-  useEffect(() => router.prefetch("/dashboard"), [router]);
+  useEffect(() => router.prefetch("/gallery"), [router]);
   return (
     <main className="mx-auto flex w-full max-w-[480px] flex-1 flex-col items-center px-4 pt-14 pb-12 text-center" data-testid="all-set">
       <span className="flex size-16 items-center justify-center rounded-pill bg-ig-gradient text-white">
@@ -219,7 +219,7 @@ function AllSet({ style }: { style: StyleGuideDto | null }) {
         ))}
       </ul>
       <Button asChild size="lg" className="mt-8 w-full">
-        <Link href="/dashboard" onClick={() => router.refresh()}>
+        <Link href="/gallery" onClick={() => router.refresh()}>
           {t("onboarding.allSet.home")}
           <ArrowRight className="size-4 rtl:-scale-x-100" aria-hidden="true" />
         </Link>

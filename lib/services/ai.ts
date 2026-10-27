@@ -2,7 +2,7 @@ import "server-only";
 import { logIntegration } from "@/lib/server/integration-log";
 import type { CaptionStyle, PostPurpose, PurposePattern, StyleNotes } from "@/types";
 import { getContentCatalog, type CatalogProfile } from "./catalog";
-import { cleanAssistantAnswer } from "./text/assistant";
+import { cleanChatAnswer } from "./text/ai-chat";
 import type { BusinessFocus } from "./text/focus";
 import { parsePrefill, type PrefillSuggestion } from "./text/prefill";
 import { parseStyleGuide, type StyleGuideText } from "./text/style";
@@ -22,7 +22,7 @@ import { mockShareFindings, parseShareFindings, type ShareFinding } from "./text
 import type { ShareabilityData } from "@/lib/analysis/shareability";
 import { composeCaption, cleanReply, greetName, isArabic, parseBrandContext, parseCaptions, replyLanguage, stripAvoided } from "./text/output";
 import {
-  assistantPrompt,
+  aiChatPrompt,
   brandContextPrompt,
   classifyPostsPrompt,
   competitorInsightPrompt,
@@ -37,7 +37,7 @@ import {
   replyPrompt,
   reportSummaryPrompt,
   strategyPrompt,
-  type AssistantPromptInput,
+  type AiChatPromptInput,
   type BrandPrefillPromptInput,
   type StyleGuidePromptInput,
   type SuggestCompetitorsPromptInput,
@@ -176,11 +176,11 @@ export interface AIService {
   /** Reads the onboarding inputs (business, posts, basics) and describes the brand. */
   buildBrandContext(input: BrandContextInput): Promise<BrandContextDraft>;
   /**
-   * Answers a question in the client chat. Never falls back to made-up text:
-   * when the model can't answer, the result says why and the UI shows that.
+   * A short general reply to a question typed in the AI tab that none of its sample answers matches.
+   * Never made-up text: a failure says why and the chat shows its sample answer instead.
    */
-  chat(request: AssistantRequest): Promise<AssistantAnswer>;
-  /** Weekly tips (at most 3, ranked by impact). Like chat(), never made-up text: a failure says why. */
+  chatReply(request: ChatReplyRequest): Promise<ChatReplyAnswer>;
+  /** Weekly tips (at most 3, ranked by impact). Never made-up text: a failure says why. */
   strategy(request: StrategyRequest): Promise<StrategyAnswer>;
   /** The weekly report's plain-language summary (EN + AR). A failure says why; the report then has numbers only. */
   weeklySummary(request: ReportSummaryRequest): Promise<ReportSummaryAnswer>;
@@ -248,13 +248,13 @@ export interface StrategyRequest {
 
 export type StrategyAnswer = { ok: true; recommendations: StrategyRecommendation[] } | { ok: false; reason: TextFailureReason };
 
-export interface AssistantRequest {
+export interface ChatReplyRequest {
   /** For the integration log when the real model fails. */
   businessId: string;
-  prompt: AssistantPromptInput;
+  prompt: AiChatPromptInput;
 }
 
-export type AssistantAnswer = { ok: true; text: string } | { ok: false; reason: TextFailureReason };
+export type ChatReplyAnswer = { ok: true; text: string } | { ok: false; reason: TextFailureReason };
 
 /** Thrown when the provider can't build a brand profile (the route stores a FAILED version). */
 export class BrandContextError extends Error {}
@@ -477,8 +477,8 @@ export class MockAIService implements AIService {
     return mockBrandContext(input);
   }
 
-  /** MOCK: there is no model to ask, so the chat says the assistant is unavailable (never a canned answer). */
-  async chat(): Promise<AssistantAnswer> {
+  /** MOCK: there is no model to ask; the AI tab shows its own sample answer. */
+  async chatReply(): Promise<ChatReplyAnswer> {
     return { ok: false, reason: "not_configured" };
   }
 
@@ -539,7 +539,7 @@ export class MockAIService implements AIService {
   }
 }
 
-type AICall = "ai.captions" | "ai.reply.comment" | "ai.reply.dm" | "ai.reply.rewrite" | "ai.competitor" | "ai.classify" | "ai.post" | "ai.monitor" | "ai.statistics" | "ai.shareability" | "ai.brand_context" | "ai.assistant" | "ai.strategy" | "ai.report" | "ai.prefill" | "ai.style" | "ai.suggest";
+type AICall = "ai.captions" | "ai.reply.comment" | "ai.reply.dm" | "ai.reply.rewrite" | "ai.competitor" | "ai.classify" | "ai.post" | "ai.monitor" | "ai.statistics" | "ai.shareability" | "ai.brand_context" | "ai.chat" | "ai.strategy" | "ai.report" | "ai.prefill" | "ai.style" | "ai.suggest";
 
 /**
  * Gemini text model (prompts in ./text/prompts.ts). Never fails: when the
@@ -567,7 +567,7 @@ export class GeminiAIService implements AIService {
         ? { text: call === "ai.report" ? "published the report with numbers only" : "showed the numbers only", fallback: "numbers_only" }
         : call === "ai.classify"
           ? { text: "kept the rule-based post types", fallback: "rules" }
-        : call === "ai.assistant" || call === "ai.strategy" || call === "ai.prefill" || call === "ai.reply.rewrite" || call === "ai.style" || call === "ai.suggest"
+        : call === "ai.chat" || call === "ai.strategy" || call === "ai.prefill" || call === "ai.reply.rewrite" || call === "ai.style" || call === "ai.suggest"
           ? { text: "told the user the AI is unavailable", fallback: "unavailable" }
           : { text: "used the template text instead", fallback: "template" };
     const gate = (this.gate ??= new TextRequestGate(config?.rpm ?? DEFAULT_GEMINI_TEXT_RPM, config?.rpd ?? DEFAULT_GEMINI_TEXT_RPD));
@@ -786,13 +786,13 @@ export class GeminiAIService implements AIService {
     );
   }
 
-  async chat(request: AssistantRequest): Promise<AssistantAnswer> {
-    return this.run<AssistantAnswer>(
-      "ai.assistant",
+  async chatReply(request: ChatReplyRequest): Promise<ChatReplyAnswer> {
+    return this.run<ChatReplyAnswer>(
+      "ai.chat",
       request.businessId,
-      () => assistantPrompt(request.prompt),
+      () => aiChatPrompt(request.prompt),
       (answer) => {
-        const text = cleanAssistantAnswer(answer);
+        const text = cleanChatAnswer(answer);
         if (!text) throw new TextGenerationError("bad_output", "The model's answer was empty.", 200);
         return { ok: true, text };
       },

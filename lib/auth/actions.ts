@@ -111,7 +111,7 @@ export async function startPreviewAction(clientId: string) {
     path: "/",
     maxAge: PREVIEW_MAX_AGE,
   });
-  redirect("/dashboard");
+  redirect(HOME_BY_ROLE.user);
 }
 
 export async function exitPreviewAction() {

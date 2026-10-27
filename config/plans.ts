@@ -8,24 +8,16 @@ function build(enabled: FeatureKey[]): Permissions {
   return Object.fromEntries(FEATURE_KEYS.map((key) => [key, set.has(key)])) as Permissions;
 }
 
-const DASHBOARD_ALL: FeatureKey[] = [
-  "dashboard.profileHeader",
-  "dashboard.keyMetrics",
-  "dashboard.followerGrowth",
-  "dashboard.topPost",
-  "dashboard.quickTiles",
-];
-
 /** Default permission combination per plan. Admins can still edit each client individually. */
 export const PLAN_PRESETS: Record<PlanId, Permissions> = {
   starter: build([
-    ...DASHBOARD_ALL,
     "postGenerator",
     "postGenerator.brandVocabulary",
     "postGenerator.regenerate",
     "engagement",
     "engagement.aiReplies",
-    "assistant",
+    "gallery",
+    "aiChat",
     "recommendations",
     "reports",
     "postInsights",
@@ -38,7 +30,6 @@ export const PLAN_PRESETS: Record<PlanId, Permissions> = {
     "settings.brandVoice",
   ]),
   growth: build([
-    ...DASHBOARD_ALL,
     "competitors",
     "competitors.accounts",
     "competitors.trendingHashtags",
@@ -54,7 +45,8 @@ export const PLAN_PRESETS: Record<PlanId, Permissions> = {
     "engagement.dmRules",
     "engagement.aiReplies",
     "engagement.whatsappPricing",
-    "assistant",
+    "gallery",
+    "aiChat",
     "recommendations",
     "reports",
     "postInsights",

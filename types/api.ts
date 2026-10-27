@@ -7,7 +7,7 @@ import type { ThemePreference, UiPreferences, Role } from "./auth";
 import type { ConnectionStatus, MediaTone } from "./client";
 import type { CompetitorPost, TrendingAudio, TrendingTag } from "./competitors";
 import type { ProductCategory, Occasion, PostWindow } from "./content";
-import type { FollowerPoint, MediaIcon, MetricValue } from "./dashboard";
+import type { MediaIcon } from "./dashboard";
 import type { WindowResult } from "./experiment";
 import type { FeatureKey, Permissions, PlanId } from "./permissions";
 import type { BrandProfileDto, BusinessSource, OnboardingStatus, OnboardingStepId, PostPurpose } from "./onboarding";
@@ -132,7 +132,7 @@ export interface AdminIntegrationDto {
   events: IntegrationEventDto[];
 }
 
-// ─── Dashboard ───────────────────────────────────────────────────────────────
+// ─── Instagram profile and media ─────────────────────────────────────────────
 
 export interface InstagramProfileDto {
   username: string;
@@ -169,19 +169,6 @@ export interface MediaDto {
 }
 
 export type PostFormatDto = "reel" | "carousel" | "photo" | "video";
-
-/** Sections are present only when the matching dashboard feature is ON. */
-export interface DashboardDto {
-  profile?: InstagramProfileDto;
-  metrics?: { reach: MetricValue; engagementRate: MetricValue; followerGrowth: MetricValue; profileVisits: MetricValue };
-  followerSeries?: FollowerPoint[];
-  topPost?: MediaDto | null;
-  quickTiles?: {
-    commentsHandledToday?: number;
-    repliesAwaitingApproval?: number;
-    nextWindow?: { window: PostWindow; start: string; end: string; liftPct: number } | null;
-  };
-}
 
 // ─── Competitors ─────────────────────────────────────────────────────────────
 
@@ -442,7 +429,6 @@ export interface PreviewDto {
   business: BusinessSummaryDto;
   features: FeatureKey[];
   data: {
-    dashboard: DashboardDto;
     competitors?: CompetitorDto[];
     trends?: TrendsDto;
     generatorOptions?: GeneratorOptionsDto;
@@ -472,44 +458,6 @@ export interface PreviewDto {
     /** The business user's notification settings (shown read-only). */
     notifications: NotificationPrefs;
   };
-}
-
-// ─── AI assistant ────────────────────────────────────────────────────────────
-
-export type AssistantModeKey = "post" | "analytics" | "competitors";
-
-export interface AssistantMessageDto {
-  id: string;
-  role: "user" | "assistant";
-  mode: AssistantModeKey;
-  content: string;
-  language: "en" | "ar";
-  createdAt: string;
-}
-
-export interface AssistantConversationDto {
-  id: string;
-  title: string;
-  updatedAt: string;
-}
-
-/** GET /api/assistant — the modes this business can use, its recent chats and today's question allowance. */
-export interface AssistantOverviewDto {
-  modes: AssistantModeKey[];
-  conversations: AssistantConversationDto[];
-  /** Questions asked in the last 24 hours, and the per-business cap. */
-  usage: { used: number; limit: number };
-}
-
-/** GET /api/assistant/conversations/:id */
-export interface AssistantThreadDto extends AssistantConversationDto {
-  messages: AssistantMessageDto[];
-}
-
-/** POST /api/assistant/messages — the saved question and answer. */
-export interface AssistantReplyDto {
-  conversation: AssistantConversationDto;
-  messages: [AssistantMessageDto, AssistantMessageDto];
 }
 
 // ─── AI strategy recommendations ─────────────────────────────────────────────
@@ -568,33 +516,6 @@ export interface RecommendationsDto {
 export interface RecommendationsRefreshDto {
   result: "generated" | "unchanged";
   data: RecommendationsDto;
-}
-
-// ─── AI status (dashboard card) ──────────────────────────────────────────────
-
-/** GET /api/dashboard/ai-status — what the AI features are working from. No AI calls. */
-export interface AiStatusDto {
-  account: {
-    username: string | null;
-    /** demo = the app's sample data (mock connection). */
-    health: "healthy" | "demo" | "needs_reconnect" | "permissions" | "disconnected";
-    provider: "meta" | "mock" | null;
-    missingPermissions: string[];
-  };
-  coverage: {
-    /** Posts the AI reads (the most recent ones, up to `postsLimit`); null without Instagram data. */
-    postsAnalyzed: number | null;
-    postsLimit: number;
-    /** Null when the competitors feature is off. */
-    competitorsTracked: number | null;
-  };
-  freshness: {
-    /** Last Instagram sync (Meta connections); null for demo data or before the first sync. */
-    lastSyncAt: string | null;
-    /** Last AI recommendations analysis; null when there's none (or the feature is off). */
-    lastAnalysisAt: string | null;
-  };
-  warnings: Array<"not_connected" | "reconnect" | "permissions" | "stale" | "sync_failed">;
 }
 
 // ─── Notifications ───────────────────────────────────────────────────────────

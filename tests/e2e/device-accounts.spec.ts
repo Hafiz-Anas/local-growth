@@ -6,7 +6,7 @@ import { expect, test, type Browser, type BrowserContext, type Page } from "@pla
  * Accounts on this device (see playwright.config.ts for how to run): one login = one Instagram account,
  * and the browser remembers several logins (sealed httpOnly cookie + RememberedLogin rows):
  * - logging in remembers the login; "Add account" → log in adds a second one and keeps the first;
- * - switching back and forth signs in on the server, lands on Home with "Switched to @handle";
+ * - switching back and forth signs in on the server, lands on the Gallery with "Switched to @handle";
  * - "Create a new account" runs sign-up, Instagram and onboarding while the first logins stay remembered;
  * - a changed password, an expired row, a tampered cookie or a login from another device are refused;
  * - removing a login from the device, "Log out of @handle" (moves on to another login) and
@@ -98,7 +98,7 @@ const rowsOf = async (email: string) =>
 test("logging in remembers the login in a sealed httpOnly cookie; “Add account” → log in keeps both", async () => {
   await page.goto("/login");
   await fillLogin(page, CAFE);
-  await page.goto("/dashboard");
+  await page.goto("/gallery");
   await expect(switcher(page)).toContainText(`@${CAFE.handle}`);
 
   const cookie = (await device.cookies()).find((c) => c.name === COOKIE);
@@ -127,13 +127,13 @@ test("logging in remembers the login in a sealed httpOnly cookie; “Add account
   expect(await rowsOf(BOUTIQUE.email)).toHaveLength(1);
 });
 
-test("switching back and forth needs no password, lands on Home with a toast, and the APIs follow the active login", async () => {
+test("switching back and forth needs no password, lands on the Gallery with a toast, and the APIs follow the active login", async () => {
   await page.goto("/competitors");
   await openSwitcher(page);
   await row(page, CAFE.handle).getByRole("button", { name: `Switch to @${CAFE.handle}` }).click();
-  await page.waitForURL((url) => url.pathname === "/dashboard");
+  await page.waitForURL((url) => url.pathname === "/gallery");
   await expect(page.getByRole("status").filter({ hasText: `Switched to @${CAFE.handle}` })).toBeVisible();
-  await expect(page).toHaveURL(/\/dashboard$/);
+  await expect(page).toHaveURL(/\/gallery$/);
   await expect(switcher(page)).toContainText(`@${CAFE.handle}`);
   expect(await me(page)).toBe(CAFE.email);
   // The other account's data isn't reachable: /api/me and the client view are the cafe's only.
@@ -142,14 +142,14 @@ test("switching back and forth needs no password, lands on Home with a toast, an
 
   await openSwitcher(page);
   await row(page, BOUTIQUE.handle).getByRole("button", { name: `Switch to @${BOUTIQUE.handle}` }).click();
-  await page.waitForURL((url) => url.pathname === "/dashboard");
+  await page.waitForURL((url) => url.pathname === "/gallery");
   await expect(page.getByRole("status").filter({ hasText: `Switched to @${BOUTIQUE.handle}` })).toBeVisible();
   expect(await me(page)).toBe(BOUTIQUE.email);
 });
 
 test("a tab still showing the previous login can't act for the one switched to", async () => {
   const stale = await device.newPage();
-  await stale.goto("/dashboard");
+  await stale.goto("/gallery");
   await expect(switcher(stale)).toContainText(`@${BOUTIQUE.handle}`);
   const renderedFor = (await stale.locator('meta[name="lge-account"]').getAttribute("content")) ?? "";
   expect(renderedFor).not.toBe("");
@@ -198,7 +198,7 @@ test("a login that isn't on this device can't be reached; a tampered or expired 
 
   // Expired: the remembered login stops working, is refused with a friendly message and leaves the list.
   await pool.query(`UPDATE "RememberedLogin" SET "expiresAt" = '2001-01-01' WHERE id = $1`, [cafeLoginId]);
-  await page.goto("/dashboard");
+  await page.goto("/gallery");
   await openSwitcher(page);
   await expect(rows(page)).toHaveCount(1);
   await expect(row(page, CAFE.handle)).toHaveCount(0);
@@ -233,7 +233,7 @@ test("“Create a new account” runs sign-up, Instagram and onboarding; the oth
   await page.waitForURL(/\/onboarding/);
   await expect(switcher(page)).toContainText(`@${NEW.handle}`);
   await page.getByRole("button", { name: "Finish later" }).click();
-  await page.waitForURL(/\/dashboard/);
+  await page.waitForURL(/\/gallery/);
   await expect(switcher(page)).toContainText(`@${NEW.handle}`);
   newBusinessId = (await pool.query<{ businessId: string }>(`SELECT "businessId" FROM "User" WHERE email = $1`, [NEW.email])).rows[0].businessId;
 
@@ -256,7 +256,7 @@ test("a changed password revokes the remembered login on this device", async ({ 
   const newLoginId = await pool.query<{ id: string }>(`SELECT r.id FROM "RememberedLogin" r JOIN "User" u ON u.id = r."userId" WHERE u.email = $1`, [NEW.email]);
   expect(newLoginId.rows).toHaveLength(1); // only the one remembered by the browser that changed it
 
-  await page.goto("/dashboard");
+  await page.goto("/gallery");
   await switcher(page).click();
   await expect(sheet(page)).toBeVisible();
   // The list was refreshed on opening: the revoked login is gone already.
@@ -268,7 +268,7 @@ test("a changed password revokes the remembered login on this device", async ({ 
 
 test("a revoked login that's still listed is refused with a message when tapped", async () => {
   // Remember the boutique login, then revoke it behind the open list (as another device changing the password would).
-  await page.goto("/dashboard");
+  await page.goto("/gallery");
   await openSwitcher(page);
   await expect(row(page, BOUTIQUE.handle)).toBeVisible();
   await pool.query(`UPDATE "User" SET "sessionVersion" = "sessionVersion" + 1 WHERE email = $1`, [BOUTIQUE.email]);
@@ -307,7 +307,7 @@ test("“Log out of @handle” moves on to another remembered login; “Log out 
   await expect(rows(page)).toHaveCount(2);
   await expect(sheet(page).getByTestId("account-logout")).toContainText(`Log out of @${CAFE.handle}`);
   await sheet(page).getByTestId("account-logout").click();
-  await page.waitForURL((url) => url.pathname === "/dashboard");
+  await page.waitForURL((url) => url.pathname === "/gallery");
   await expect(page.getByRole("status").filter({ hasText: `Switched to @${BOUTIQUE.handle}` })).toBeVisible();
   expect(await me(page)).toBe(BOUTIQUE.email);
   expect(await rowsOf(CAFE.email)).toHaveLength(0);
@@ -329,7 +329,7 @@ test("“Log out of @handle” moves on to another remembered login; “Log out 
   // The last login: "Log out of @handle" goes to the login page.
   await page.goto("/login");
   await fillLogin(page, CAFE);
-  await page.goto("/dashboard");
+  await page.goto("/gallery");
   await openSwitcher(page);
   await sheet(page).getByTestId("account-logout").click();
   await page.waitForURL(/\/login/);
@@ -342,7 +342,7 @@ test("Arabic on a phone: a right-to-left bottom sheet, no sideways scroll", asyn
   const p = await context.newPage();
   await p.goto("/login");
   await fillLogin(p, { email: NEW.email, password: NEW_PASSWORD });
-  await p.goto("/dashboard");
+  await p.goto("/gallery");
   // The language switch is in the profile menu (and saved for this login).
   await p.getByTestId("profile-menu-trigger").click();
   await p.getByTestId("menu-language").click();

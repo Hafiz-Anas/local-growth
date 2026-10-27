@@ -6,7 +6,7 @@ import { startGeminiStub } from "./gemini-stub";
  * (measured comparison, growth chart, AI comparison with the invented-number guard, caching, the
  * weekly cron, plan limits and lookup messages), marketing methods (AI suggestion, one-tap
  * correction, promoted vs normal), post performance (list + chart, detail with history and the AI
- * note, AI down → numbers only), the assistant's data, navigation, Arabic RTL on a phone, and the
+ * note, AI down → numbers only), navigation, Arabic RTL on a phone, and the
  * feature switches. Uses the seeded "Mathanet Baity" business (Pro, mock Instagram, seeded history)
  * and the Gemini stub; must run on a fresh seed.
  */
@@ -212,26 +212,13 @@ test("with the AI down, the numbers and charts still show", async () => {
 
 // ── For all three ───────────────────────────────────────────────────────────────
 
-test("the assistant gets the new data in the Analytics and Competitors modes", async () => {
-  for (const [mode, section] of [
-    ["analytics", "## Marketing methods"],
-    ["competitors", "## Competitor analysis"],
-  ]) {
-    const res = await page.request.post("/api/assistant/messages", { data: { mode, text: `What should I learn from my ${mode}?` } });
-    expect(res.status()).toBe(201);
-    const system = calls("chat").at(-1)!.system;
-    expect(system).toContain(section);
-  }
-  expect(calls("chat").at(-1)!.system).toContain("Content types (estimated)");
-});
-
 test("navigation: the new pages live under Insights and Competitors", async () => {
   await page.goto("/post-performance");
   await expect(page.getByTestId("section-tab-label")).toHaveText(["Post performance", "Recommendations", "Weekly reports", "Marketing methods", "Post monitoring", "Best posting times"]);
-  await expect(page.locator("aside").getByRole("link", { name: "Insights" })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByTestId("sidebar").getByRole("link", { name: "Insights" })).toHaveAttribute("aria-current", "page");
   await page.goto("/competitors/analysis");
   await expect(page.getByTestId("section-tabs").getByRole("link", { name: "Analysis" })).toHaveAttribute("aria-current", "page");
-  await expect(page.locator("aside").getByRole("link", { name: "Competitors" })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByTestId("sidebar").getByRole("link", { name: "Competitors" })).toHaveAttribute("aria-current", "page");
 });
 
 test("Arabic, right to left, on a phone", async () => {

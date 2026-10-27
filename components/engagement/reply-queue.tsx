@@ -56,7 +56,6 @@ export function ReplyQueue({ kind, connected = true }: { kind: ReplyKind; connec
   };
   const restore = (context?: { previous?: ReplyDraftDto[] }) => queryClient.setQueryData(qk.replies, context?.previous);
   const afterChange = () => {
-    queryClient.invalidateQueries({ queryKey: qk.dashboard });
     queryClient.invalidateQueries({ queryKey: qk.engagement });
     queryClient.invalidateQueries({ queryKey: qk.sentReplies });
     queryClient.invalidateQueries({ queryKey: qk.replySummary });

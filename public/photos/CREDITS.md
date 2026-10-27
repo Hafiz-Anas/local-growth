@@ -1,0 +1,186 @@
+# Photo credits
+
+All photos are from [Unsplash](https://unsplash.com) and are used under the [Unsplash License](https://unsplash.com/license) (free to use, no permission needed). They are placeholders for this design proposal only.
+
+## mathanet
+
+- `photos/mathanet/01.jpg` — "Grilled meat and vegetables" by Victoria Shes on Unsplash — https://unsplash.com/photos/UC0HZdUitWY
+- `photos/mathanet/02.jpg` — "A spread of dishes" by Victoria Shes on Unsplash — https://unsplash.com/photos/Qa29U4Crvn4
+- `photos/mathanet/03.jpg` — "Hummus with pita and olive oil" by Imad 786 on Unsplash — https://unsplash.com/photos/n5I4Ix008-0
+- `photos/mathanet/04.jpg` — "Fried chicken on yellow rice" by Dr Muhammad Amer on Unsplash — https://unsplash.com/photos/77ItGP98s6g
+- `photos/mathanet/05.jpg` — "Rice and meat plate" by LOLA AZIZADA on Unsplash — https://unsplash.com/photos/X0ZSsFr3M-4
+- `photos/mathanet/06.jpg` — "Table full of food" by mostafa rzq on Unsplash — https://unsplash.com/photos/3JNYT7arNck
+- `photos/mathanet/07.jpg` — "Wooden table with plates of food" by Snappr on Unsplash — https://unsplash.com/photos/y3-jf84AoAo
+- `photos/mathanet/08.jpg` — "Bread on green textile" by mohamed hassouna on Unsplash — https://unsplash.com/photos/eK6JE-JD3tQ
+- `photos/mathanet/09.jpg` — "Bowl of food with other dishes" by LOLA AZIZADA on Unsplash — https://unsplash.com/photos/HyHw8mVBR9I
+- `photos/mathanet/10.jpg` — "Hummus and pita" by Imad 786 on Unsplash — https://unsplash.com/photos/eeDn5tqeWCc
+- `photos/mathanet/11.jpg` — "Curry, rice and pita" by LOLA AZIZADA on Unsplash — https://unsplash.com/photos/LxkWpGMEwlM
+- `photos/mathanet/12.jpg` — "Plate of food close up" by Garvit Nama on Unsplash — https://unsplash.com/photos/hCy0NEyIhgQ
+- `photos/mathanet/13.jpg` — "Table full of food" by Ben Koorengevel on Unsplash — https://unsplash.com/photos/CBCOGvb6-Lg
+- `photos/mathanet/14.jpg` — "Plate of food" by LOLA AZIZADA on Unsplash — https://unsplash.com/photos/SUmfcaqvcJA
+- `photos/mathanet/15.jpg` — "Silver plate with meat and vegetables" by maryam emkani on Unsplash — https://unsplash.com/photos/V58povvEj_w
+- `photos/mathanet/16.jpg` — "Ceramic bowl" by Filipp Romanovski on Unsplash — https://unsplash.com/photos/GdLWD8eWFhI
+- `photos/mathanet/17.jpg` — "Middle eastern dishes and drinks" by Zion C on Unsplash — https://unsplash.com/photos/cwuGQc5Rvkk
+- `photos/mathanet/18.jpg` — "A spread of food" by Charles-Albert Clarysse on Unsplash — https://unsplash.com/photos/-5B_sfWV2TE
+- `photos/mathanet/19.jpg` — "Platter of grilled meats" by Gang Hao on Unsplash — https://unsplash.com/photos/o__sIR_14dA
+- `photos/mathanet/20.jpg` — "Roasted chicken, rice and flatbreads" by Nawfal Sha on Unsplash — https://unsplash.com/photos/zW5jxNixbLI
+- `photos/mathanet/21.jpg` — "Pistachio baklava" by Benjamin Chambon on Unsplash — https://unsplash.com/photos/OEDeQheVySQ
+- `photos/mathanet/22.jpg` — "Grilled skewers with flatbread" by Husien Bisky on Unsplash — https://unsplash.com/photos/0gSpvtwdKuk
+- `photos/mathanet/23.jpg` — "Soup, hummus and pita" by Zoshua Colah on Unsplash — https://unsplash.com/photos/UZDq8VASPUQ
+- `photos/mathanet/24.jpg` — "Grilled chicken with flatbread" by Husien Bisky on Unsplash — https://unsplash.com/photos/Xfq9nVqVl7Y
+- `photos/mathanet/25.jpg` — "Plates and bowls of food" by Aakash Malik on Unsplash — https://unsplash.com/photos/PQIbYJ_-j60
+- `photos/mathanet/26.jpg` — "Cooked rice dish" by Shreyak Singh on Unsplash — https://unsplash.com/photos/0j4bisyPo3M
+- `photos/mathanet/27.jpg` — "Bowl of rice and meat" by Mario Raj on Unsplash — https://unsplash.com/photos/ysmeQt1dzcw
+- `photos/mathanet/28.jpg` — "Two plates of food" by Omkar Jadhav on Unsplash — https://unsplash.com/photos/o5XB6XwTb1I
+- `photos/mathanet/29.jpg` — "Rice and meat" by Sarabjeet Singh on Unsplash — https://unsplash.com/photos/q29oNjt3sEQ
+- `photos/mathanet/30.jpg` — "Platter on red cloth" by Shourav Sheikh on Unsplash — https://unsplash.com/photos/j9lowNcnl04
+- `photos/mathanet/31.jpg` — "Rice and meat plate" by Shourav Sheikh on Unsplash — https://unsplash.com/photos/iryb5QqdVr4
+- `photos/mathanet/32.jpg` — "Syrupy fried dough balls" by Shoeib Abolhassani on Unsplash — https://unsplash.com/photos/AkCm9lyp6m8
+- `photos/mathanet/33.jpg` — "Assorted baklava" by Chez Le Libanais on Unsplash — https://unsplash.com/photos/pznb7gyc3kg
+- `photos/mathanet/34.jpg` — "Teapot with cookies" by kaouther djouada on Unsplash — https://unsplash.com/photos/oh2ptOSEbVM
+- `photos/mathanet/35.jpg` — "Pastries beside teapot" by Rachid Oucharia on Unsplash — https://unsplash.com/photos/VBW7PlDhzWU
+- `photos/mathanet/36.jpg` — "Vegetable salad" by Victoria Shes on Unsplash — https://unsplash.com/photos/4MEL9XS-3JQ
+- `photos/mathanet/37.jpg` — "Meatballs in sauce" by Victor Serban on Unsplash — https://unsplash.com/photos/YBI8kyjD_K4
+- `photos/mathanet/38.jpg` — "Vegetable dish in pan" by Carlos Fernandez on Unsplash — https://unsplash.com/photos/w3awZjfVa6w
+- `photos/mathanet/39.jpg` — "Falafel with pickles" by Chez Le Libanais on Unsplash — https://unsplash.com/photos/9oepWGu1bSQ
+- `photos/mathanet/40.jpg` — "Fried kibbeh" by Chez Le Libanais on Unsplash — https://unsplash.com/photos/Go_BsrnVId4
+- `photos/mathanet/41.jpg` — "Falafel, hummus and tabbouleh" by Chez Le Libanais on Unsplash — https://unsplash.com/photos/XYELC0jO8_U
+- `photos/mathanet/42.jpg` — "Rice, meatballs and salad" by Burak B on Unsplash — https://unsplash.com/photos/FIZm4yokxo8
+- `photos/mathanet/43.jpg` — "Bowl of dates" by Masjid Pogung Dalangan on Unsplash — https://unsplash.com/photos/Ae6qKztd0Xw
+- `photos/mathanet/44.jpg` — "Dates in a ceramic bowl" by VD Photography on Unsplash — https://unsplash.com/photos/5t6D43cwOcY
+- `photos/mathanet/45.jpg` — "Rice on black plate" by Omar Elsharawy on Unsplash — https://unsplash.com/photos/OlWHSxgGMEE
+- `photos/mathanet/46.jpg` — "Cooked food plate" by Faisal on Unsplash — https://unsplash.com/photos/UkDrAwxzdok
+
+## qahwa
+
+- `photos/qahwa/01.jpg` — "Cup and saucer on wooden table" by tabitha turner on Unsplash — https://unsplash.com/photos/3n3mPoGko8g
+- `photos/qahwa/02.jpg` — "Cafe latte from above" by Nathan Dumlao on Unsplash — https://unsplash.com/photos/ikU3J1nr52w
+- `photos/qahwa/03.jpg` — "Cappuccino in mug" by Nathan Dumlao on Unsplash — https://unsplash.com/photos/tA90pRfL2gM
+- `photos/qahwa/04.jpg` — "Heart latte" by Nathan Dumlao on Unsplash — https://unsplash.com/photos/XOhI_kW_TaM
+- `photos/qahwa/05.jpg` — "Coffee cup with saucer" by Andie Jo on Unsplash — https://unsplash.com/photos/SsZBVN3_thY
+- `photos/qahwa/06.jpg` — "Cappuccino" by Armin Lotfi on Unsplash — https://unsplash.com/photos/gURxlcD9I0U
+- `photos/qahwa/07.jpg` — "Cafe latte" by Phil Desforges on Unsplash — https://unsplash.com/photos/Nw8wbiDE3gU
+- `photos/qahwa/08.jpg` — "Cappuccino leaf design" by Sepehr Moazed on Unsplash — https://unsplash.com/photos/7zow7-ZranQ
+- `photos/qahwa/09.jpg` — "Latte art cup" by Di Bella Coffee on Unsplash — https://unsplash.com/photos/s1-VmA26BIc
+- `photos/qahwa/10.jpg` — "Cappuccino on wooden table" by Margo on Unsplash — https://unsplash.com/photos/fIEN3ccZVMk
+- `photos/qahwa/11.jpg` — "Latte with coffee beans" by Nathan Dumlao on Unsplash — https://unsplash.com/photos/Y3AqmbmtLQI
+- `photos/qahwa/12.jpg` — "Cup with saucer" by Robbie Down on Unsplash — https://unsplash.com/photos/LI8inyHnm_A
+- `photos/qahwa/13.jpg` — "Iced latte" by Demi DeHerrera on Unsplash — https://unsplash.com/photos/L-sm1B4L1Ns
+- `photos/qahwa/14.jpg` — "Iced coffee glass" by Jarek Ceborski on Unsplash — https://unsplash.com/photos/IhqDpFz7I8Q
+- `photos/qahwa/15.jpg` — "Ice coffee" by Nathan Dumlao on Unsplash — https://unsplash.com/photos/vZOZJH_xkUk
+- `photos/qahwa/16.jpg` — "Milk pouring into iced coffee" by Empreinte on Unsplash — https://unsplash.com/photos/02O1bXB_fgk
+- `photos/qahwa/17.jpg` — "Cream into iced coffee" by tabitha turner on Unsplash — https://unsplash.com/photos/F0Wd4djYvSA
+- `photos/qahwa/18.jpg` — "Iced coffee in cup" by Rachel McDermott on Unsplash — https://unsplash.com/photos/HRfnyL6AO-A
+- `photos/qahwa/19.jpg` — "Iced coffee" by Tavis Beck on Unsplash — https://unsplash.com/photos/mAAcR1LR0mo
+- `photos/qahwa/20.jpg` — "Highball iced coffee" by Eiliv Aceron on Unsplash — https://unsplash.com/photos/_tSgUmeYMm8
+- `photos/qahwa/21.jpg` — "Coffee shop interior" by Keghan Crossland on Unsplash — https://unsplash.com/photos/ZZxmc66SjfM
+- `photos/qahwa/22.jpg` — "Cafe interior with hanging bulbs" by Clifford on Unsplash — https://unsplash.com/photos/VobvKmG-StA
+- `photos/qahwa/23.jpg` — "Espresso machine and grinder" by Jonathan Borba on Unsplash — https://unsplash.com/photos/21tOEaJPM_o
+- `photos/qahwa/24.jpg` — "Cafe with dessert display" by Ahmed Farook on Unsplash — https://unsplash.com/photos/fg-PMJF6R7c
+- `photos/qahwa/25.jpg` — "Rustic cafe interior" by Ahmed Farook on Unsplash — https://unsplash.com/photos/f7xHGpywvVA
+- `photos/qahwa/26.jpg` — "Cappuccino cup" by Breakslow on Unsplash — https://unsplash.com/photos/UMUCQcDdLws
+- `photos/qahwa/27.jpg` — "Two mugs on boards" by Nathan Dumlao on Unsplash — https://unsplash.com/photos/gOn7dKcCWKg
+- `photos/qahwa/28.jpg` — "Coffee with cake" by Toa Heftiba on Unsplash — https://unsplash.com/photos/W6sqUYlJRiw
+- `photos/qahwa/29.jpg` — "Cappuccino on green saucer" by Thomas Bormans on Unsplash — https://unsplash.com/photos/sMkSzzNwCbo
+- `photos/qahwa/30.jpg` — "Coffee and a slice of pie" by Alexandra on Unsplash — https://unsplash.com/photos/znYWPRSF4ew
+- `photos/qahwa/31.jpg` — "Cake with coffee" by Stephen Kidd on Unsplash — https://unsplash.com/photos/YM9GYuBhxoc
+- `photos/qahwa/32.jpg` — "Cake next to coffee" by Arash Hatami on Unsplash — https://unsplash.com/photos/zYiHB4gkhmQ
+- `photos/qahwa/33.jpg` — "Latte leaf art" by Toa Heftiba on Unsplash — https://unsplash.com/photos/gvopak04iIM
+- `photos/qahwa/34.jpg` — "Cake near cappuccino" by Haydn Golden on Unsplash — https://unsplash.com/photos/qFpIQMc33VM
+- `photos/qahwa/35.jpg` — "Cheesecakes and lattes" by Oksana Kurochkina on Unsplash — https://unsplash.com/photos/wINEVIaBVwM
+- `photos/qahwa/36.jpg` — "Cake beside cappuccino" by Toa Heftiba on Unsplash — https://unsplash.com/photos/HPX4lhOoIDA
+- `photos/qahwa/37.jpg` — "Iced matcha latte" by Olena Bohovyk on Unsplash — https://unsplash.com/photos/N1rmKN_EOaA
+- `photos/qahwa/38.jpg` — "Iced matcha with straw" by Gaia&Co on Unsplash — https://unsplash.com/photos/VKWjhlgFFwc
+- `photos/qahwa/39.jpg` — "Matcha teacup" by Jason Leung on Unsplash — https://unsplash.com/photos/Z-hvocTfR_s
+- `photos/qahwa/40.jpg` — "Matcha iced latte" by Cody Chan on Unsplash — https://unsplash.com/photos/Oog-4Ox0rv8
+- `photos/qahwa/41.jpg` — "Cappuccino latte art" by Panchanok Juntanarach on Unsplash — https://unsplash.com/photos/GT5klubwZhI
+- `photos/qahwa/42.jpg` — "Espresso pouring" by Scott K on Unsplash — https://unsplash.com/photos/UTy23CZhR-M
+- `photos/qahwa/43.jpg` — "Espresso dripping" by Mohamed Shaffaf on Unsplash — https://unsplash.com/photos/RZJRWMnd0DM
+- `photos/qahwa/44.jpg` — "Coffee beans and powder" by Nathan Dumlao on Unsplash — https://unsplash.com/photos/KixfBEdyp64
+- `photos/qahwa/45.jpg` — "Latte art macro" by Jonas Jacobsson on Unsplash — https://unsplash.com/photos/RFHFV7lVQBY
+- `photos/qahwa/46.jpg` — "Latte in teacup" by Jeremy Yap on Unsplash — https://unsplash.com/photos/jn-HaGWe4yw
+
+## tannour
+
+- `photos/tannour/01.jpg` — "Breads on display shelf" by Yeh Xintong on Unsplash — https://unsplash.com/photos/go3DT3PpIw4
+- `photos/tannour/02.jpg` — "Croissants on a table" by Conor Brown on Unsplash — https://unsplash.com/photos/sqkXyyj4WdE
+- `photos/tannour/03.jpg` — "Bread in wicker basket" by mohamed hassouna on Unsplash — https://unsplash.com/photos/N4gtuEZ5gWc
+- `photos/tannour/04.jpg` — "Fruit tarts and cakes on display" by Ulysse Pointcheval on Unsplash — https://unsplash.com/photos/1WmlAiYgnoI
+- `photos/tannour/05.jpg` — "Baked cupcake" by Deva Williamson on Unsplash — https://unsplash.com/photos/S2jw81lfrG0
+- `photos/tannour/06.jpg` — "Two croissants" by Mae Mu on Unsplash — https://unsplash.com/photos/m9pzwmxm2rk
+- `photos/tannour/07.jpg` — "Pastries on display" by Kirsten Drew on Unsplash — https://unsplash.com/photos/n49BjsFf5dI
+- `photos/tannour/08.jpg` — "Baked treats on tray" by Mink Mingle on Unsplash — https://unsplash.com/photos/qZ5lPCPvdXE
+- `photos/tannour/09.jpg` — "Bread on paper bag" by Bas Peperzak on Unsplash — https://unsplash.com/photos/XNNurImW1xM
+- `photos/tannour/10.jpg` — "Pink and white cake" by Katie Rosario on Unsplash — https://unsplash.com/photos/QNyRp21hb5I
+- `photos/tannour/11.jpg` — "Rustic loaves with seeds" by Wesual Click on Unsplash — https://unsplash.com/photos/rsWZ-P9FbQ4
+- `photos/tannour/12.jpg` — "Bread on white paper" by Nicholas Doyle on Unsplash — https://unsplash.com/photos/t7jTtJ9iyUE
+- `photos/tannour/13.jpg` — "Sliced breads" by Louise Lyshoj on Unsplash — https://unsplash.com/photos/WHJTaLqonkU
+- `photos/tannour/14.jpg` — "Croissant on white" by personalgraphic.com on Unsplash — https://unsplash.com/photos/VzUE5RtCuBA
+- `photos/tannour/15.jpg` — "Croissant on cork coaster" by Vicky Nguyen on Unsplash — https://unsplash.com/photos/a4xoMVKzbak
+- `photos/tannour/16.jpg` — "Sugared croissants" by Richard Bell on Unsplash — https://unsplash.com/photos/yOnOXMYpMoQ
+- `photos/tannour/17.jpg` — "Bread rolls" by Aurela Redenica on Unsplash — https://unsplash.com/photos/y4__jFIV1F8
+- `photos/tannour/18.jpg` — "Pile of croissants" by Richard Bell on Unsplash — https://unsplash.com/photos/ikkTOvSkdEg
+- `photos/tannour/19.jpg` — "Bread on white tray" by Nataliya Melnychuk on Unsplash — https://unsplash.com/photos/Li2zmWtG8Ns
+- `photos/tannour/20.jpg` — "Latte and croissants" by Christopher Chung on Unsplash — https://unsplash.com/photos/lMSmhRDS0Ik
+- `photos/tannour/21.jpg` — "Croissants in bakery case" by Khanh Do on Unsplash — https://unsplash.com/photos/NFSD019JVrI
+- `photos/tannour/22.jpg` — "Croissants side by side" by Vadim Babenko on Unsplash — https://unsplash.com/photos/G45tO-hLoNY
+- `photos/tannour/23.jpg` — "Cake with chocolate syrup" by American Heritage Chocolate on Unsplash — https://unsplash.com/photos/vdx5hPQhXFk
+- `photos/tannour/24.jpg` — "Chocolate cherry cake" by Jacob Thomas on Unsplash — https://unsplash.com/photos/6jHpcBPw7i8
+- `photos/tannour/25.jpg` — "Chocolate mousse cake" by kaouther djouada on Unsplash — https://unsplash.com/photos/hcEDfkiVmMI
+- `photos/tannour/26.jpg` — "Fondant cake on stand" by Deva Williamson on Unsplash — https://unsplash.com/photos/ntfGWVbBiO0
+- `photos/tannour/27.jpg` — "Layered cake" by Anthony Espinosa on Unsplash — https://unsplash.com/photos/6iqpLKqeaE0
+- `photos/tannour/28.jpg` — "Macaron on cake" by Deva Williamson on Unsplash — https://unsplash.com/photos/tW0Ix_Ajg6Y
+- `photos/tannour/29.jpg` — "Assorted donuts" by Brooke Lark on Unsplash — https://unsplash.com/photos/V4MBq8kue3U
+- `photos/tannour/30.jpg` — "Teal cupcakes" by Brooke Lark on Unsplash — https://unsplash.com/photos/pGM4sjt_BdQ
+- `photos/tannour/31.jpg` — "Strawberry cake" by Jasmine Bartel on Unsplash — https://unsplash.com/photos/8LtrMQfeDkQ
+- `photos/tannour/32.jpg` — "Berries on white cake" by Natallia Nagorniak on Unsplash — https://unsplash.com/photos/tA3sJ4u09eU
+- `photos/tannour/33.jpg` — "Bread on wooden table" by Vicky Ng on Unsplash — https://unsplash.com/photos/yL9qjDDmmMU
+- `photos/tannour/34.jpg` — "Sourdough loaf" by Diego Arenas de Rodrigo on Unsplash — https://unsplash.com/photos/guFjW-4kjCc
+- `photos/tannour/35.jpg` — "Sliced bread with knife" by Victoria Shes on Unsplash — https://unsplash.com/photos/IUk1S6n2s0o
+- `photos/tannour/36.jpg` — "Bread on round tray" by Vicky Ng on Unsplash — https://unsplash.com/photos/JlwXPO7DStM
+- `photos/tannour/37.jpg` — "Artisan loaves on rack" by Intrepid on Unsplash — https://unsplash.com/photos/1l2qWh-W5AU
+- `photos/tannour/38.jpg` — "Bread on jute" by Maria Orlova on Unsplash — https://unsplash.com/photos/kU7TkW9FIJY
+- `photos/tannour/39.jpg` — "Loaves on cooling rack" by Stephanie Klepacki on Unsplash — https://unsplash.com/photos/p9h7jrVuJDY
+- `photos/tannour/40.jpg` — "Bread on white textile" by Monika Grabkowska on Unsplash — https://unsplash.com/photos/mha2dvydACg
+- `photos/tannour/41.jpg` — "Artisan bread on board" by David Todd McCarty on Unsplash — https://unsplash.com/photos/qq-trOKqRpk
+- `photos/tannour/42.jpg` — "Baked pastry" by Monika Grabkowska on Unsplash — https://unsplash.com/photos/Ig-aswYWfDM
+- `photos/tannour/43.jpg` — "Breads in basket" by Mae Mu on Unsplash — https://unsplash.com/photos/Emhz3miT6mo
+- `photos/tannour/44.jpg` — "Cookies in bowl" by Mae Mu on Unsplash — https://unsplash.com/photos/kID9sxbJ3BQ
+- `photos/tannour/45.jpg` — "Baked cookies" by Jennifer Pallian on Unsplash — https://unsplash.com/photos/OfdDiqx8Cz8
+- `photos/tannour/46.jpg` — "Cookies on cooling rack" by Stanley Kustamin on Unsplash — https://unsplash.com/photos/QoAjF_FKG1s
+- `photos/tannour/47.jpg` — "Chocolate cookies" by Ellie Ellien on Unsplash — https://unsplash.com/photos/04yMqTmUeHQ
+- `photos/tannour/48.jpg` — "Cookies on blue plate" by American Heritage Chocolate on Unsplash — https://unsplash.com/photos/DoK5qEy2L60
+
+## competitors
+
+- `photos/competitors/home-01.jpg` — "Pistachio baklava tray" by Mustafa Sheikhmouss on Unsplash — https://unsplash.com/photos/Qi2eq-GFknA
+- `photos/competitors/home-02.jpg` — "Pistachio baklava in a tray" by Mustafa Sheikhmouss on Unsplash — https://unsplash.com/photos/5TSONyv9TyY
+- `photos/competitors/home-03.jpg` — "Pastry with pistachios" by Shoeib Abolhassani on Unsplash — https://unsplash.com/photos/WEPYQ0MwzAk
+- `photos/competitors/home-04.jpg` — "Table with plates of food" by Ferhat M. Zupcevic on Unsplash — https://unsplash.com/photos/1Bf2Ctqb_a8
+- `photos/competitors/home-05.jpg` — "Table of different foods" by Jhigu Bhoye on Unsplash — https://unsplash.com/photos/q9TtiGa5yJQ
+- `photos/competitors/home-06.jpg` — "Large plate of food" by Md Shahin on Unsplash — https://unsplash.com/photos/r_UUezIShIw
+- `photos/competitors/home-07.jpg` — "Plate of food" by Moez Mustafa on Unsplash — https://unsplash.com/photos/6Wpxhhh1rhQ
+- `photos/competitors/home-08.jpg` — "Food spread on a table" by Rita Daisy on Unsplash — https://unsplash.com/photos/PZydEr3wKZc
+- `photos/competitors/home-09.jpg` — "Falafel bowl" by Anton on Unsplash — https://unsplash.com/photos/pQnsKWk5ljQ
+- `photos/competitors/home-10.jpg` — "Meatballs and salad" by Zoshua Colah on Unsplash — https://unsplash.com/photos/WVoLfiKbYBQ
+- `photos/competitors/home-11.jpg` — "Table full of food" by Ferhat M. Zupcevic on Unsplash — https://unsplash.com/photos/5ieFQPJayg0
+- `photos/competitors/cafe-01.jpg` — "Coffee in a white cup" by Nathan Dumlao on Unsplash — https://unsplash.com/photos/dAYJfrtVjh0
+- `photos/competitors/cafe-02.jpg` — "Coffee on a saucer" by Irene Kredenets on Unsplash — https://unsplash.com/photos/maO-qIKLqi8
+- `photos/competitors/cafe-03.jpg` — "Cup on a wooden table" by L.D.I.A on Unsplash — https://unsplash.com/photos/dQdyO9jsixA
+- `photos/competitors/cafe-04.jpg` — "Mug of coffee" by Matt Hoffman on Unsplash — https://unsplash.com/photos/IE-gdqEg45M
+- `photos/competitors/cafe-05.jpg` — "Glass on an espresso machine" by Nathan Dumlao on Unsplash — https://unsplash.com/photos/dvuHNTJxIsg
+- `photos/competitors/cafe-06.jpg` — "Green drink on a coaster" by Daniel Stiel on Unsplash — https://unsplash.com/photos/_zwATV2KGTg
+- `photos/competitors/cafe-07.jpg` — "Iced matcha with straw" by Gaia&Co on Unsplash — https://unsplash.com/photos/Grhq_zQAVdA
+- `photos/competitors/cafe-08.jpg` — "Green and white drink" by Bakd&Raw by Karolin Baitinger on Unsplash — https://unsplash.com/photos/vohNMFX8_w8
+- `photos/competitors/cafe-09.jpg` — "Iced coffee on a table" by pariwat pannium on Unsplash — https://unsplash.com/photos/SnbEXxIj6wk
+- `photos/competitors/cafe-10.jpg` — "Drink on a wooden table" by Caramel on Unsplash — https://unsplash.com/photos/ZwnAW9dFAuI
+- `photos/competitors/bakery-01.jpg` — "Golden sandwich cookies" by Kotagauni Srinivas on Unsplash — https://unsplash.com/photos/xdZASg5djeA
+- `photos/competitors/bakery-02.jpg` — "Round cookie" by Vyshnavi Bisani on Unsplash — https://unsplash.com/photos/z8kriatLFdA
+- `photos/competitors/bakery-03.jpg` — "Cookies on white" by Julissa Capdevilla on Unsplash — https://unsplash.com/photos/tDoHiqXl9b8
+- `photos/competitors/bakery-04.jpg` — "Chocolate chip cookies" by Girl with red hat on Unsplash — https://unsplash.com/photos/4Mh3AjljekQ
+- `photos/competitors/bakery-05.jpg` — "Strawberry doughnuts" by Elena Koycheva on Unsplash — https://unsplash.com/photos/PFzy4N0_R3M
+- `photos/competitors/bakery-06.jpg` — "Cupcake with icing" by luisana zerpa on Unsplash — https://unsplash.com/photos/MJPr6nOdppw
+- `photos/competitors/bakery-07.jpg` — "Bread on a wooden table" by Tommaso Urli on Unsplash — https://unsplash.com/photos/USg-3Z9T4uY
+- `photos/competitors/bakery-08.jpg` — "Bread on a chopping board" by Vicky Ng on Unsplash — https://unsplash.com/photos/ubChh7P4lQo
+- `photos/competitors/bakery-09.jpg` — "Bread on a black table" by Vicky Ng on Unsplash — https://unsplash.com/photos/UQsFG9u94NI
+- `photos/competitors/bakery-10.jpg` — "Bread on a white plate" by Jocelyn Morales on Unsplash — https://unsplash.com/photos/qqIj5pV48-s
