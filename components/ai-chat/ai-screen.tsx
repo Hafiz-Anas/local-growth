@@ -16,7 +16,7 @@ export function AiScreen() {
   const [history, setHistory] = useState(false);
 
   return (
-    <div className="fixed inset-x-0 top-0 bottom-[calc(53px+env(safe-area-inset-bottom))] z-20 flex flex-col bg-ge-background pt-safe lg:start-[244px] lg:top-14 lg:bottom-0">
+    <div className="fixed inset-x-0 top-0 bottom-[calc(53px+env(safe-area-inset-bottom))] z-20 flex flex-col bg-ge-background pt-safe lg:start-[244px] lg:top-(--topbar-height) lg:bottom-0">
       <header className="flex h-14 shrink-0 items-center gap-1 px-2 lg:hidden">
         <IconBtn label={t("chats")} onClick={() => setHistory((h) => !h)}>
           <History strokeWidth={1.8} />

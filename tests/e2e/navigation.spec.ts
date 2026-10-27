@@ -4,7 +4,7 @@ import { expect, test, type Browser, type Page } from "@playwright/test";
  * Client navigation (config/navigation.ts), end to end: the design proposal's five sections in the
  * sidebar (Gallery, Engagement, AI, Insights, Competitors; Settings is in the profile menu only),
  * Insights with its pages as tabs, the old Home and Posts URLs landing on the Gallery, the phone tab
- * bar (icons with accessible labels, active section, clear of the AI banner), Arabic RTL, and
+ * bar (icons with accessible labels, active section, no footer banner), Arabic RTL, and
  * per-client feature switches removing pages and sections everywhere.
  * Uses the seeded "Mathanet Baity" demo business (Pro: every module on).
  */
@@ -98,7 +98,7 @@ test("desktop: one sidebar entry per section; Insights holds its pages as tabs",
   await expect(sidebar(page).getByRole("link", { name: "Gallery" })).toHaveAttribute("aria-current", "page");
 });
 
-test("phone: five icon tabs with accessible labels, active section, nothing behind the AI banner", async () => {
+test("phone: five icon tabs with accessible labels, active section, no footer banner", async () => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/gallery");
   await page.waitForLoadState("networkidle");
@@ -114,10 +114,8 @@ test("phone: five icon tabs with accessible labels, active section, nothing behi
   await expect(page).toHaveURL(/\/reports$/);
   await expect(tabBar(page).getByRole("link", { name: "Insights" })).toHaveAttribute("aria-current", "page");
 
-  // The AI banner sits right above the tab bar, never on top of it.
-  const bar = (await tabBar(page).boundingBox())!;
-  const banner = (await page.getByTestId("ai-banner").boundingBox())!;
-  expect(banner.y + banner.height).toBeLessThanOrEqual(bar.y + 1);
+  // No footer banner: the AI tab is the only way into the chat.
+  await expect(page.getByTestId("ai-banner")).toHaveCount(0);
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(0);
 });
@@ -157,14 +155,13 @@ test("feature switches: hidden pages and sections disappear everywhere (not gray
     expect(await tabBarLabels(page)).toEqual(["Gallery", "Engagement", "AI"]);
     await page.setViewportSize({ width: 1366, height: 800 });
 
-    // Gallery and AI are modules too: off, their sections and the AI banner go, /ai is a 404, and the
+    // Gallery and AI are modules too: off, their sections go, /ai is a 404, and the
     // landing page (also the old /dashboard) is the first section left.
     expect((await set({ gallery: false, aiChat: false })).ok()).toBe(true);
     await page.goto("/dashboard");
     await expect(page).toHaveURL(/\/engagement\/comments$/);
     await page.waitForLoadState("networkidle");
     expect((await sidebarLabels(page)).map((l) => l.trim())).toEqual(["Engagement"]);
-    await expect(page.getByTestId("ai-banner")).toHaveCount(0);
     expect((await page.request.get("/ai")).status()).toBe(404);
   } finally {
     await set({ recommendations: true, reports: true, statistics: true, postInsights: true, monitoring: true, methods: true, experiment: true, competitors: true, gallery: true, aiChat: true });

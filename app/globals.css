@@ -244,8 +244,9 @@
 
 /*
  * Gallery, AI chat and the app navigation, copied from the design proposal (ai-growth-proposal).
- * Its palette ("za'atar green") lives here as ge-* tokens so it never collides with the
- * Instagram tokens above (the proposal's `muted` is a surface, ours is text). Everything the
+ * Its tokens live here as ge-* so they never collide with the Instagram tokens above (the
+ * proposal's `muted` is a surface, ours is text). Its accent is the platform's Instagram blue (the
+ * brand tokens point at --lge-*), so the whole app has one look; the AI marks use the Instagram gradient. Everything the
  * proposal renders sits inside `.ge`, which also gives it the proposal's base type and borders.
  */
 :root {
@@ -256,11 +257,11 @@
   --ge-elevated: #ffffff;
   --ge-popover: #ffffff;
   --ge-popover-foreground: #0c0c0c;
-  --ge-primary: #2e7d4f;
-  --ge-primary-foreground: #ffffff;
-  --ge-brand: #2e7d4f;
-  --ge-brand-soft: #e9f3ec;
-  --ge-brand-ink: #1f5c39;
+  --ge-primary: var(--lge-blue);
+  --ge-primary-foreground: var(--lge-text-on-primary);
+  --ge-brand: var(--lge-blue);
+  --ge-brand-soft: var(--lge-blue-soft);
+  --ge-brand-ink: var(--lge-text-link);
   --ge-secondary: #efefef;
   --ge-secondary-foreground: #0c0c0c;
   --ge-muted: #f2f2f2;
@@ -270,7 +271,7 @@
   --ge-destructive: #d93a3a;
   --ge-border: #e6e6e6;
   --ge-input: #dbdbdb;
-  --ge-ring: #2e7d4f;
+  --ge-ring: var(--lge-blue);
   --ge-good: #1f8a4c;
   --ge-warn: #b26b00;
   --ge-bad: #d93a3a;
@@ -289,11 +290,6 @@
   --ge-elevated: #1c1c1e;
   --ge-popover: #1c1c1e;
   --ge-popover-foreground: #f5f5f5;
-  --ge-primary: #45b06f;
-  --ge-primary-foreground: #04140a;
-  --ge-brand: #45b06f;
-  --ge-brand-soft: #10291a;
-  --ge-brand-ink: #7fd3a0;
   --ge-secondary: #262626;
   --ge-secondary-foreground: #f5f5f5;
   --ge-muted: #1a1a1a;
@@ -303,7 +299,6 @@
   --ge-destructive: #ff5c5c;
   --ge-border: #262626;
   --ge-input: #363636;
-  --ge-ring: #45b06f;
   --ge-good: #4cc27c;
   --ge-warn: #f0a83a;
   --ge-bad: #ff6b6b;

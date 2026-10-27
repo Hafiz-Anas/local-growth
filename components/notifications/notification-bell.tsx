@@ -50,7 +50,7 @@ export function useNotificationText() {
  * read by opening it, mark all as read. Works the same on phones. Hidden when the client's
  * notifications module is off, and in admin preview.
  */
-export function NotificationBell({ look }: { look?: "proposal" }) {
+export function NotificationBell() {
   const { t } = useI18n();
   const { isPreview } = useActiveClient();
   const enabled = useFeature("notifications");
@@ -85,23 +85,6 @@ export function NotificationBell({ look }: { look?: "proposal" }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        {look === "proposal" ? (
-          // The design proposal's bell (components/shell): 40px round button, 24px icon, count badge.
-          <button
-            type="button"
-            title={label}
-            className="relative grid size-10 shrink-0 place-items-center rounded-full text-ge-foreground transition-colors hover:bg-ge-muted active:scale-95 [&_svg]:size-6"
-            aria-label={label}
-            data-testid="notification-bell"
-          >
-            <Bell strokeWidth={1.8} aria-hidden="true" />
-            {unread > 0 && (
-              <span className="absolute end-1 top-1 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-ge-bad px-1 text-[11px] leading-none font-bold text-white ring-2 ring-ge-background" aria-hidden="true">
-                {unread > 9 ? "9+" : unread}
-              </span>
-            )}
-          </button>
-        ) : (
         <Button variant="ghost" size="icon-sm" className="relative" aria-label={label} data-testid="notification-bell">
           <Bell aria-hidden="true" />
           {unread > 0 && (
@@ -110,7 +93,6 @@ export function NotificationBell({ look }: { look?: "proposal" }) {
             </span>
           )}
         </Button>
-        )}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-[min(22rem,calc(100vw-2rem))] p-0">
         <div className="flex items-center justify-between gap-2 px-3 py-2">

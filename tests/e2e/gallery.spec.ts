@@ -219,10 +219,8 @@ test("Add to album: a new album, a category album changes the photo's category; 
   await main().getByRole("tab", { name: "Library" }).click();
 });
 
-test("Select mode: the toolbar takes the AI banner's place; select several and favorite them", async () => {
-  await expect(page.getByTestId("ai-banner")).toBeVisible();
+test("Select mode: a toolbar appears; select several and favorite them", async () => {
   await main().getByRole("button", { name: "Select", exact: true }).click();
-  await expect(page.getByTestId("ai-banner")).toHaveCount(0);
   await expect(page.getByText("Select photos")).toBeVisible();
   const selectable = main().locator("button[aria-pressed]");
   await selectable.nth(2).click();
@@ -232,9 +230,9 @@ test("Select mode: the toolbar takes the AI banner's place; select several and f
   for (const action of ["Create post with AI", "Add to album", "Delete"]) await expect(page.getByRole("button", { name: action, exact: true })).toBeEnabled();
   await page.getByRole("button", { name: /^(Favorite|Unfavorite)$/ }).click();
   await expect(toast(/Favorites/)).toBeVisible();
-  // Done: back to the grid, the banner returns.
+  // Done: back to the grid, the toolbar goes.
   await expect(main().getByRole("button", { name: "Select", exact: true })).toBeVisible();
-  await expect(page.getByTestId("ai-banner")).toBeVisible();
+  await expect(page.getByText("2 selected")).toHaveCount(0);
 });
 
 test("Upload: picks from the mock camera roll and adds to Uploads", async () => {
@@ -323,11 +321,9 @@ test("phone and Arabic: Photos-style grid edge to edge, viewer and albums transl
   expect(await phone.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
   await phone.locator("main").getByRole("tab", { name: "الألبومات" }).click();
   await expect(phone.locator("main").getByRole("heading", { name: "ألبوماتي" })).toBeVisible();
-  // The AI banner sits just above the tab bar, full width.
-  const banner = (await phone.getByTestId("ai-banner").boundingBox())!;
-  const bar = (await phone.getByTestId("tab-bar").boundingBox())!;
-  expect(banner.y + banner.height).toBeLessThanOrEqual(bar.y);
-  expect(banner.width).toBeGreaterThan(350);
+  // No footer banner above the tab bar.
+  await expect(phone.getByTestId("tab-bar")).toBeVisible();
+  await expect(phone.getByTestId("ai-banner")).toHaveCount(0);
   await toggleLanguage();
   await expect(phone.locator("html")).toHaveAttribute("dir", "ltr");
   await phone.close();

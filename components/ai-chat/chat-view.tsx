@@ -199,7 +199,7 @@ function Welcome({ mode, prompts, onPrompt }: { mode: ChatMode; prompts: Prompt[
   const title = mode === "post" ? t("aiGreetingPost") : mode === "analytics" ? t("aiGreetingAnalytics") : t("aiGreetingCompetitors");
   return (
     <div className="flex min-h-full flex-col items-center pt-[8vh] text-center lg:pt-[12vh]">
-      <span className="grid size-14 place-items-center rounded-2xl bg-ge-brand text-ge-primary-foreground shadow-[0_8px_24px_-10px_var(--ge-brand)]">
+      <span className="grid size-14 place-items-center rounded-2xl bg-ig-gradient text-white shadow-[0_8px_24px_-10px_var(--ge-brand)]">
         <Sparkles className="size-7" />
       </span>
       <h1 className="mt-4 text-[24px] font-bold tracking-tight">{title}</h1>

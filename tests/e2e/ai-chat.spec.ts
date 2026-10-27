@@ -3,7 +3,7 @@ import { expect, test, type Browser, type Page } from "@playwright/test";
 /**
  * The AI chat (components/ai-chat, copied from the design proposal), in mock mode: the centre AI tab,
  * modes and their suggested questions, the proposal's mock answers (chart, photo link, estimate),
- * gallery photos attached inside the chat, the post card's actions, the footer banner and its sheet,
+ * gallery photos attached inside the chat, the post card's actions, no footer banner (the AI tab is the way in),
  * typed questions (POST /api/ai-chat; stubbed here so the result doesn't depend on the AI provider),
  * and the feature switches. Nothing is saved: a page load starts over.
  */
@@ -47,7 +47,7 @@ test("the centre AI tab opens the full ChatGPT-style chat with modes and suggest
   for (const prompt of ["How did my reach change this week?", "Which post did best this month?", "When should I post?"]) await expect(page.getByRole("button", { name: prompt }).last()).toBeVisible();
   await mode("Competitors").click();
   for (const prompt of ["How do I compare with my competitors?", "What is working for them?", "Who is growing fastest?"]) await expect(page.getByRole("button", { name: prompt }).last()).toBeVisible();
-  // No footer banner on the AI tab itself.
+  // No footer banner anywhere.
   await expect(page.getByTestId("ai-banner")).toHaveCount(0);
 });
 
@@ -133,36 +133,22 @@ test("typed questions: the AI's short reply when it answers, the proposal's samp
   await page.unroute("**/api/ai-chat");
 });
 
-test("the footer banner is centred on desktop and opens the chat as a side panel", async () => {
-  await page.getByTestId("sidebar").getByRole("link", { name: "Gallery" }).click();
-  const banner = page.getByTestId("ai-banner");
-  await expect(banner).toHaveText("Ask AI about your posts, analytics or competitors");
-  const box = (await banner.boundingBox())!;
-  expect(box.width).toBeLessThanOrEqual(560);
-  // Centred in the area beside the 244px sidebar.
-  expect(Math.abs(box.x + box.width / 2 - (244 + (1366 - 244) / 2))).toBeLessThan(4);
-  await banner.click();
-  const panel = page.getByRole("dialog", { name: "AI" });
-  await expect(panel.getByRole("button", { name: "Post", exact: true })).toBeVisible();
-  await expect(panel.getByRole("button", { name: "Chats" })).toBeVisible();
-  await page.keyboard.press("Escape");
+test("no footer banner on any page: the AI tab is the only way into the chat", async () => {
+  for (const section of ["Gallery", "Engagement", "Insights", "Competitors"]) {
+    await page.getByTestId("sidebar").getByRole("link", { name: section, exact: true }).click();
+    await page.waitForLoadState("networkidle");
+    await expect(page.getByTestId("ai-banner")).toHaveCount(0);
+    await expect(page.getByText("Ask AI about your posts, analytics or competitors")).toHaveCount(0);
+  }
 });
 
-test("phone: AI in the centre of the tab bar, full-width banner above it, history drawer; Arabic", async ({ browser }) => {
+test("phone: AI in the centre of the tab bar, no banner, history drawer; Arabic", async ({ browser }) => {
   const phone = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
   await login(phone);
   const bar = phone.getByTestId("tab-bar");
   const labels = await bar.getByRole("link").evaluateAll((links) => links.map((l) => l.getAttribute("aria-label")));
   expect(labels).toEqual(["Gallery", "Engagement", "AI", "Insights", "Competitors"]);
-  const banner = (await phone.getByTestId("ai-banner").boundingBox())!;
-  const barBox = (await bar.boundingBox())!;
-  expect(banner.width).toBeGreaterThan(360);
-  expect(banner.y + banner.height).toBeLessThanOrEqual(barBox.y + 1);
-  await phone.getByTestId("ai-banner").click();
-  // A tall bottom sheet on phones.
-  const sheet = phone.getByRole("dialog", { name: "AI" });
-  expect(((await sheet.boundingBox())!.height)).toBeGreaterThan(700);
-  await phone.keyboard.press("Escape");
+  await expect(phone.getByTestId("ai-banner")).toHaveCount(0);
 
   await bar.getByRole("link", { name: "AI", exact: true }).click();
   await phone.waitForURL(/\/ai$/);

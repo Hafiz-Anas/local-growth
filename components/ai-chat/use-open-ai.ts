@@ -5,7 +5,7 @@ import { translate } from "@/lib/gallery/i18n";
 import { useStore } from "@/lib/gallery/store";
 
 /**
- * Opens the AI tab (the proposal's default layout; the footer banner opens the chat as a sheet instead).
+ * Opens the AI tab, the only way into the chat.
  * With photos, starts a new chat with them attached and a ready prompt, so one tap sends.
  */
 export function useOpenAi() {

@@ -26,7 +26,7 @@ type AiOf<K> = Extract<AiMsg, { role: "ai"; kind: K }>;
 export function AiRow({ children, id }: { children: ReactNode; id?: string }) {
   return (
     <div id={id} className="flex scroll-mt-4 items-start gap-2.5">
-      <span className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-full bg-ge-brand text-ge-primary-foreground">
+      <span className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-full bg-ig-gradient text-white">
         <Sparkles className="size-3.5" />
       </span>
       <div className="min-w-0 flex-1 space-y-2.5 pt-1 text-[15px] leading-relaxed">{children}</div>

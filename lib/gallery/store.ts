@@ -18,7 +18,6 @@ import type { Account, AccountId, Competitor, CustomAlbum, L, Lang, Photo } from
  */
 
 export type SheetState =
-  | { type: "ai" }
   | { type: "schedule"; photoIds: string[]; caption?: L; suggested?: string }
   | { type: "album"; photoIds: string[]; fromAlbumId?: string }
   | { type: "albumName"; albumId?: string; photoIds?: string[] }
@@ -50,7 +49,7 @@ interface State extends DemoData {
   activeChatId: string | null;
   /** What's in the AI chat input: text and attached photos. */
   composer: { text: string; photoIds: string[] };
-  /** Gallery select mode: its toolbar takes the AI banner's place. */
+  /** Gallery select mode: its toolbar sits above the tab bar. */
   selecting: boolean;
   setSelecting: (value: boolean) => void;
   /** Kept from the proposal: screens show a short skeleton when it changes. */

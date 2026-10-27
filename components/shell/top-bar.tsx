@@ -1,21 +1,31 @@
 "use client";
 
+import Link from "next/link";
+import { LogoMark } from "@/components/brand/logo";
 import { ActiveAccountSwitcher } from "@/components/layout/login-switcher";
 import { useActiveClient } from "@/components/providers/active-client-provider";
-import { cn } from "@/lib/gallery/utils";
+import { ConnectionPill } from "@/components/shared/connection-pill";
+import { SITE } from "@/config/site";
 import { useI18n } from "@/lib/i18n/provider";
+import { cn } from "@/lib/utils";
 import { HeaderActions } from "./header-actions";
+import { HOME_HREF } from "./nav";
 
-/** The design proposal's header: the active @handle (switches between the logins on this device), the bell and the profile picture. */
+/**
+ * The client header, Instagram-style like the rest of the platform: the active account (switches between
+ * the logins on this device), the Instagram connection status, the bell and the profile menu.
+ */
 export function TopBar({ className }: { className?: string }) {
   const { client, isPreview } = useActiveClient();
   const { locale } = useI18n();
 
   return (
-    <header className={cn("ge sticky top-0 z-30 border-b border-transparent bg-ge-background/85 pt-safe backdrop-blur-xl supports-[backdrop-filter]:bg-ge-background/75", className)}>
-      <div className="mx-auto flex h-14 max-w-[935px] items-center gap-1 ps-2.5 pe-2 lg:px-8">
+    <header className={cn("sticky top-0 z-30 h-(--topbar-height) border-b border-border bg-background", className)}>
+      <div className="mx-auto flex h-full max-w-(--content-max-width) items-center gap-3 px-4 md:px-8">
+        <Link href={HOME_HREF} className="lg:hidden" aria-label={SITE.name}>
+          <LogoMark className="size-7" />
+        </Link>
         <ActiveAccountSwitcher
-          look="proposal"
           readOnly={isPreview}
           current={{
             handle: client.instagramHandle ?? null,
@@ -25,8 +35,12 @@ export function TopBar({ className }: { className?: string }) {
             avatarTone: client.avatarTone,
           }}
         />
-        <div className="flex-1" />
-        <HeaderActions />
+
+        <div className="ms-auto flex items-center gap-1 sm:gap-2">
+          {/* Only the Instagram connection here; plan, language and appearance are in the profile menu. */}
+          <ConnectionPill status={client.connection} withIcon />
+          <HeaderActions />
+        </div>
       </div>
     </header>
   );

@@ -191,7 +191,7 @@ function ViewerContent() {
                 onClick={() => actions.createWithAi([photo.id])}
                 className="inline-flex h-11 items-center gap-2 rounded-full bg-white px-5 text-[15px] font-semibold text-black shadow-lg transition-transform hover:bg-white/90 active:scale-[0.97]"
               >
-                <Sparkles className="size-[18px] text-[#2e7d4f]" />
+                <Sparkles className="size-[18px] text-primary" />
                 {t("createWithAi")}
               </button>
             ) : null}

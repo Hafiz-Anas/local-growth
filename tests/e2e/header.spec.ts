@@ -27,7 +27,7 @@ const openMenu = async (p: Page) => {
   await expect(p.getByRole("menu")).toBeVisible();
 };
 
-test("the header shows the @handle, the bell and the avatar; the connection is on Settings; plan, language and theme are in the menu", async ({ page }) => {
+test("the header shows the account, the Instagram connection, the bell and the avatar; plan, language and theme are in the menu", async ({ page }) => {
   await login(page);
   if ((await page.locator("html").getAttribute("dir")) === "rtl") {
     await openMenu(page);
@@ -37,7 +37,7 @@ test("the header shows the @handle, the bell and the avatar; the connection is o
   await page.goto("/gallery");
   const h = header(page);
   await expect(h.getByTestId("account-switcher")).toContainText("@mathanet_baity");
-  await expect(h).not.toContainText("Connected");
+  await expect(h).toContainText("Connected");
   await expect(h.getByText("Pro", { exact: true })).toHaveCount(0);
   await expect(h.getByRole("button", { name: "Change language" })).toHaveCount(0);
   await expect(h.getByRole("button", { name: /Switch to (light|dark) mode/ })).toHaveCount(0);
@@ -51,7 +51,7 @@ test("the header shows the @handle, the bell and the avatar; the connection is o
   await expect(menu.getByRole("menuitem", { name: "Reports" })).toBeHidden();
   await page.keyboard.press("Escape");
 
-  // The connection status and the account's counts live on Settings → Instagram.
+  // Settings → Instagram has the status too, with the account's counts.
   await page.goto("/settings");
   await expect(instagramCard(page)).toContainText("Connected");
   await expect(page.getByTestId("instagram-counts")).toContainText(/followers · .* posts/);
@@ -86,6 +86,7 @@ test("language switch works from the menu (Arabic, right to left) and survives a
   await saved;
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
+  await expect(header(page)).toContainText("متصل");
   await expect(instagramCard(page)).toContainText("متصل");
   await openMenu(page);
   await expect(page.getByTestId("menu-language")).toContainText("English");
@@ -94,11 +95,12 @@ test("language switch works from the menu (Arabic, right to left) and survives a
   await page.waitForResponse((r) => r.url().includes("/api/me/preferences") && r.request().method() === "PATCH");
 });
 
-test("phone width: the header fits; Settings is in the menu, the sections in the tab bar", async ({ browser }) => {
+test("phone width: the connection status fits; Settings is in the menu, the sections in the tab bar", async ({ browser }) => {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
   await login(page);
   await page.goto("/gallery");
   await expect(header(page).getByTestId("account-switcher")).toBeVisible();
+  await expect(header(page)).toContainText("Connected");
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBe(0);
   await openMenu(page);

@@ -15,7 +15,6 @@ import { SheetHost } from "@/components/gallery/sheets/sheet-host";
 import { useActiveClient } from "@/components/providers/active-client-provider";
 import { InstagramIssueBanner } from "@/components/shared/instagram-issue-banner";
 import { VerifyEmailBanner } from "@/components/shared/verify-email-banner";
-import { AiBanner } from "@/components/shell/ai-banner";
 import { EdgeSwipeBack } from "@/components/shell/edge-swipe";
 import { HOME_HREF } from "@/components/shell/nav";
 import { MenuUserProvider } from "@/components/shell/shell-context";
@@ -39,7 +38,7 @@ const PROPOSAL_PAGES = ["/gallery", "/ai"];
 
 /**
  * The client app's shell: the design proposal's navigation (components/shell) — sidebar on desktop,
- * header, phone tab bar with AI in the centre, the AI footer banner — around the app's pages.
+ * Instagram-style header, phone tab bar with AI in the centre — around the app's pages.
  * `nav` is built on the server from the enabled features — hidden items never reach the browser.
  */
 export function UserShell({
@@ -56,14 +55,12 @@ export function UserShell({
   emailUnverified?: boolean;
   children: ReactNode;
 }) {
-  const { client, isPreview, permissions } = useActiveClient();
+  const { client, isPreview } = useActiveClient();
   const { t, locale, dir } = useI18n();
   const { resolvedTheme } = useTheme();
   const pathname = usePathname();
   const onAi = isActivePath(pathname, "/ai");
   const proposalPage = PROPOSAL_PAGES.some((href) => isActivePath(pathname, href));
-  const aiChat = permissions.aiChat === true;
-  const withBanner = aiChat && !onAi;
   const accountLabel = client.instagramHandle ? `@${client.instagramHandle}` : locale === "ar" ? client.businessNameAr : client.businessName;
 
   // After switching to another login (?switched=1, a full page load): "Switched to @handle", once.
@@ -93,8 +90,8 @@ export function UserShell({
 
   // Settings lives in the profile menu, like the proposal's profile picture.
   const sections = nav.filter((i) => i.placement !== "bottom");
-  // Room for the AI banner and the tab bar (phones) so nothing hides behind them.
-  const bottomRoom = withBanner ? "pb-[calc(118px+env(safe-area-inset-bottom))] lg:pb-28" : "pb-[calc(76px+env(safe-area-inset-bottom))] lg:pb-12";
+  // Room for the tab bar (phones) so nothing hides behind it.
+  const bottomRoom = "pb-[calc(76px+env(safe-area-inset-bottom))] lg:pb-12";
 
   return (
     <DirectionProvider direction={dir}>
@@ -137,10 +134,9 @@ export function UserShell({
                 </main>
               )}
             </div>
-            {withBanner && <AiBanner />}
             <TabBar items={phone.tabs} />
             <PhotoViewer />
-            <SheetHost aiChat={aiChat} />
+            <SheetHost />
             <EdgeSwipeBack />
             <Toaster
               dir={dir}

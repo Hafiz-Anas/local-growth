@@ -38,7 +38,7 @@ export function Sidebar({ items }: { items: NavItem[] }) {
             <Link key={section.labelKey} href={section.href} aria-current={active ? "page" : undefined} className={cn(item, active && "font-bold")}>
               <span className="relative">
                 {section.icon === "ai" ? (
-                  <span className="grid size-[26px] place-items-center rounded-lg bg-ge-brand text-ge-primary-foreground">
+                  <span className="grid size-[26px] place-items-center rounded-lg bg-ig-gradient text-white">
                     <Icon className="size-4" strokeWidth={active ? 2.6 : 2} />
                   </span>
                 ) : (

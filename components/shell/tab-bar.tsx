@@ -29,10 +29,10 @@ export function TabBar({ items }: { items: NavItem[] }) {
                   aria-current={active ? "page" : undefined}
                   className="grid h-full place-items-center rounded-lg transition-transform active:scale-90"
                 >
-                  {/* AI is the heart of the app: the center tab gets the brand color. */}
+                  {/* AI is the heart of the app: the center tab gets the Instagram gradient. */}
                   <span
                     className={cn(
-                      "grid h-8 w-12 place-items-center rounded-[11px] bg-ge-brand text-ge-primary-foreground transition-shadow",
+                      "grid h-8 w-12 place-items-center rounded-[11px] bg-ig-gradient text-white transition-shadow",
                       active && "ring-2 ring-ge-brand/30 ring-offset-2 ring-offset-ge-background",
                     )}
                   >
