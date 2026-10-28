@@ -45,8 +45,11 @@ describe("navigation config: one obvious home per page", () => {
     assert.equal(insights.href, "/post-performance");
     assert.deepEqual(insights.pages!.map((p) => p.href), ["/post-performance", "/recommendations", "/reports", "/methods", "/post-monitoring", "/experiment"]);
     for (const page of insights.pages!) assert.ok(page.descriptionKey, `no description for ${page.href}`);
-    assert.deepEqual(section(filterNav(USER_NAV, allOn()), "nav.competitors")!.pages!.map((p) => p.href), ["/competitors", "/competitors/analysis"]);
+    const competitors = section(filterNav(USER_NAV, allOn()), "nav.competitors")!;
+    assert.deepEqual(competitors.pages!.map((p) => p.href), ["/competitors", "/competitors/analysis", "/competitors/inspiration"]);
+    for (const page of competitors.pages!) assert.ok(page.descriptionKey, `no description for ${page.href}`);
     assert.equal(ROUTE_FEATURES["/competitors/analysis"], "competitors.analysis");
+    assert.equal(ROUTE_FEATURES["/competitors/inspiration"], "competitors.inspiration");
     assert.equal(ROUTE_FEATURES["/reports"], "reports");
     assert.equal(ROUTE_FEATURES["/experiment"], "experiment");
   });
@@ -84,8 +87,9 @@ describe("feature switches: hidden modules appear nowhere", () => {
     const insights = section(filterNav(USER_NAV, without("postInsights")), "nav.insights")!;
     assert.equal(insights.href, "/recommendations");
     assert.deepEqual(insights.pages!.map((p) => p.href), ["/recommendations", "/reports", "/methods", "/post-monitoring", "/experiment"]);
-    // competitors.analysis off: Competitors keeps one page (no tabs).
-    assert.deepEqual(section(filterNav(USER_NAV, without("competitors.analysis")), "nav.competitors")!.pages!.map((p) => p.href), ["/competitors"]);
+    // competitors.analysis and .inspiration off: Competitors keeps one page (no tabs).
+    assert.deepEqual(section(filterNav(USER_NAV, without("competitors.analysis")), "nav.competitors")!.pages!.map((p) => p.href), ["/competitors", "/competitors/inspiration"]);
+    assert.deepEqual(section(filterNav(USER_NAV, without("competitors.analysis", "competitors.inspiration")), "nav.competitors")!.pages!.map((p) => p.href), ["/competitors"]);
   });
 
   it("removes a section whose pages are all hidden", () => {
@@ -146,6 +150,7 @@ describe("active section", () => {
     const competitors = section(nav, "nav.competitors")!;
     assert.equal(activePage(competitors, "/competitors/analysis")?.href, "/competitors/analysis");
     assert.equal(activePage(competitors, "/competitors/abc")?.href, "/competitors");
+    assert.equal(activePage(competitors, "/competitors/inspiration")?.href, "/competitors/inspiration");
   });
 
   it("matches the Gallery (home) exactly", () => {

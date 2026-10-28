@@ -20,6 +20,7 @@ export const FEATURE_KEYS = [
   "competitors.trendingAudio",
   "competitors.trendingHashtags",
   "competitors.analysis",
+  "competitors.inspiration",
 
   "postGenerator",
   "postGenerator.brandVocabulary",
@@ -71,7 +72,7 @@ export const FEATURE_MODULES: FeatureModuleDef[] = [
   {
     id: "competitors",
     moduleKey: "competitors",
-    subFeatures: ["competitors.accounts", "competitors.trendingAudio", "competitors.trendingHashtags", "competitors.analysis"],
+    subFeatures: ["competitors.accounts", "competitors.trendingAudio", "competitors.trendingHashtags", "competitors.analysis", "competitors.inspiration"],
   },
   {
     id: "postGenerator",
@@ -149,4 +150,4 @@ export const FEATURE_MODULES: FeatureModuleDef[] = [
  * Modules added without a data migration (no FeaturePermission rows for existing businesses):
  * until an admin saves a value for a business, a missing row counts as ON.
  */
-export const DEFAULT_ON_WITHOUT_ROW: readonly FeatureKey[] = ["gallery", "aiChat"];
+export const DEFAULT_ON_WITHOUT_ROW: readonly FeatureKey[] = ["gallery", "aiChat", "competitors.inspiration"];

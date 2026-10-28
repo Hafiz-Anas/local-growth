@@ -450,6 +450,17 @@ export const aiChatSchema = z.object({
   question: text(AI_CHAT_MAX_QUESTION),
 });
 
+/** POST /api/ai-chat/similar-post — a competitor's post (looked up for the business) and the owner's photo the new post uses. */
+export const similarPostSchema = z.object({
+  competitorId: text(64),
+  postId: text(200),
+  photo: z.object({
+    name: text(80),
+    nameAr: text(80).optional(),
+    category: text(60).optional(),
+  }),
+});
+
 /** PATCH /api/recommendations/:id — the owner's decision ("new" undoes accept/dismiss). */
 export const recommendationStatusSchema = z.object({ status: z.enum(["new", "accepted", "dismissed", "done"]) });
 

@@ -16,6 +16,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ApiClientError } from "@/lib/api/client";
 import { useCompetitor } from "@/lib/api/queries";
+import { competitorPostRefs } from "@/lib/gallery/competitor-posts";
+import { useStore } from "@/lib/gallery/store";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn, formatCompact, formatPct, initials, toneFor } from "@/lib/utils";
 import type { CompetitorDto, CompetitorPost } from "@/types";
@@ -27,7 +29,9 @@ import { RemoveCompetitorDialog } from "./remove-competitor-dialog";
 
 /**
  * One competitor: header, top post, engagement over time and recent posts.
- * Sections are self-contained cards so more can be added later.
+ * Sections are self-contained cards so more can be added later. Tapping a post opens it in the
+ * Gallery's viewer (components/gallery/photo-viewer.tsx), where it can be swiped through with the
+ * rest of their posts, used for a similar post in the AI chat or saved as inspiration.
  */
 export function CompetitorDetailView({ id }: { id: string }) {
   const { t } = useI18n();
@@ -77,6 +81,12 @@ function Detail({ competitor: c }: { competitor: CompetitorDto }) {
   const [removing, setRemoving] = useState<CompetitorDto | null>(null);
   const name = competitorName(c);
   const top = bestPost(c);
+  const refs = competitorPostRefs(c);
+  const open = (postId: string) =>
+    useStore.getState().openCompetitorViewer(
+      refs,
+      refs.findIndex((r) => r.post.id === postId),
+    );
 
   return (
     <>
@@ -143,7 +153,7 @@ function Detail({ competitor: c }: { competitor: CompetitorDto }) {
           </CardHeader>
           {top ? (
             <>
-              <PostTile post={top} large />
+              <PostTile post={top} large onOpen={() => open(top.id)} />
               {c.notableNote && (
                 <CardContent className="pt-3">
                   <p className="flex items-start gap-1.5 text-body">
@@ -181,7 +191,7 @@ function Detail({ competitor: c }: { competitor: CompetitorDto }) {
           <ul className="grid grid-cols-2 gap-1 sm:grid-cols-3">
             {c.recentPosts.map((post) => (
               <li key={post.id}>
-                <PostTile post={post} />
+                <PostTile post={post} onOpen={() => open(post.id)} />
               </li>
             ))}
           </ul>
@@ -194,35 +204,43 @@ function Detail({ competitor: c }: { competitor: CompetitorDto }) {
   );
 }
 
-/** Post thumbnail with likes and comments always visible (not hover-only). */
-function PostTile({ post, large = false }: { post: CompetitorPost; large?: boolean }) {
+/** Post thumbnail with likes and comments always visible (not hover-only); opens the post in the viewer. */
+function PostTile({ post, large = false, onOpen }: { post: CompetitorPost; large?: boolean; onOpen: () => void }) {
   const { t, locale } = useI18n();
   return (
-    <MediaPlaceholder tone={post.tone} icon={post.icon} src={post.mediaUrl} className={cn("w-full", large ? "aspect-[4/3]" : "aspect-square")} iconClassName={large ? "size-1/4" : "size-1/3"}>
-      {post.notable && !large && (
-        <Badge variant="gradient" size="sm" className="absolute start-1.5 top-1.5">
-          <Sparkles />
-          {t("competitors.notable")}
-        </Badge>
-      )}
-      <div
-        className={cn(
-          "absolute inset-x-0 bottom-0 flex gap-3 bg-gradient-to-t from-black/65 to-transparent font-semibold text-white",
-          large ? "px-3 pt-10 pb-3 text-title" : "px-2 pt-6 pb-1.5 text-caption",
+    <button
+      type="button"
+      onClick={onOpen}
+      data-testid="competitor-post-tile"
+      className="block w-full cursor-pointer text-start transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+    >
+      <span className="sr-only">{t("competitors.detail.openPost")}</span>
+      <MediaPlaceholder tone={post.tone} icon={post.icon} src={post.mediaUrl} className={cn("w-full", large ? "aspect-[4/3]" : "aspect-square")} iconClassName={large ? "size-1/4" : "size-1/3"}>
+        {post.notable && !large && (
+          <Badge variant="gradient" size="sm" className="absolute start-1.5 top-1.5">
+            <Sparkles />
+            {t("competitors.notable")}
+          </Badge>
         )}
-      >
-        <span className="flex items-center gap-1">
-          <Heart className={cn("fill-white", large ? "size-5" : "size-3.5")} aria-hidden="true" />
-          <span className="sr-only">{t("common.likes", { count: post.likes })}</span>
-          <span aria-hidden="true">{formatCompact(post.likes, locale)}</span>
-        </span>
-        <span className="flex items-center gap-1">
-          <MessageCircle className={cn("fill-white rtl:-scale-x-100", large ? "size-5" : "size-3.5")} aria-hidden="true" />
-          <span className="sr-only">{t("common.comments", { count: post.comments })}</span>
-          <span aria-hidden="true">{formatCompact(post.comments, locale)}</span>
-        </span>
-      </div>
-    </MediaPlaceholder>
+        <div
+          className={cn(
+            "absolute inset-x-0 bottom-0 flex gap-3 bg-gradient-to-t from-black/65 to-transparent font-semibold text-white",
+            large ? "px-3 pt-10 pb-3 text-title" : "px-2 pt-6 pb-1.5 text-caption",
+          )}
+        >
+          <span className="flex items-center gap-1">
+            <Heart className={cn("fill-white", large ? "size-5" : "size-3.5")} aria-hidden="true" />
+            <span className="sr-only">{t("common.likes", { count: post.likes })}</span>
+            <span aria-hidden="true">{formatCompact(post.likes, locale)}</span>
+          </span>
+          <span className="flex items-center gap-1">
+            <MessageCircle className={cn("fill-white rtl:-scale-x-100", large ? "size-5" : "size-3.5")} aria-hidden="true" />
+            <span className="sr-only">{t("common.comments", { count: post.comments })}</span>
+            <span aria-hidden="true">{formatCompact(post.comments, locale)}</span>
+          </span>
+        </div>
+      </MediaPlaceholder>
+    </button>
   );
 }
 

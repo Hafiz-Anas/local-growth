@@ -29,6 +29,23 @@ describe("Gallery and AI chat features", () => {
   });
 });
 
+describe("Competitors → Inspiration", () => {
+  it("is a sub-feature of Competitors with its own tab, ON without a row (no data migration) and in the plans that have Competitors", () => {
+    assert.ok(FEATURE_MODULES.find((m) => m.id === "competitors")!.subFeatures.includes("competitors.inspiration"));
+    assert.equal(ROUTE_FEATURES["/competitors/inspiration"], "competitors.inspiration");
+    for (const plan of PLAN_IDS) assert.equal(PLAN_PRESETS[plan]["competitors.inspiration"], PLAN_PRESETS[plan].competitors, plan);
+    const withModule = (rows: Array<{ featureKey: string; enabled: boolean }>) => permissionsFromRows([{ featureKey: "competitors", enabled: true }, ...rows]);
+    assert.equal(isFeatureEnabled(withModule([]), "competitors.inspiration"), true);
+    assert.equal(isFeatureEnabled(withModule([{ featureKey: "competitors.inspiration", enabled: false }]), "competitors.inspiration"), false);
+    // Only effective while the Competitors module is ON.
+    assert.equal(isFeatureEnabled(permissionsFromRows([]), "competitors.inspiration"), false);
+    const tabs = (rows: Array<{ featureKey: string; enabled: boolean }>) => filterNav(USER_NAV, withModule(rows)).find((i) => i.labelKey === "nav.competitors")?.pages?.map((p) => p.href);
+    assert.deepEqual(tabs([]), ["/competitors", "/competitors/inspiration"]);
+    assert.deepEqual(tabs([{ featureKey: "competitors.analysis", enabled: true }]), ["/competitors", "/competitors/analysis", "/competitors/inspiration"]);
+    assert.deepEqual(tabs([{ featureKey: "competitors.inspiration", enabled: false }]), ["/competitors"]);
+  });
+});
+
 describe("Recommendations feature", () => {
   it("is a module of its own, ON in every plan, and gates its nav item", () => {
     assert.deepEqual(FEATURE_MODULES.find((m) => m.id === "recommendations"), { id: "recommendations", moduleKey: "recommendations", subFeatures: [] });

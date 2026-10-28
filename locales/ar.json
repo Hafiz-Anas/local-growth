@@ -71,10 +71,14 @@
       "commentReplies": "ردّوا على تعليقات منشوراتكم",
       "dmReplies": "ردّوا على رسائلكم",
       "keywordReplies": "ردّ عند ظهور كلمات",
-      "replySettings": "الموافقة ونتائج الذكاء"
+      "replySettings": "الموافقة ونتائج الذكاء",
+      "competitorAccounts": "الحسابات التي تتابعونها",
+      "competitorAnalysis": "كيف تقارنون بهم",
+      "competitorInspiration": "منشورات حفظتموها"
     },
     "gallery": "المعرض",
-    "ai": "الذكاء الاصطناعي"
+    "ai": "الذكاء الاصطناعي",
+    "competitorInspiration": "الإلهام"
   },
   "plans": {
     "starter": "الأساسية",
@@ -276,7 +280,15 @@
       "topPost": "أفضل منشور",
       "engagement": "التفاعل عبر الوقت",
       "engagementHint": "معدل التفاعل الأسبوعي، آخر ١٢ أسبوعاً.",
-      "recentPosts": "أحدث المنشورات"
+      "recentPosts": "أحدث المنشورات",
+      "openPost": "فتح المنشور"
+    },
+    "inspiration": {
+      "title": "الإلهام",
+      "subtitle": "منشورات منافسين حفظتموها للأفكار. افتحوا واحداً لإنشاء منشور مشابه.",
+      "emptyTitle": "لا توجد منشورات محفوظة بعد",
+      "emptyHint": "احفظوا منشورات من المنافسين لتأخذوا منها أفكاراً لاحقاً.",
+      "browse": "عرض منافسيكم"
     }
   },
   "generator": {
@@ -1131,7 +1143,8 @@
       "engagement_whatsappPricing": "الرد على الأسعار عبر واتساب",
       "settings_brandVoice": "أسلوب العلامة",
       "competitors_analysis": "تحليل المنافسين",
-      "postInsights_shareability": "الأكثر مشاركة (المشاركات ÷ الوصول)"
+      "postInsights_shareability": "الأكثر مشاركة (المشاركات ÷ الوصول)",
+      "competitors_inspiration": "الإلهام (منشورات المنافسين المحفوظة)"
     }
   },
   "roles": {
@@ -2609,6 +2622,22 @@
     "combineIntro": "هذا ما أخذته من كل صورة لصورة {category} جديدة، ثم ٣ اتجاهات عليها. اسحب واختر واحداً.",
     "combineMax": "استخدمت أول ٤ صور.",
     "combineTook": "ما أخذته من كل صورة",
-    "fromPhoto": "من «{name}»"
+    "fromPhoto": "من «{name}»",
+    "competitorPost": "منشور منافس",
+    "postBy": "منشور ⁦@{handle}⁩",
+    "viewOnInstagram": "عرض على إنستغرام",
+    "createSimilar": "أنشئ منشوراً مشابهاً",
+    "saveInspiration": "احفظ للإلهام",
+    "savedInspiration": "محفوظ",
+    "savedToInspiration": "تم الحفظ في الإلهام",
+    "removedFromInspiration": "تمت الإزالة من الإلهام",
+    "similarPrompt": "أنشئ منشوراً مثل منشور ⁦@{handle}⁩ لمشروعي",
+    "similarWhy": "لماذا ينجح منشور ⁦@{handle}⁩:",
+    "similarTopic": "الموضوع",
+    "similarStyle": "الأسلوب",
+    "similarHook": "الجذب",
+    "similarOutro": "هذا منشور جديد بنفس الأسلوب على صورتك «{dish}». لم نستخدم صورتهم ولا كلماتهم.",
+    "similarOutroAlbum": "هذا منشور جديد بنفس الأسلوب على صورتك «{dish}» من ألبوم {album}. لم نستخدم صورتهم ولا كلماتهم.",
+    "removeReference": "إزالة المنشور المرجعي"
   }
 }

@@ -71,10 +71,14 @@
       "commentReplies": "Answer comments on posts",
       "dmReplies": "Answer your messages",
       "keywordReplies": "Reply when words appear",
-      "replySettings": "Approval and AI results"
+      "replySettings": "Approval and AI results",
+      "competitorAccounts": "Who you're watching",
+      "competitorAnalysis": "How you compare",
+      "competitorInspiration": "Posts you saved"
     },
     "gallery": "Gallery",
-    "ai": "AI"
+    "ai": "AI",
+    "competitorInspiration": "Inspiration"
   },
   "plans": {
     "starter": "Starter",
@@ -276,7 +280,15 @@
       "topPost": "Top post",
       "engagement": "Engagement over time",
       "engagementHint": "Weekly engagement rate, last 12 weeks.",
-      "recentPosts": "Recent posts"
+      "recentPosts": "Recent posts",
+      "openPost": "Open post"
+    },
+    "inspiration": {
+      "title": "Inspiration",
+      "subtitle": "Competitor posts you saved for ideas. Open one to create a similar post.",
+      "emptyTitle": "No saved posts yet",
+      "emptyHint": "Save posts from competitors to get ideas later.",
+      "browse": "See your competitors"
     }
   },
   "generator": {
@@ -1131,7 +1143,8 @@
       "engagement_whatsappPricing": "WhatsApp price replies",
       "settings_brandVoice": "Brand voice",
       "competitors_analysis": "Competitor analysis",
-      "postInsights_shareability": "Most shared (shares ÷ reach)"
+      "postInsights_shareability": "Most shared (shares ÷ reach)",
+      "competitors_inspiration": "Inspiration (saved competitor posts)"
     }
   },
   "roles": {
@@ -2609,6 +2622,22 @@
     "combineIntro": "Here's what I took from each photo for a new {category} image. Then 3 directions on it, swipe and pick one.",
     "combineMax": "I used the first 4 photos.",
     "combineTook": "What I took from each photo",
-    "fromPhoto": "From “{name}”"
+    "fromPhoto": "From “{name}”",
+    "competitorPost": "Competitor post",
+    "postBy": "Post by @{handle}",
+    "viewOnInstagram": "View on Instagram",
+    "createSimilar": "Create a similar post",
+    "saveInspiration": "Save as inspiration",
+    "savedInspiration": "Saved",
+    "savedToInspiration": "Saved to Inspiration",
+    "removedFromInspiration": "Removed from Inspiration",
+    "similarPrompt": "Create a post like @{handle}'s for my business",
+    "similarWhy": "Why @{handle}'s post works:",
+    "similarTopic": "Topic",
+    "similarStyle": "Style",
+    "similarHook": "Hook",
+    "similarOutro": "Here's a new post in that style for you, on your own \"{dish}\" photo. Their photo and words aren't used.",
+    "similarOutroAlbum": "Here's a new post in that style for you, on your own \"{dish}\" photo from {album}. Their photo and words aren't used.",
+    "removeReference": "Remove reference post"
   }
 }

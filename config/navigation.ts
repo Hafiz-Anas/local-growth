@@ -93,8 +93,9 @@ export const USER_NAV: NavItem[] = [
     labelKey: "nav.competitors",
     icon: "competitors",
     pages: [
-      { href: "/competitors", labelKey: "nav.competitorAccounts", feature: "competitors" },
-      { href: "/competitors/analysis", labelKey: "nav.competitorAnalysis", feature: "competitors.analysis" },
+      { href: "/competitors", labelKey: "nav.competitorAccounts", descriptionKey: "nav.tabHints.competitorAccounts", feature: "competitors" },
+      { href: "/competitors/analysis", labelKey: "nav.competitorAnalysis", descriptionKey: "nav.tabHints.competitorAnalysis", feature: "competitors.analysis" },
+      { href: "/competitors/inspiration", labelKey: "nav.competitorInspiration", descriptionKey: "nav.tabHints.competitorInspiration", feature: "competitors.inspiration" },
     ],
   },
   { href: "/settings", labelKey: "nav.settings", icon: "settings", pages: [{ href: "/settings", labelKey: "nav.settings" }], mobile: false, placement: "bottom" },

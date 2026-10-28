@@ -8,6 +8,8 @@ import { toast } from "sonner";
 import { BarChart } from "@/components/gallery/charts";
 import { PhotoImage } from "@/components/gallery/photo-image";
 import { Avatar, Btn, Chip, Segmented, Skel } from "@/components/gallery/kit";
+import { MediaPlaceholder } from "@/components/shared/media";
+import type { CompetitorPostRef } from "@/lib/gallery/competitor-posts";
 import { compact, num, when } from "@/lib/gallery/format";
 import { useT } from "@/lib/gallery/hooks";
 import type { MessageKey } from "@/lib/gallery/i18n";
@@ -34,13 +36,27 @@ export function AiRow({ children, id }: { children: ReactNode; id?: string }) {
   );
 }
 
+/** A competitor's post attached as a reference ("Create a similar post"): its picture, marked with their @handle. */
+export function ReferenceThumb({ reference, className }: { reference: CompetitorPostRef; className?: string }) {
+  const { t } = useT();
+  const p = reference.post;
+  return (
+    <span className={cn("relative block overflow-hidden rounded-2xl bg-ge-muted", className)} data-testid="chat-reference">
+      <MediaPlaceholder tone={p.tone} icon={p.icon} src={p.mediaUrl} alt={t("postBy", { handle: reference.handle })} className="size-full" iconClassName="size-1/3" />
+      <span className="absolute inset-x-1 bottom-1 truncate rounded-full bg-black/60 px-1.5 py-0.5 text-center text-[10px] leading-none font-semibold text-white" dir="ltr">
+        @{reference.handle}
+      </span>
+    </span>
+  );
+}
+
 export function UserMessage({ msg }: { msg: Extract<AiMsg, { role: "user" }> }) {
   const { l } = useT();
   const photos = useStore((s) => s.photos[s.activeAccountId]);
   const attached = (msg.photoIds ?? []).map((id) => photos.find((p) => p.id === id)).filter((p) => p !== undefined);
   return (
     <div className="flex flex-col items-end gap-1.5">
-      {(attached.length > 0 || msg.refThumb) && (
+      {(attached.length > 0 || msg.refThumb || msg.reference) && (
         <div className="flex max-w-[85%] flex-wrap justify-end gap-1.5">
           {attached.slice(0, 4).map((p) => (
             <span key={p.id} className="relative size-20 overflow-hidden rounded-2xl bg-ge-muted sm:size-24">
@@ -53,6 +69,7 @@ export function UserMessage({ msg }: { msg: Extract<AiMsg, { role: "user" }> }) 
               <Image unoptimized src={msg.refThumb} alt="" fill sizes="96px" className="object-cover" />
             </span>
           )}
+          {msg.reference && <ReferenceThumb reference={msg.reference} className="size-20 sm:size-24" />}
         </div>
       )}
       <p dir="auto" className="max-w-[85%] rounded-[20px] bg-ge-secondary px-3.5 py-2 text-[15px] leading-snug whitespace-pre-line">

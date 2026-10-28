@@ -34,6 +34,7 @@ export const PLAN_PRESETS: Record<PlanId, Permissions> = {
     "competitors.accounts",
     "competitors.trendingHashtags",
     "competitors.analysis",
+    "competitors.inspiration",
     "postGenerator",
     "postGenerator.brandVocabulary",
     "postGenerator.regenerate",

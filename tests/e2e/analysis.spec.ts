@@ -66,7 +66,7 @@ test.afterAll(async () => {
 
 test("competitor analysis: measured comparison, growth over time and the AI's comparison", async () => {
   await page.goto("/competitors/analysis");
-  await expect(page.getByTestId("section-tabs").getByRole("link")).toHaveText(["Accounts", "Analysis"]);
+  await expect(page.getByTestId("section-tab-label")).toHaveText(["Accounts", "Analysis", "Inspiration"]);
   await expect(page.getByTestId("competitor-limit")).toHaveText("Tracking 4 of 5 competitors on your plan.");
   await expect(page.getByTestId("competitor-chip")).toHaveCount(4);
 
@@ -255,7 +255,7 @@ test("feature switches: a page that's off is gone from the navigation and answer
     expect((await page.request.get("/api/competitors/analysis")).status()).toBe(404);
     expect((await page.request.get("/methods")).status()).toBe(404);
     await page.goto("/competitors");
-    await expect(page.getByTestId("section-tabs")).toHaveCount(0);
+    await expect(page.getByTestId("section-tab-label")).toHaveText(["Accounts", "Inspiration"]);
   } finally {
     await set({ methods: true, postInsights: true, "competitors.analysis": true });
   }

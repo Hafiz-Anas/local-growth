@@ -17,7 +17,7 @@ import { findCategory } from "@/mock-data/gallery/categories";
 import type { AiChat } from "@/mock-data/gallery/ai-studio";
 import type { L } from "@/mock-data/gallery/types";
 import { useAiEngine, useChatContext, type AiEngine } from "./engine";
-import { AnswerMessage, DirectionsMessage, InspirationMessage, PostMessage, ProductMessage, TextMessage, TypingDots, UserMessage } from "./messages";
+import { AnswerMessage, DirectionsMessage, InspirationMessage, PostMessage, ProductMessage, ReferenceThumb, TextMessage, TypingDots, UserMessage } from "./messages";
 import { PhotoPicker } from "./photo-picker";
 
 const MODES: { mode: ChatMode; key: MessageKey; icon: typeof ImageIcon }[] = [
@@ -230,7 +230,8 @@ function Composer({ busy, onSend, onAttach }: { busy: boolean; onSend: () => voi
   const photos = useStore((s) => s.photos[s.activeAccountId]);
   const attached = composer.photoIds.map((id) => photos.find((p) => p.id === id)).filter((p) => p !== undefined);
   const input = useRef<HTMLTextAreaElement>(null);
-  const canSend = !busy && (composer.text.trim().length > 0 || attached.length > 0);
+  const reference = composer.reference;
+  const canSend = !busy && (composer.text.trim().length > 0 || attached.length > 0 || !!reference);
 
   // Grow with the text, up to a few lines.
   useLayoutEffect(() => {
@@ -248,8 +249,21 @@ function Composer({ busy, onSend, onAttach }: { busy: boolean; onSend: () => voi
       }}
       className="rounded-[26px] border bg-ge-background shadow-[0_4px_20px_-12px_rgb(0_0_0/0.25)] focus-within:border-ge-foreground/25"
     >
-      {attached.length > 0 && (
+      {(attached.length > 0 || reference) && (
         <div className="no-scrollbar flex gap-2 overflow-x-auto px-3 pt-3">
+          {reference && (
+            <span className="relative size-16 shrink-0">
+              <ReferenceThumb reference={reference} className="size-full rounded-xl" />
+              <button
+                type="button"
+                aria-label={t("removeReference")}
+                onClick={() => setComposer({ reference: undefined })}
+                className="absolute -end-1.5 -top-1.5 grid size-5 place-items-center rounded-full bg-ge-foreground text-ge-background shadow"
+              >
+                <X className="size-3" strokeWidth={3} />
+              </button>
+            </span>
+          )}
           {attached.map((p) => (
             <span key={p.id} className="relative size-16 shrink-0">
               <span className="relative block size-full overflow-hidden rounded-xl bg-ge-muted">

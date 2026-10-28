@@ -6,6 +6,7 @@ import { translate, type MessageKey } from "@/lib/gallery/i18n";
 import { useInsights } from "@/lib/gallery/hooks";
 import { useAccount, useCompetitors, usePhotos, useStore } from "@/lib/gallery/store";
 import { apiFetch } from "@/lib/api/client";
+import type { CompetitorPostRef } from "@/lib/gallery/competitor-posts";
 import { matchQuestion, matchRule, type ChatContext } from "@/mock-data/gallery/ai-chat";
 import {
   DIRECTION_LABEL,
@@ -15,21 +16,27 @@ import {
   combineCategory,
   combineDirections,
   combineFeatures,
+  competitorStyle,
   directions,
   findSource,
   inspiredPost,
+  matchCategory,
   photoPost,
   postWithVariants,
   productPhotos,
   productsFor,
   recognise,
+  similarPhoto,
+  similarPost,
   unposted,
+  whyItWorks,
   type AiMsg,
   type Product,
 } from "@/mock-data/gallery/ai-studio";
 import { findCategory } from "@/mock-data/gallery/categories";
 import { ownComparison } from "@/mock-data/gallery/competitors";
 import type { AccountId, L, Lang } from "@/mock-data/gallery/types";
+import type { SimilarPostDto } from "@/types";
 
 let uid = 0;
 const id = () => `ai-${Date.now().toString(36)}-${uid++}`;
@@ -71,7 +78,7 @@ export function useAiEngine(ctx: ChatContext) {
     }, DELAY);
   };
 
-  const userMsg = (text: L, extra?: { photoIds?: string[]; refThumb?: string }): AiMsg => ({ id: id(), role: "user", text, ...extra });
+  const userMsg = (text: L, extra?: { photoIds?: string[]; refThumb?: string; reference?: CompetitorPostRef }): AiMsg => ({ id: id(), role: "user", text, ...extra });
 
   /** "This looks like kunafa from your Sweets album." followed by the next line of the reply. */
   const seen = (photoIds: string[], next: MessageKey): L => {
@@ -202,6 +209,66 @@ export function useAiEngine(ctx: ChatContext) {
       });
   };
 
+  /**
+   * "Create a similar post" from a competitor's post (Competitors → the viewer). The AI explains what makes
+   * their post work and writes a new one in that style for the owner's own photo (an attached one, else
+   * one from the matching category): POST /api/ai-chat/similar-post. When the AI is off, over its budget,
+   * fails or copies them, the sample answer is written here from the post's format and caption. Their image
+   * and wording are never reused. Nothing is saved.
+   */
+  const similar = (reference: CompetitorPostRef, text: L, photoIds: string[]) => {
+    s().setChatMode("post");
+    const source = { handle: reference.handle, caption: reference.post.caption ?? "", icon: reference.post.icon, format: reference.post.format };
+    const attached = photoIds.map((pid) => ctx.photos.find((p) => p.id === pid)).find((p) => p !== undefined);
+    // What their post is about, in the owner's categories (none when it matches nothing they sell).
+    const theirs = findCategory(ctx.account.id, matchCategory(ctx, source));
+    const photo = attached ?? similarPhoto(ctx, theirs?.id);
+    const category = findCategory(ctx.account.id, photo.category);
+    const style = competitorStyle(source.caption);
+    const chatId = s().pushAi([userMsg(text, { reference, photoIds: attached ? [attached.id] : undefined })], { title: text });
+    const started = Date.now();
+    setTyping(true);
+    apiFetch<{ post: SimilarPostDto | null }>("/api/ai-chat/similar-post", {
+      method: "POST",
+      body: { competitorId: reference.competitorId, postId: reference.post.id, photo: { name: photo.dish.en, nameAr: photo.dish.ar, category: category?.name.en } },
+    })
+      .then((r) => r.post)
+      .catch(() => null)
+      .then((ai) => {
+        window.setTimeout(
+          () => {
+            const base = similarPost(ctx, photo.id, style, reference.handle);
+            const why = ai ?? whyItWorks(source, style, theirs);
+            const line = (lang: Lang) =>
+              [
+                translate(lang, "similarWhy", { handle: reference.handle }),
+                `• ${translate(lang, "similarTopic")}: ${why.topic[lang]}`,
+                `• ${translate(lang, "similarStyle")}: ${why.style[lang]}`,
+                `• ${translate(lang, "similarHook")}: ${why.hook[lang]}`,
+                "",
+                translate(lang, category ? "similarOutroAlbum" : "similarOutro", { dish: photo.dish[lang], album: category?.name[lang] ?? "" }),
+              ].join("\n");
+            s().pushAi(
+              [
+                {
+                  id: id(),
+                  role: "ai",
+                  kind: "post",
+                  steps: [{ key: "style", v: same(reference.handle) }, ...PHOTO_STEPS],
+                  ready: false,
+                  text: { en: line("en"), ar: line("ar") },
+                  post: ai ? { ...base, caption: ai.caption, hashtags: ai.hashtags } : base,
+                },
+              ],
+              { chatId },
+            );
+            setTyping(false);
+          },
+          Math.max(0, DELAY - (Date.now() - started)),
+        );
+      });
+  };
+
   return {
     typing,
 
@@ -209,8 +276,9 @@ export function useAiEngine(ctx: ChatContext) {
     send() {
       const { composer, chatMode } = s();
       const q = composer.text.trim();
-      if (typing || (!q && composer.photoIds.length === 0)) return;
-      s().setComposer({ text: "", photoIds: [] });
+      if (typing || (!q && composer.photoIds.length === 0 && !composer.reference)) return;
+      s().setComposer({ text: "", photoIds: [], reference: undefined });
+      if (composer.reference) return similar(composer.reference, q ? same(q) : both("similarPrompt", () => ({ handle: composer.reference!.handle })), composer.photoIds);
       const text = q ? same(q) : both(composer.photoIds.length > 1 ? "photosPrompt" : "photoPrompt");
       const lower = q.toLowerCase();
       if (composer.photoIds.length > 1 && /combin|mix|merge|blend|دمج|ادمج|اجمع|امزج|مزج/.test(lower)) return combine(composer.photoIds, text, q);

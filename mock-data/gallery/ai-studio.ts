@@ -1,8 +1,9 @@
 // Mock "AI studio": post drafts, directions and inspiration built from the active account's mock data.
 // Nothing is sent to any AI service; every caption comes from the templates below.
+import type { CompetitorPostRef } from "@/lib/gallery/competitor-posts";
 import { suggestedTime } from "@/lib/gallery/suggest";
 import type { ChatMode } from "./ai-chat";
-import { captionFor as categoryCaption, categoriesFor, findCategory, hashtagsFor as categoryTags } from "./categories";
+import { captionFor as categoryCaption, categoriesFor, findCategory, hashtagsFor as categoryTags, type Category } from "./categories";
 import { NOW, ago } from "./clock";
 import type { Account, AccountId, CaptionTone, Competitor, Insights, L, Photo } from "./types";
 
@@ -61,7 +62,7 @@ export interface Step {
 }
 
 export type AiMsg =
-  | { id: string; role: "user"; text: L; photoIds?: string[]; refThumb?: string }
+  | { id: string; role: "user"; text: L; photoIds?: string[]; refThumb?: string; reference?: CompetitorPostRef }
   | { id: string; role: "ai"; kind: "answer"; answerId: string }
   | { id: string; role: "ai"; kind: "text"; text: L }
   | { id: string; role: "ai"; kind: "post"; text?: L; steps: Step[]; ready: boolean; post: PostDraft }
@@ -399,6 +400,99 @@ export function findSource(ctx: StudioContext, id: string) {
 export function inspiredPost(ctx: StudioContext, source: InspoSource): PostDraft {
   const photo = unposted(ctx.photos)[source.own ? 1 : 0] ?? ctx.photos[0];
   return draft(ctx, [photo.id], source.style, { inspiredBy: source.handle });
+}
+
+/* ---------- A post like a competitor's ("Create a similar post") ---------- */
+
+/** What the chat reads from a competitor's post: never their image, and their caption only to learn from. */
+export interface CompetitorSource {
+  handle: string;
+  caption: string;
+  icon: string;
+  format?: string;
+}
+
+/** The kind of caption the competitor wrote, read from how it's written. */
+export function competitorStyle(caption: string): InspoStyle {
+  if (/[?؟]/.test(caption)) return "question";
+  if (/(^|\n)\s*([0-9٠-٩]+[.)]|[-•])\s/m.test(caption)) return "list";
+  return "story";
+}
+
+/** What the competitor's picture shows (its artwork icon) → the owner's categories most likely to match, in order. */
+const ICON_CATEGORIES: Record<string, string[]> = {
+  cake: ["sweets", "desserts", "cakes", "treats"],
+  nut: ["sweets", "desserts", "treats", "pastries"],
+  gift: ["sweets", "cakes", "treats", "desserts"],
+  coffee: ["hot", "cafe", "iced"],
+  cup: ["iced", "hot", "matcha"],
+  bag: ["spreads", "pastries", "bread", "cafe"],
+  sparkles: ["spreads", "cakes", "desserts", "main"],
+  gem: ["desserts", "cakes", "sweets"],
+};
+
+/** The owner's category closest to the competitor's post: words in its caption first, then what its picture shows. */
+export function matchCategory(ctx: StudioContext, source: CompetitorSource): string | undefined {
+  const cats = categoriesFor(ctx.account.id);
+  const text = source.caption.toLowerCase();
+  const named = cats.find((c) => {
+    const names = [c.id, ...c.name.en.toLowerCase().split(/[^a-zé]+/)].filter((w) => w.length > 3 && !GENERIC.has(w));
+    return names.some((w) => text.includes(w.replace(/s$/, ""))) || source.caption.includes(c.name.ar.replace(/^ال/, ""));
+  });
+  if (named) return named.id;
+  const dish = ctx.photos.find((p) => p.category && (words(p.dish.en).some((w) => text.includes(w)) || source.caption.includes(p.dish.ar)));
+  if (dish) return dish.category;
+  return (ICON_CATEGORIES[source.icon] ?? []).find((id) => cats.some((c) => c.id === id));
+}
+
+/** The owner's own photo for the new post: one not posted yet, from the matching category when there is one. */
+export function similarPhoto(ctx: StudioContext, category: string | undefined): Photo {
+  const pool = unposted(ctx.photos).filter((p) => p.source !== "ai" && p.category);
+  return (category ? pool.find((p) => p.category === category) : undefined) ?? pool[0] ?? ctx.photos[0];
+}
+
+/** A new post in the competitor's kind of caption, on the owner's photo, from the templates. Nothing is copied. */
+export function similarPost(ctx: StudioContext, photoId: string, style: InspoStyle, handle: string): PostDraft {
+  return draft(ctx, [photoId], style, { inspiredBy: handle });
+}
+
+const FORMAT_LABEL: Record<string, L> = {
+  reel: { en: "A short Reel", ar: "ريل قصير" },
+  video: { en: "A short video", ar: "فيديو قصير" },
+  carousel: { en: "A carousel", ar: "كاروسيل" },
+  photo: { en: "A single photo", ar: "صورة واحدة" },
+};
+
+const HOOKS: [RegExp, L][] = [
+  [/giveaway|win |prize|سحب|مسابقة|هدية/i, { en: "a giveaway that asks people to comment, so the post spreads", ar: "سحب يطلب من الناس التعليق، فينتشر المنشور" }],
+  [/%|\boff\b|offer|sale|deal|عرض|خصم/i, { en: "a limited-time offer in the first line, so people act now", ar: "عرض لفترة محدودة في أول سطر، فيتحرك الناس الآن" }],
+  [/[?؟]/, { en: "a question that gets people answering in the comments", ar: "سؤال يخلي الناس يردون بالتعليقات" }],
+  [/behind|morning|every day|team|كواليس|الصبح|صباح|فريق/i, { en: "a peek behind the scenes that makes it feel personal", ar: "لمحة من وراء الكواليس تخليه قريب من الناس" }],
+  [/new|launch|back|just|جديد|وصل|رجع/i, { en: "news of something new, which makes followers curious", ar: "خبر عن شي جديد يثير فضول المتابعين" }],
+];
+
+/** What a competitor's picture shows (its artwork icon), when their caption names none of the owner's categories. */
+const ICON_SUBJECT: Record<string, L> = {
+  coffee: { en: "coffee", ar: "القهوة" },
+  cup: { en: "their drinks", ar: "مشروباتهم" },
+  cake: { en: "cakes and sweets", ar: "الكيك والحلويات" },
+  nut: { en: "nuts and sweets", ar: "المكسرات والحلويات" },
+  gift: { en: "gift boxes", ar: "بوكسات الهدايا" },
+};
+
+/**
+ * Why the competitor's post works — the sample answer when the AI isn't available. Read from its format and
+ * caption, no numbers. `category` is the owner's category their post matches (matchCategory), if any.
+ */
+export function whyItWorks(source: CompetitorSource, style: InspoStyle, category: Category | undefined): { topic: L; style: L; hook: L } {
+  const format = FORMAT_LABEL[source.format ?? "photo"] ?? FORMAT_LABEL.photo;
+  const subject: L = category ? { en: category.name.en.toLowerCase(), ar: category.name.ar } : (ICON_SUBJECT[source.icon] ?? { en: "what they sell", ar: "منتجاتهم" });
+  const hook = HOOKS.find(([re]) => re.test(source.caption))?.[1] ?? { en: "a strong first line and a close-up picture that stops the scroll", ar: "أول سطر قوي وصورة قريبة توقف التمرير" };
+  return {
+    topic: { en: `${format.en} about ${subject.en}, shown up close.`, ar: `${format.ar} عن ${subject.ar}، بلقطة قريبة.` },
+    style: { en: `Written as ${STYLE_LABEL[style].en}.`, ar: `مكتوب على شكل ${STYLE_LABEL[style].ar}.` },
+    hook: { en: `It opens with ${hook.en}.`, ar: `يبدأ بـ${hook.ar}.` },
+  };
 }
 
 /* ---------- Seed chats so the history isn't empty ---------- */

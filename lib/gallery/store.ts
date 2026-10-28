@@ -10,12 +10,34 @@ import { seedChats, type AiChat, type AiMsg } from "@/mock-data/gallery/ai-studi
 import { insights as mockInsights } from "@/mock-data/gallery/insights";
 import { initialPhotos, seeded } from "@/mock-data/gallery/photos";
 import type { Account, AccountId, Competitor, CustomAlbum, L, Lang, Photo } from "@/mock-data/gallery/types";
+import { MAX_SAVED_INSPIRATION, inspirationStorageKey, parseSavedInspiration, type CompetitorPostRef, type SavedInspiration } from "./competitor-posts";
 
 /*
  * The Gallery and AI chat state, copied from the design proposal (lib/store.ts there) without its
  * other demo screens. Front-end only: everything is mock data (mock-data/gallery) held in memory,
  * so it resets on a page load. Nothing is uploaded, stored, published or sent to the server.
+ * Except competitor posts saved as inspiration (Competitors → Inspiration): they are also kept in
+ * this browser's localStorage, one list per business, so they survive a reload. Still never sent to
+ * the server.
  */
+
+/** This business's saved inspiration from localStorage; empty when storage is blocked or unreadable. */
+function readSaved(businessId: string): SavedInspiration[] {
+  try {
+    return parseSavedInspiration(window.localStorage.getItem(inspirationStorageKey(businessId)));
+  } catch {
+    return [];
+  }
+}
+
+function writeSaved(businessId: string | null, list: SavedInspiration[]) {
+  if (!businessId) return;
+  try {
+    window.localStorage.setItem(inspirationStorageKey(businessId), JSON.stringify(list));
+  } catch {
+    // Private window / storage full: the list still works until the next page load.
+  }
+}
 
 export type SheetState =
   | { type: "schedule"; photoIds: string[]; caption?: L; suggested?: string }
@@ -43,12 +65,20 @@ interface State extends DemoData {
   /** Which mock data set (mock-data/gallery) the signed-in business sees. */
   activeAccountId: AccountId;
   sheet: SheetState | null;
-  viewer: { ids: string[]; index: number } | null;
+  /**
+   * The open viewer: Gallery photos by id, or a competitor's posts (`competitor`, from their profile
+   * or the Inspiration tab), which never join the library, albums or Favourites.
+   */
+  viewer: { ids: string[]; index: number; competitor?: CompetitorPostRef[] } | null;
   chatMode: ChatMode;
   /** Open AI chat; null shows a new, empty chat. */
   activeChatId: string | null;
-  /** What's in the AI chat input: text and attached photos. */
-  composer: { text: string; photoIds: string[] };
+  /** What's in the AI chat input: text, attached photos and a competitor post to use as a reference. */
+  composer: { text: string; photoIds: string[]; reference?: CompetitorPostRef };
+  /** Competitor posts saved as inspiration, newest first, for `inspirationOwner` (kept in localStorage). */
+  inspiration: SavedInspiration[];
+  /** The business whose saved inspiration is loaded (GallerySync sets it). */
+  inspirationOwner: string | null;
   /** Gallery select mode: its toolbar sits above the tab bar. */
   selecting: boolean;
   setSelecting: (value: boolean) => void;
@@ -61,6 +91,7 @@ interface State extends DemoData {
   openSheet: (sheet: SheetState) => void;
   closeSheet: () => void;
   openViewer: (ids: string[], index: number) => void;
+  openCompetitorViewer: (posts: CompetitorPostRef[], index: number) => void;
   setViewerIndex: (index: number) => void;
   closeViewer: () => void;
 
@@ -87,6 +118,10 @@ interface State extends DemoData {
 
   setChatMode: (mode: ChatMode) => void;
   setComposer: (composer: Partial<State["composer"]>) => void;
+  /** Saves the post as inspiration, or removes it when it's already saved. Returns whether it's saved now. */
+  toggleInspiration: (post: CompetitorPostRef) => boolean;
+  /** Loads the business's saved inspiration from this browser. */
+  loadInspiration: (businessId: string) => void;
   newChat: () => void;
   openChat: (id: string) => void;
   /** Adds messages to the open chat, starting a new chat if none is open. Returns the chat id. */
@@ -131,6 +166,8 @@ export const useStore = create<State>()((set, get) => {
     chatMode: "post",
     activeChatId: null,
     composer: { text: "", photoIds: [] },
+    inspiration: [],
+    inspirationOwner: null,
     selecting: false,
     setSelecting: (selecting) => set({ selecting }),
     switchTick: 0,
@@ -141,6 +178,7 @@ export const useStore = create<State>()((set, get) => {
     openSheet: (sheet) => set({ sheet }),
     closeSheet: () => set({ sheet: null }),
     openViewer: (ids, index) => set({ viewer: { ids, index } }),
+    openCompetitorViewer: (posts, index) => set({ viewer: { ids: posts.map((p) => p.key), index, competitor: posts } }),
     setViewerIndex: (index) => set((s) => (s.viewer ? { viewer: { ...s.viewer, index } } : {})),
     closeViewer: () => set({ viewer: null }),
 
@@ -246,6 +284,17 @@ export const useStore = create<State>()((set, get) => {
 
     setChatMode: (chatMode) => set({ chatMode }),
     setComposer: (patch) => set((s) => ({ composer: { ...s.composer, ...patch } })),
+    toggleInspiration: (post) => {
+      const saved = get().inspiration.some((p) => p.key === post.key);
+      set((s) => ({
+        inspiration: saved ? s.inspiration.filter((p) => p.key !== post.key) : [{ ...post, savedAt: new Date().toISOString() }, ...s.inspiration].slice(0, MAX_SAVED_INSPIRATION),
+      }));
+      writeSaved(get().inspirationOwner, get().inspiration);
+      return !saved;
+    },
+    loadInspiration: (businessId) => {
+      if (get().inspirationOwner !== businessId) set({ inspirationOwner: businessId, inspiration: readSaved(businessId) });
+    },
     newChat: () => set({ activeChatId: null, composer: { text: "", photoIds: [] } }),
     openChat: (id) => {
       const chat = (get().chats[acc()] ?? []).find((c) => c.id === id);

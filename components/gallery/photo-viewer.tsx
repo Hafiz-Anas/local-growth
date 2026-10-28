@@ -2,10 +2,14 @@
 
 import { Dialog } from "@base-ui/react/dialog";
 import { AnimatePresence, motion, type PanInfo } from "framer-motion";
-import { CalendarClock, ChevronLeft, ChevronRight, CircleCheck, FolderPlus, Heart, MessageCircle, PencilLine, Sparkles, SquareArrowOutUpRight, Trash2, TrendingUp, X } from "lucide-react";
+import { Bookmark, CalendarClock, ChevronLeft, ChevronRight, CircleCheck, FolderPlus, Heart, MessageCircle, PencilLine, Sparkles, SquareArrowOutUpRight, Trash2, TrendingUp, X } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { toast } from "sonner";
+import { useOpenAi } from "@/components/ai-chat/use-open-ai";
 import { Avatar } from "@/components/gallery/kit";
 import { useFeature } from "@/components/providers/active-client-provider";
+import { MediaPlaceholder } from "@/components/shared/media";
+import type { CompetitorPostRef } from "@/lib/gallery/competitor-posts";
 import { compact, date, num, time, when } from "@/lib/gallery/format";
 import { useIsDesktop, useT } from "@/lib/gallery/hooks";
 import { useAccount, usePhotos, useStore } from "@/lib/gallery/store";
@@ -20,6 +24,8 @@ import { usePhotoActions } from "./use-photo-actions";
 /**
  * Photo viewer. A plain photo opens full screen like the Photos app; a ready post opens like an Instagram post,
  * with its caption and hashtags under the photo. Swipe sideways between items, swipe down to close.
+ * A competitor's posts (their profile, Competitors → Inspiration) open here too, as Instagram posts with
+ * their own two actions: Create a similar post and Save as inspiration (never albums, Favourites or Delete).
  */
 export function PhotoViewer() {
   const viewer = useStore((s) => s.viewer);
@@ -51,38 +57,44 @@ function ViewerContent() {
   const [direction, setDirection] = useState(0);
   const [chrome, setChrome] = useState(true);
 
-  const items = viewer.ids.map((id) => photos.find((p) => p.id === id)).filter((p) => p !== undefined);
-  const index = Math.min(viewer.index, items.length - 1);
+  const competitor = viewer.competitor;
+  const items = competitor ? [] : viewer.ids.map((id) => photos.find((p) => p.id === id)).filter((p) => p !== undefined);
+  const count = competitor ? competitor.length : items.length;
+  const index = Math.min(viewer.index, count - 1);
   const photo = items[index];
+  const theirs = competitor?.[index];
 
   // If the photo was deleted and nothing is left, close.
   useEffect(() => {
-    if (!photo) close();
-  }, [photo, close]);
+    if (!photo && !theirs) close();
+  }, [photo, theirs, close]);
 
   const go = (step: number) => {
     const next = index + step;
-    if (next < 0 || next >= items.length) return;
+    if (next < 0 || next >= count) return;
     setDirection(step);
-    useStore.getState().openViewer(
-      items.map((p) => p.id),
-      next,
-    );
+    if (competitor) useStore.getState().setViewerIndex(next);
+    else
+      useStore.getState().openViewer(
+        items.map((p) => p.id),
+        next,
+      );
   };
 
+  // Capture phase: the dialog stops arrow keys from bubbling to window.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (useStore.getState().sheet) return;
+      if (useStore.getState().sheet || (e.target instanceof HTMLElement && e.target.closest("input, textarea, [contenteditable]"))) return;
       if (e.key === "ArrowRight") go(dir === "rtl" ? -1 : 1);
       if (e.key === "ArrowLeft") go(dir === "rtl" ? 1 : -1);
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
   });
 
-  if (!photo) return null;
+  if (!photo && !theirs) return null;
 
-  const post = isPost(photo);
+  const post = !photo || isPost(photo);
   const rtl = dir === "rtl" ? -1 : 1;
   const onDragEnd = (_: unknown, info: PanInfo) => {
     const { x, y } = info.offset;
@@ -99,13 +111,20 @@ function ViewerContent() {
   } as const;
 
   const removeCurrent = () => {
+    if (!photo) return;
     const ids = items.map((p) => p.id).filter((id) => id !== photo.id);
     actions.remove([photo.id]);
     if (ids.length) useStore.getState().openViewer(ids, Math.min(index, ids.length - 1));
     else close();
   };
 
-  const category = findCategory(accountId, photo.category);
+  const category = findCategory(accountId, photo?.category);
+  const title = theirs ? t("competitorPost") : post ? t("readyPost") : l(photo!.dish);
+  const subtitle = theirs
+    ? `@${theirs.handle}`
+    : post
+      ? l(photo!.dish)
+      : `${category ? `${l(category.name)} • ` : ""}${date(photo!.takenAt, lang, { day: "numeric", month: "long" })} • ${time(photo!.takenAt, lang)}`;
   const showChrome = chrome || post;
   const tone = post ? "text-ge-foreground" : "text-white";
   const subtle = post ? "text-ge-muted-foreground" : "text-white/60";
@@ -116,7 +135,7 @@ function ViewerContent() {
       <Dialog.Popup
         ref={popupRef}
         initialFocus={popupRef}
-        aria-label={l(photo.dish)}
+        aria-label={theirs ? t("postBy", { handle: theirs.handle }) : l(photo!.dish)}
         className={cn("ge fixed inset-0 z-[60] flex flex-col outline-none transition-colors duration-200", post ? "bg-ge-background" : "bg-black", tone)}
         render={<motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} />}
       >
@@ -127,13 +146,13 @@ function ViewerContent() {
               <X className="size-6" />
             </Dialog.Close>
             <div className="min-w-0 flex-1 text-center">
-              <Dialog.Title className="truncate text-[15px] font-semibold">{post ? t("readyPost") : l(photo.dish)}</Dialog.Title>
-              <p className={cn("truncate text-xs", subtle)}>
-                {post ? l(photo.dish) : `${category ? `${l(category.name)} • ` : ""}${date(photo.takenAt, lang, { day: "numeric", month: "long" })} • ${time(photo.takenAt, lang)}`}
+              <Dialog.Title className="truncate text-[15px] font-semibold">{title}</Dialog.Title>
+              <p className={cn("truncate text-xs", subtle)} dir={theirs ? "ltr" : undefined}>
+                {subtitle}
               </p>
             </div>
             <span className={cn("w-10 text-center text-xs tabular-nums", subtle)}>
-              {num(index + 1, lang)}/{num(items.length, lang)}
+              {num(index + 1, lang)}/{num(count, lang)}
             </span>
           </div>
         </div>
@@ -142,7 +161,7 @@ function ViewerContent() {
         <div className="relative min-h-0 flex-1 overflow-hidden" onClick={() => !post && setChrome((c) => !c)}>
           <AnimatePresence initial={false} custom={direction} mode="popLayout">
             <motion.div
-              key={photo.id}
+              key={theirs?.key ?? photo!.id}
               custom={direction}
               variants={{
                 enter: (d: number) => ({ x: `${d * rtl * 100}%`, opacity: 0.4 }),
@@ -155,12 +174,14 @@ function ViewerContent() {
               transition={{ type: "spring", damping: 34, stiffness: 320 }}
               className="absolute inset-0"
             >
-              {post ? (
-                <PostBody photo={photo} drag={drag} sheetOpen={sheetOpen} />
+              {theirs ? (
+                <CompetitorPostBody item={theirs} drag={drag} sheetOpen={sheetOpen} />
+              ) : post ? (
+                <PostBody photo={photo!} drag={drag} sheetOpen={sheetOpen} />
               ) : (
                 <motion.div {...drag} drag={!sheetOpen} className="absolute inset-0 touch-none">
-                  <PhotoImage photo={photo} full alt={l(photo.dish)} sizes="100vw" priority className="pointer-events-none object-contain select-none" draggable={false} />
-                  <SourceBadge photo={photo} labeled className="absolute start-3 top-3" />
+                  <PhotoImage photo={photo!} full alt={l(photo!.dish)} sizes="100vw" priority className="pointer-events-none object-contain select-none" draggable={false} />
+                  <SourceBadge photo={photo!} labeled className="absolute start-3 top-3" />
                 </motion.div>
               )}
             </motion.div>
@@ -168,45 +189,51 @@ function ViewerContent() {
           {isDesktop && (
             <>
               <NavArrow side="start" label={t("previous")} disabled={index === 0} onClick={() => go(-1)} post={post} />
-              <NavArrow side="end" label={t("next")} disabled={index === items.length - 1} onClick={() => go(1)} post={post} />
+              <NavArrow side="end" label={t("next")} disabled={index === count - 1} onClick={() => go(1)} post={post} />
             </>
           )}
         </div>
 
         {/* Actions. Scheduling only happens from a ready post's preview (Open post), never on a plain photo. */}
         <div className={cn("relative z-10 pb-safe transition-opacity", !showChrome && "pointer-events-none opacity-0", post && "border-t")}>
-          <div className="mx-auto mt-3 flex max-w-xl justify-center px-4">
-            {post ? (
-              <button
-                type="button"
-                onClick={() => actions.openPost(photo.id)}
-                className="inline-flex h-11 items-center gap-2 rounded-full bg-ge-brand px-6 text-[15px] font-semibold text-ge-primary-foreground shadow-lg transition-transform active:scale-[0.97]"
-              >
-                <SquareArrowOutUpRight className="size-[18px]" />
-                {t("openPost")}
-              </button>
-            ) : ai ? (
-              <button
-                type="button"
-                onClick={() => actions.createWithAi([photo.id])}
-                className="inline-flex h-11 items-center gap-2 rounded-full bg-white px-5 text-[15px] font-semibold text-black shadow-lg transition-transform hover:bg-white/90 active:scale-[0.97]"
-              >
-                <Sparkles className="size-[18px] text-primary" />
-                {t("createWithAi")}
-              </button>
-            ) : null}
-          </div>
-          <div className="mx-auto mt-2 grid max-w-md grid-cols-3 px-2 pb-2">
-            <Action icon={<FolderPlus />} label={t("addToAlbum")} onClick={() => actions.addToAlbum([photo.id])} post={post} />
-            <Action
-              icon={<Heart className={cn(photo.favorite && (post ? "fill-current text-ge-bad" : "fill-white"))} />}
-              label={photo.favorite ? t("unfavorite") : t("favorite")}
-              pressed={photo.favorite}
-              onClick={() => actions.favorite([photo.id], !photo.favorite)}
-              post={post}
-            />
-            <Action icon={<Trash2 />} label={t("delete")} onClick={removeCurrent} post={post} />
-          </div>
+          {theirs ? (
+            <CompetitorActions item={theirs} />
+          ) : (
+            <>
+              <div className="mx-auto mt-3 flex max-w-xl justify-center px-4">
+                {post ? (
+                  <button
+                    type="button"
+                    onClick={() => actions.openPost(photo!.id)}
+                    className="inline-flex h-11 items-center gap-2 rounded-full bg-ge-brand px-6 text-[15px] font-semibold text-ge-primary-foreground shadow-lg transition-transform active:scale-[0.97]"
+                  >
+                    <SquareArrowOutUpRight className="size-[18px]" />
+                    {t("openPost")}
+                  </button>
+                ) : ai ? (
+                  <button
+                    type="button"
+                    onClick={() => actions.createWithAi([photo!.id])}
+                    className="inline-flex h-11 items-center gap-2 rounded-full bg-white px-5 text-[15px] font-semibold text-black shadow-lg transition-transform hover:bg-white/90 active:scale-[0.97]"
+                  >
+                    <Sparkles className="size-[18px] text-primary" />
+                    {t("createWithAi")}
+                  </button>
+                ) : null}
+              </div>
+              <div className="mx-auto mt-2 grid max-w-md grid-cols-3 px-2 pb-2">
+                <Action icon={<FolderPlus />} label={t("addToAlbum")} onClick={() => actions.addToAlbum([photo!.id])} post={post} />
+                <Action
+                  icon={<Heart className={cn(photo!.favorite && (post ? "fill-current text-ge-bad" : "fill-white"))} />}
+                  label={photo!.favorite ? t("unfavorite") : t("favorite")}
+                  pressed={photo!.favorite}
+                  onClick={() => actions.favorite([photo!.id], !photo!.favorite)}
+                  post={post}
+                />
+                <Action icon={<Trash2 />} label={t("delete")} onClick={removeCurrent} post={post} />
+              </div>
+            </>
+          )}
         </div>
       </Dialog.Popup>
     </Dialog.Portal>
@@ -247,6 +274,91 @@ function PostBody({ photo, drag, sheetOpen }: { photo: Photo; drag: Record<strin
           <bdi className="font-semibold">{account.handle}</bdi> <CaptionText text={l(photo.caption)} />
         </p>
       </article>
+    </div>
+  );
+}
+
+/** A competitor's post, laid out like Instagram: their account, the image, likes, comments, date, caption and hashtags. */
+function CompetitorPostBody({ item, drag, sheetOpen }: { item: CompetitorPostRef; drag: Record<string, unknown>; sheetOpen: boolean }) {
+  const { t, lang } = useT();
+  const p = item.post;
+  return (
+    <div className="absolute inset-0 overflow-y-auto overscroll-contain" data-testid="competitor-post">
+      <article className="mx-auto w-full max-w-[470px] pb-4">
+        <header className="flex items-center gap-2.5 px-3 py-2.5">
+          <Avatar src={item.avatarUrl ?? undefined} alt={item.handle} size={32} />
+          <div className="min-w-0 flex-1 leading-tight">
+            <p className="truncate text-[13.5px] font-semibold" dir="ltr">
+              {item.handle}
+            </p>
+            {item.name !== item.handle && (
+              <p className="truncate text-[11.5px] text-ge-muted-foreground" dir="auto">
+                {item.name}
+              </p>
+            )}
+          </div>
+          {p.permalink && (
+            <a href={p.permalink} target="_blank" rel="noreferrer" className="shrink-0 rounded-full px-1 text-[12.5px] font-semibold text-ge-brand-ink hover:underline">
+              {t("viewOnInstagram")}
+            </a>
+          )}
+        </header>
+        <motion.div {...drag} drag={!sheetOpen} className="relative aspect-square touch-none bg-ge-muted">
+          <MediaPlaceholder
+            tone={p.tone}
+            icon={p.icon}
+            src={p.mediaUrl}
+            alt={t("postBy", { handle: item.handle })}
+            className="pointer-events-none absolute inset-0 select-none"
+            iconClassName="size-1/5"
+          />
+        </motion.div>
+        <div className="flex items-center gap-4 px-3 pt-3 text-sm">
+          <Stat icon={<Heart className="size-4" />} label={t("likes")} value={compact(p.likes, lang)} />
+          <Stat icon={<MessageCircle className="size-4 rtl:-scale-x-100" />} label={t("comments")} value={compact(p.comments, lang)} />
+          {p.postedAt && (
+            <time dateTime={p.postedAt} className="ms-auto text-[12.5px] text-ge-muted-foreground">
+              {date(p.postedAt, lang, { day: "numeric", month: "long", year: "numeric" })}
+            </time>
+          )}
+        </div>
+        {p.caption && (
+          <p className="px-3 pt-2.5 text-[14.5px] leading-snug whitespace-pre-line" dir="auto">
+            <bdi className="font-semibold">{item.handle}</bdi> <CaptionText text={p.caption} />
+          </p>
+        )}
+      </article>
+    </div>
+  );
+}
+
+/** The competitor viewer's actions: the AI chat with this post as a reference, and the Inspiration tab. */
+function CompetitorActions({ item }: { item: CompetitorPostRef }) {
+  const { t } = useT();
+  const ai = useFeature("aiChat");
+  const canSave = useFeature("competitors.inspiration");
+  const saved = useStore((s) => s.inspiration.some((p) => p.key === item.key));
+  const openAi = useOpenAi();
+  const toggle = () => toast.success(useStore.getState().toggleInspiration(item) ? t("savedToInspiration") : t("removedFromInspiration"));
+  return (
+    <div className="pb-2">
+      {ai && (
+        <div className="mx-auto mt-3 flex max-w-xl justify-center px-4">
+          <button
+            type="button"
+            onClick={() => openAi(undefined, item)}
+            className="inline-flex h-11 items-center gap-2 rounded-full bg-ge-brand px-6 text-[15px] font-semibold text-ge-primary-foreground shadow-lg transition-transform active:scale-[0.97]"
+          >
+            <Sparkles className="size-[18px]" />
+            {t("createSimilar")}
+          </button>
+        </div>
+      )}
+      {canSave && (
+        <div className="mx-auto mt-2 flex max-w-md justify-center px-2">
+          <Action icon={<Bookmark className={cn(saved && "fill-current")} />} label={saved ? t("savedInspiration") : t("saveInspiration")} pressed={saved} onClick={toggle} post />
+        </div>
+      )}
     </div>
   );
 }

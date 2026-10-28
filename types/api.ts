@@ -195,6 +195,15 @@ export interface CompetitorDto {
   engagementHistory: EngagementPoint[];
 }
 
+/** POST /api/ai-chat/similar-post: what makes a competitor's post work and a new post in that style (EN + AR); null = use the sample answer. */
+export interface SimilarPostDto {
+  topic: { en: string; ar: string };
+  style: { en: string; ar: string };
+  hook: { en: string; ar: string };
+  caption: { en: string; ar: string };
+  hashtags: string[];
+}
+
 export interface EngagementPoint {
   /** ISO date (week start). */
   date: string;

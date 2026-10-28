@@ -7,6 +7,7 @@ import type { BusinessFocus } from "./text/focus";
 import { parsePrefill, type PrefillSuggestion } from "./text/prefill";
 import { parseStyleGuide, type StyleGuideText } from "./text/style";
 import { parseSuggestedHandles } from "./text/suggest";
+import { parseSimilarPost, type SimilarPostText } from "./text/similar-post";
 import { parseReportSummary } from "./text/report";
 import type { BestSlot, GrowthSignal } from "@/lib/analysis/growth-signals";
 import { mockStrategyTips, parseStrategy, type StrategyRecommendation, type TipBusiness } from "./text/strategy";
@@ -36,8 +37,10 @@ import {
   captionPrompt,
   replyPrompt,
   reportSummaryPrompt,
+  similarPostPrompt,
   strategyPrompt,
   type AiChatPromptInput,
+  type SimilarPostPromptInput,
   type BrandPrefillPromptInput,
   type StyleGuidePromptInput,
   type SuggestCompetitorsPromptInput,
@@ -180,6 +183,11 @@ export interface AIService {
    * Never made-up text: a failure says why and the chat shows its sample answer instead.
    */
   chatReply(request: ChatReplyRequest): Promise<ChatReplyAnswer>;
+  /**
+   * AI tab, "Create a similar post": what makes a competitor's post work and a new post in that style for
+   * the business (EN + AR). Never made-up text: a failure says why and the chat shows its sample answer.
+   */
+  similarPost(request: { businessId: string; prompt: SimilarPostPromptInput }): Promise<SimilarPostAnswer>;
   /** Weekly tips (at most 3, ranked by impact). Never made-up text: a failure says why. */
   strategy(request: StrategyRequest): Promise<StrategyAnswer>;
   /** The weekly report's plain-language summary (EN + AR). A failure says why; the report then has numbers only. */
@@ -255,6 +263,8 @@ export interface ChatReplyRequest {
 }
 
 export type ChatReplyAnswer = { ok: true; text: string } | { ok: false; reason: TextFailureReason };
+
+export type SimilarPostAnswer = { ok: true; post: SimilarPostText } | { ok: false; reason: TextFailureReason };
 
 /** Thrown when the provider can't build a brand profile (the route stores a FAILED version). */
 export class BrandContextError extends Error {}
@@ -482,6 +492,11 @@ export class MockAIService implements AIService {
     return { ok: false, reason: "not_configured" };
   }
 
+  /** MOCK: no model; the AI tab writes the similar post from its sample data (components/ai-chat/engine.ts). */
+  async similarPost(): Promise<SimilarPostAnswer> {
+    return { ok: false, reason: "not_configured" };
+  }
+
   /** MOCK: tips written in code from the growth signals (lib/services/text/strategy.ts), every number from the data. */
   async strategy(request: StrategyRequest): Promise<StrategyAnswer> {
     const recommendations = mockStrategyTips(request.signals, request.bestSlot, request.business, request.prompt.decisions);
@@ -539,7 +554,7 @@ export class MockAIService implements AIService {
   }
 }
 
-type AICall = "ai.captions" | "ai.reply.comment" | "ai.reply.dm" | "ai.reply.rewrite" | "ai.competitor" | "ai.classify" | "ai.post" | "ai.monitor" | "ai.statistics" | "ai.shareability" | "ai.brand_context" | "ai.chat" | "ai.strategy" | "ai.report" | "ai.prefill" | "ai.style" | "ai.suggest";
+type AICall = "ai.captions" | "ai.reply.comment" | "ai.reply.dm" | "ai.reply.rewrite" | "ai.competitor" | "ai.classify" | "ai.post" | "ai.monitor" | "ai.statistics" | "ai.shareability" | "ai.brand_context" | "ai.chat" | "ai.similar_post" | "ai.strategy" | "ai.report" | "ai.prefill" | "ai.style" | "ai.suggest";
 
 /**
  * Gemini text model (prompts in ./text/prompts.ts). Never fails: when the
@@ -796,6 +811,16 @@ export class GeminiAIService implements AIService {
         if (!text) throw new TextGenerationError("bad_output", "The model's answer was empty.", 200);
         return { ok: true, text };
       },
+      (reason) => ({ ok: false, reason }),
+    );
+  }
+
+  async similarPost(request: { businessId: string; prompt: SimilarPostPromptInput }): Promise<SimilarPostAnswer> {
+    return this.run<SimilarPostAnswer>(
+      "ai.similar_post",
+      request.businessId,
+      () => similarPostPrompt(request.prompt),
+      (answer) => ({ ok: true, post: parseSimilarPost(answer, request.prompt.competitor) }),
       (reason) => ({ ok: false, reason }),
     );
   }

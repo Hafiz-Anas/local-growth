@@ -25,6 +25,8 @@ import { createServer } from "node:http";
  *   number while `state.inventStatistics` is set);
  * - shareability findings (schema with "findings") get one finding quoting the account's average share rate
  *   from the data (or an invented number while `state.inventShares` is set, which must be rejected);
+ * - "Create a similar post" (schema with "hook_en") gets an explanation and "Stub similar caption" posts, or — while
+ *   `state.copySimilar` is set — a caption copied from the competitor's (which the app must reject);
  * - chat requests get an answer echoing the question (Arabic for an Arabic question);
  * - a question containing "[down]", or `state.fail`, gets a 503.
  */
@@ -32,7 +34,7 @@ import { createServer } from "node:http";
 export interface StubCall {
   system: string;
   turns: Array<{ role: string; text: string }>;
-  kind: "strategy" | "report" | "monitor" | "statistics" | "shareability" | "prefill" | "style" | "suggest" | "reply" | "competitor" | "classify" | "postInsight" | "chat";
+  kind: "strategy" | "report" | "monitor" | "statistics" | "shareability" | "prefill" | "style" | "suggest" | "reply" | "competitor" | "classify" | "postInsight" | "similar" | "chat";
 }
 
 export const STUB_PORT = Number(process.env.E2E_GEMINI_STUB_PORT ?? 4010);
@@ -72,7 +74,7 @@ export function stubRecommendations(n: number, system: string) {
 
 export async function startGeminiStub(port = STUB_PORT) {
   const calls: StubCall[] = [];
-  const state = { fail: false, styleImages: 0, analyses: 0, inventNumbersFor: "", rewrites: 0, inventFor: "", inventMonitor: false, inventStatistics: false, inventShares: false };
+  const state = { fail: false, styleImages: 0, analyses: 0, inventNumbersFor: "", rewrites: 0, inventFor: "", inventMonitor: false, inventStatistics: false, inventShares: false, copySimilar: false };
   const server = createServer((req, res) => {
     let raw = "";
     req.on("data", (chunk) => (raw += chunk));
@@ -103,6 +105,8 @@ export async function startGeminiStub(port = STUB_PORT) {
                 ? "competitor"
                 : props.posts
                   ? "classify"
+                : props.hook_en
+                  ? "similar"
                   : system.includes("You reply on behalf of")
                     ? "reply"
                     : "chat";
@@ -175,6 +179,19 @@ export async function startGeminiStub(port = STUB_PORT) {
           you_better_ar: ["تفاعلكم لكل متابع أعلى."],
           ideas_en: ["Try one offer as a Reel this week.", "Post in the evening twice."],
           ideas_ar: ["جربوا عرضاً واحداً كريل هذا الأسبوع.", "انشروا مساءً مرتين."],
+        });
+      } else if (kind === "similar") {
+        const theirs = system.match(/^Caption: (.*)$/m)?.[1] ?? "";
+        text = JSON.stringify({
+          topic_en: "A product shown up close.",
+          topic_ar: "منتج بلقطة قريبة.",
+          style_en: "Short and upbeat.",
+          style_ar: "قصير ومتحمس.",
+          hook_en: "Something new in the first line.",
+          hook_ar: "شي جديد في أول سطر.",
+          caption_en: state.copySimilar ? theirs : "Stub similar caption for your photo. Order by DM today.",
+          caption_ar: state.copySimilar ? theirs : "وصف تجريبي مشابه لصورتكم. اطلبوا بالخاص اليوم.",
+          hashtags: ["#stubtag", "#q8food"],
         });
       } else if (kind === "classify") {
         const ids = [...system.matchAll(/- id (\S+) \|/g)].map((m) => m[1]);
