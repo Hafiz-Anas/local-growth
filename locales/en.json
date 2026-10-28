@@ -2638,6 +2638,8 @@
     "similarHook": "Hook",
     "similarOutro": "Here's a new post in that style for you, on your own \"{dish}\" photo. Their photo and words aren't used.",
     "similarOutroAlbum": "Here's a new post in that style for you, on your own \"{dish}\" photo from {album}. Their photo and words aren't used.",
-    "removeReference": "Remove reference post"
+    "removeReference": "Remove reference post",
+    "captionMore": "… more",
+    "captionLess": "less"
   }
 }

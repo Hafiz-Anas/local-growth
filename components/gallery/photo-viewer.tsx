@@ -81,6 +81,18 @@ function ViewerContent() {
       );
   };
 
+  // The page behind never scrolls while the viewer is open (the document is the app's scroller).
+  useEffect(() => {
+    const html = document.documentElement;
+    const before = { overflow: html.style.overflow, overscroll: html.style.overscrollBehavior };
+    html.style.overflow = "hidden";
+    html.style.overscrollBehavior = "none";
+    return () => {
+      html.style.overflow = before.overflow;
+      html.style.overscrollBehavior = before.overscroll;
+    };
+  }, []);
+
   // Capture phase: the dialog stops arrow keys from bubbling to window.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -195,7 +207,7 @@ function ViewerContent() {
         </div>
 
         {/* Actions. Scheduling only happens from a ready post's preview (Open post), never on a plain photo. */}
-        <div className={cn("relative z-10 pb-safe transition-opacity", !showChrome && "pointer-events-none opacity-0", post && "border-t")}>
+        <div className={cn("relative z-10 pb-safe transition-opacity", !showChrome && "pointer-events-none opacity-0", post && "border-t", theirs && "lg:hidden")}>
           {theirs ? (
             <CompetitorActions item={theirs} />
           ) : (
@@ -278,61 +290,107 @@ function PostBody({ photo, drag, sheetOpen }: { photo: Photo; drag: Record<strin
   );
 }
 
-/** A competitor's post, laid out like Instagram: their account, the image, likes, comments, date, caption and hashtags. */
+/**
+ * A competitor's post, fitted to the screen (nothing scrolls but a long caption). Phone: the picture,
+ * then their account, likes, comments and date, and the caption on 2 lines with "more" (expanding in its
+ * own scroll area); the actions stay pinned in the viewer's bottom bar. Desktop: Instagram's desktop post,
+ * the picture on the left and a panel with the account, a scrolling caption + stats and the actions.
+ */
 function CompetitorPostBody({ item, drag, sheetOpen }: { item: CompetitorPostRef; drag: Record<string, unknown>; sheetOpen: boolean }) {
   const { t, lang } = useT();
   const p = item.post;
+  const [expanded, setExpanded] = useState(false);
+  const caption = p.caption?.trim() ?? "";
+  // "… more" only when the 2 lines actually cut the caption off (measured, so it follows width and language).
+  const captionRef = useRef<HTMLParagraphElement>(null);
+  const [clamped, setClamped] = useState(false);
+  useEffect(() => {
+    const el = captionRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setClamped(el.scrollHeight > el.clientHeight + 1));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [caption]);
+  const long = expanded || clamped;
   return (
-    <div className="absolute inset-0 overflow-y-auto overscroll-contain" data-testid="competitor-post">
-      <article className="mx-auto w-full max-w-[470px] pb-4">
-        <header className="flex items-center gap-2.5 px-3 py-2.5">
-          <Avatar src={item.avatarUrl ?? undefined} alt={item.handle} size={32} />
-          <div className="min-w-0 flex-1 leading-tight">
-            <p className="truncate text-[13.5px] font-semibold" dir="ltr">
-              {item.handle}
-            </p>
-            {item.name !== item.handle && (
-              <p className="truncate text-[11.5px] text-ge-muted-foreground" dir="auto">
-                {item.name}
+    <div className="absolute inset-0 flex flex-col [container-type:size] lg:items-center lg:justify-center lg:px-20 lg:py-6" data-testid="competitor-post">
+      <article className="flex min-h-0 flex-1 flex-col lg:h-[min(100cqh,calc(100cqw-340px),760px)] lg:flex-none lg:flex-row lg:overflow-hidden lg:rounded-xl lg:border lg:bg-ge-background">
+        {/* The picture: as big as fits, always square. */}
+        <div className="relative min-h-0 flex-1 [container-type:size] lg:aspect-square lg:h-full lg:flex-none">
+          <motion.div {...drag} drag={!sheetOpen} className="absolute inset-0 m-auto aspect-square size-[min(100cqw,100cqh)] touch-none" data-testid="competitor-post-image">
+            <MediaPlaceholder
+              tone={p.tone}
+              icon={p.icon}
+              src={p.mediaUrl}
+              alt={t("postBy", { handle: item.handle })}
+              className="pointer-events-none absolute inset-0 select-none"
+              iconClassName="size-1/5"
+            />
+          </motion.div>
+        </div>
+
+        <div className="flex shrink-0 flex-col lg:min-h-0 lg:w-[340px] lg:shrink-0 lg:border-s">
+          <header className="flex items-center gap-2.5 px-3 pt-2.5 pb-1 lg:border-b lg:py-3">
+            <Avatar src={item.avatarUrl ?? undefined} alt={item.handle} size={32} />
+            <div className="min-w-0 flex-1 leading-tight">
+              {/* Isolated, so in Arabic they sit next to the avatar like the rest of the row. */}
+              <p className="truncate text-[13.5px] font-semibold">
+                <bdi dir="ltr">{item.handle}</bdi>
               </p>
+              {item.name !== item.handle && (
+                <p className="truncate text-[11.5px] text-ge-muted-foreground">
+                  <bdi>{item.name}</bdi>
+                </p>
+              )}
+            </div>
+            {p.permalink && (
+              <a href={p.permalink} target="_blank" rel="noreferrer" className="shrink-0 rounded-full px-1 text-[12.5px] font-semibold text-ge-brand-ink hover:underline">
+                {t("viewOnInstagram")}
+              </a>
+            )}
+          </header>
+
+          {/* Phone: stats, then the caption. Desktop: the caption, then the stats, scrolling between header and actions. */}
+          <div className="flex flex-col lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain">
+            <div className="flex items-center gap-4 px-3 pt-1.5 text-sm lg:order-2 lg:mt-auto lg:border-t lg:py-3">
+              <Stat icon={<Heart className="size-4" />} label={t("likes")} value={compact(p.likes, lang)} />
+              <Stat icon={<MessageCircle className="size-4 rtl:-scale-x-100" />} label={t("comments")} value={compact(p.comments, lang)} />
+              {p.postedAt && (
+                <time dateTime={p.postedAt} className="ms-auto text-[12.5px] text-ge-muted-foreground">
+                  {date(p.postedAt, lang, { day: "numeric", month: "long", year: "numeric" })}
+                </time>
+              )}
+            </div>
+            {caption && (
+              <div
+                className={cn("px-3 pt-1.5 pb-2 lg:order-1 lg:py-3", expanded && "max-h-[30dvh] overflow-y-auto overscroll-contain lg:max-h-none lg:overflow-visible")}
+                data-testid="competitor-caption"
+              >
+                <p ref={captionRef} className={cn("text-[14.5px] leading-snug whitespace-pre-line lg:line-clamp-none", !expanded && "line-clamp-2")} dir="auto">
+                  <bdi className="font-semibold">{item.handle}</bdi> <CaptionText text={caption} />
+                </p>
+                {long && (
+                  <button type="button" onClick={() => setExpanded((e) => !e)} aria-expanded={expanded} className="text-[13.5px] text-ge-muted-foreground lg:hidden">
+                    {expanded ? t("captionLess") : t("captionMore")}
+                  </button>
+                )}
+              </div>
             )}
           </div>
-          {p.permalink && (
-            <a href={p.permalink} target="_blank" rel="noreferrer" className="shrink-0 rounded-full px-1 text-[12.5px] font-semibold text-ge-brand-ink hover:underline">
-              {t("viewOnInstagram")}
-            </a>
-          )}
-        </header>
-        <motion.div {...drag} drag={!sheetOpen} className="relative aspect-square touch-none bg-ge-muted">
-          <MediaPlaceholder
-            tone={p.tone}
-            icon={p.icon}
-            src={p.mediaUrl}
-            alt={t("postBy", { handle: item.handle })}
-            className="pointer-events-none absolute inset-0 select-none"
-            iconClassName="size-1/5"
-          />
-        </motion.div>
-        <div className="flex items-center gap-4 px-3 pt-3 text-sm">
-          <Stat icon={<Heart className="size-4" />} label={t("likes")} value={compact(p.likes, lang)} />
-          <Stat icon={<MessageCircle className="size-4 rtl:-scale-x-100" />} label={t("comments")} value={compact(p.comments, lang)} />
-          {p.postedAt && (
-            <time dateTime={p.postedAt} className="ms-auto text-[12.5px] text-ge-muted-foreground">
-              {date(p.postedAt, lang, { day: "numeric", month: "long", year: "numeric" })}
-            </time>
-          )}
+
+          <div className="hidden border-t lg:block">
+            <CompetitorActions item={item} />
+          </div>
         </div>
-        {p.caption && (
-          <p className="px-3 pt-2.5 text-[14.5px] leading-snug whitespace-pre-line" dir="auto">
-            <bdi className="font-semibold">{item.handle}</bdi> <CaptionText text={p.caption} />
-          </p>
-        )}
       </article>
     </div>
   );
 }
 
-/** The competitor viewer's actions: the AI chat with this post as a reference, and the Inspiration tab. */
+/**
+ * The competitor viewer's actions, as an action row like the Gallery viewer's: the AI chat with this post
+ * as a reference, and Save as inspiration (Saved while it's in the Inspiration tab).
+ */
 function CompetitorActions({ item }: { item: CompetitorPostRef }) {
   const { t } = useT();
   const ai = useFeature("aiChat");
@@ -340,25 +398,11 @@ function CompetitorActions({ item }: { item: CompetitorPostRef }) {
   const saved = useStore((s) => s.inspiration.some((p) => p.key === item.key));
   const openAi = useOpenAi();
   const toggle = () => toast.success(useStore.getState().toggleInspiration(item) ? t("savedToInspiration") : t("removedFromInspiration"));
+  if (!ai && !canSave) return null;
   return (
-    <div className="pb-2">
-      {ai && (
-        <div className="mx-auto mt-3 flex max-w-xl justify-center px-4">
-          <button
-            type="button"
-            onClick={() => openAi(undefined, item)}
-            className="inline-flex h-11 items-center gap-2 rounded-full bg-ge-brand px-6 text-[15px] font-semibold text-ge-primary-foreground shadow-lg transition-transform active:scale-[0.97]"
-          >
-            <Sparkles className="size-[18px]" />
-            {t("createSimilar")}
-          </button>
-        </div>
-      )}
-      {canSave && (
-        <div className="mx-auto mt-2 flex max-w-md justify-center px-2">
-          <Action icon={<Bookmark className={cn(saved && "fill-current")} />} label={saved ? t("savedInspiration") : t("saveInspiration")} pressed={saved} onClick={toggle} post />
-        </div>
-      )}
+    <div className={cn("mx-auto mt-2 grid max-w-md px-2 pb-2", ai && canSave ? "grid-cols-2" : "grid-cols-1")} data-testid="competitor-actions">
+      {ai && <Action icon={<Sparkles />} label={t("createSimilar")} onClick={() => openAi(undefined, item)} post />}
+      {canSave && <Action icon={<Bookmark className={cn(saved && "fill-current")} />} label={saved ? t("savedInspiration") : t("saveInspiration")} pressed={saved} onClick={toggle} post />}
     </div>
   );
 }

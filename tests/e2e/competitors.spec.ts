@@ -50,7 +50,25 @@ const shown = (p = page) => viewer(p).getByTestId("competitor-post").last();
 /** Waits for the slide animation to finish (only one post left on screen), then returns its picture. */
 async function picture(p = page) {
   await expect(viewer(p).getByTestId("competitor-post")).toHaveCount(1);
-  return shown(p).locator(".aspect-square");
+  return shown(p).getByTestId("competitor-post-image");
+}
+
+/**
+ * The viewer fits the screen: both actions are in view without scrolling, the post itself doesn't scroll
+ * and the page behind is locked (scrolling the wheel over it moves nothing).
+ */
+async function expectFitted(p: Page) {
+  await expect(viewer(p).getByRole("button", { name: "Create a similar post" })).toBeInViewport({ ratio: 1 });
+  await expect(viewer(p).getByRole("button", { name: /^(Save as inspiration|Saved)$/ })).toBeInViewport({ ratio: 1 });
+  const post = await shown(p).evaluate((el) => ({ scroll: el.scrollHeight - el.clientHeight, overflow: getComputedStyle(el).overflowY }));
+  expect(post.scroll).toBeLessThanOrEqual(0);
+  expect(post.overflow).not.toMatch(/auto|scroll/);
+  expect(await p.evaluate(() => getComputedStyle(document.documentElement).overflow)).toBe("hidden");
+  const before = await p.evaluate(() => window.scrollY);
+  await p.mouse.move(10, 300);
+  await p.mouse.wheel(0, 600);
+  await p.waitForTimeout(300);
+  expect(await p.evaluate(() => window.scrollY)).toBe(before);
 }
 
 async function openProfile(p = page) {
@@ -118,6 +136,12 @@ test("a competitor's post opens in the Gallery viewer: Instagram-style, arrows a
   for (const name of ["Add to album", "Favorite", "Delete"]) await expect(viewer().getByRole("button", { name })).toHaveCount(0);
   await expect(viewer().getByRole("button", { name: "Create a similar post" })).toBeVisible();
   await expect(viewer().getByRole("button", { name: "Save as inspiration" })).toBeVisible();
+  // Desktop: Instagram's desktop post — picture on the left, a side panel with the actions at its bottom.
+  const image = (await shown().getByTestId("competitor-post-image").boundingBox())!;
+  const actions = (await viewer().getByTestId("competitor-actions").filter({ visible: true }).boundingBox())!;
+  expect(actions.x).toBeGreaterThanOrEqual(image.x + image.width - 1);
+  expect(Math.round(image.width)).toBe(Math.round(image.height));
+  await expectFitted(page);
 
   await viewer().getByRole("button", { name: "Next photo" }).click();
   await expect(viewer().getByText(`3/${total}`)).toBeVisible();
@@ -130,14 +154,38 @@ test("a competitor's post opens in the Gallery viewer: Instagram-style, arrows a
 
   await page.keyboard.press("Escape");
   await expect(viewer()).toHaveCount(0);
+  // The page scrolls again once the viewer is closed.
+  expect(await page.evaluate(() => getComputedStyle(document.documentElement).overflow)).not.toBe("hidden");
 });
 
-test("on a phone: swipe between posts, swipe down to close", async ({ browser }) => {
+test("on a phone: caption on 2 lines with … more, actions pinned at the bottom, swipe between posts, swipe down to close", async ({ browser }) => {
   const phone = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true });
   try {
     await login(phone);
+    // The demo captions all fit on 2 lines: give the first post a long one (as real competitors often have).
+    const long = Array.from({ length: 12 }, (_, i) => `Line ${i + 1}: fresh beans roasted this morning, come by and taste them.`).join("\n") + " #specialtycoffee";
+    await phone.route(`**/api/competitors/${rival.id}`, async (route) => {
+      const json = await (await route.fetch()).json();
+      json.data.recentPosts[0].caption = long;
+      await route.fulfill({ json });
+    });
     await openProfile(phone);
-    await phone.getByTestId("competitor-post-tile").first().click();
+    // Cut to 2 lines with "… more", which expands it in its own scroll area.
+    await phone.getByTestId("competitor-post-tile").nth(1).click();
+    await expectFitted(phone);
+    const caption = shown(phone).getByTestId("competitor-caption");
+    const collapsed = (await caption.boundingBox())!.height;
+    await caption.getByRole("button", { name: "… more" }).click();
+    await expect(caption.getByRole("button", { name: "less" })).toHaveAttribute("aria-expanded", "true");
+    expect((await caption.boundingBox())!.height).toBeGreaterThan(collapsed);
+    await expectFitted(phone);
+    // Picture on top, the account and caption below it, the actions below those.
+    const image = (await shown(phone).getByTestId("competitor-post-image").boundingBox())!;
+    const bar = (await viewer(phone).getByTestId("competitor-actions").filter({ visible: true }).boundingBox())!;
+    expect((await caption.boundingBox())!.y).toBeGreaterThan(image.y + image.height - 1);
+    expect(bar.y).toBeGreaterThanOrEqual((await caption.boundingBox())!.y + (await caption.boundingBox())!.height - 1);
+    await caption.getByRole("button", { name: "less" }).click();
+
     const total = rival.recentPosts.length;
     await expect(viewer(phone).getByText(new RegExp(`^\\d+/${total}$`))).toBeVisible();
     const before = await viewer(phone).getByText(new RegExp(`^\\d+/${total}$`)).innerText();
