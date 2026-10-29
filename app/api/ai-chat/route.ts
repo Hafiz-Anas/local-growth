@@ -14,14 +14,14 @@ import { aiChatSchema } from "@/lib/validation/api";
  */
 export const POST = handler(async (request) => {
   const { businessId } = await requireFeature("aiChat");
-  const { mode, question } = await readJson(request, aiChatSchema);
+  const { question } = await readJson(request, aiChatSchema);
   const ai = getAIService();
   if (!ai.textAvailability().available || !(await getRateLimiter().consume(AI_CHAT_LIMIT, businessId))) return ok({ text: null });
 
   const business = await db.business.findUniqueOrThrow({ where: { id: businessId }, select: { name: true, nameAr: true } });
   const answer = await ai.chatReply({
     businessId,
-    prompt: { mode, language: questionLanguage(question), businessName: business.name, businessNameAr: business.nameAr, question },
+    prompt: { language: questionLanguage(question), businessName: business.name, businessNameAr: business.nameAr, question },
   });
   return ok({ text: answer.ok ? answer.text : null });
 });

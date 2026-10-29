@@ -8,17 +8,15 @@ import { PhotoImage } from "@/components/gallery/photo-image";
 import { useT } from "@/lib/gallery/hooks";
 import { translate } from "@/lib/gallery/i18n";
 import { useActiveChat, useStore } from "@/lib/gallery/store";
-import { cn } from "@/lib/gallery/utils";
-import type { ChatMode } from "@/mock-data/gallery/ai-chat";
 import { findCategory } from "@/mock-data/gallery/categories";
 import { ChatEditSheets, ChatList, ChatListDrawer, type ChatEdit } from "./chat-list";
 import { useAiEngine, useChatContext, type AiEngine } from "./engine";
 import { AnswerMessage, DirectionsMessage, InspirationMessage, PostMessage, ProductMessage, ReferenceThumb, TextMessage, TypingDots, UserMessage } from "./messages";
-import { MODES, ModeTag, PROMPTS, type Prompt } from "./modes";
+import { PROMPTS, SHORTCUTS, type Prompt } from "./modes";
 import { PhotoPicker } from "./photo-picker";
 
 /**
- * The AI chat: the start screen (three modes and their suggested questions) or the open chat, the
+ * The AI chat: the start screen (three shortcut cards and suggested questions) or the open chat, the
  * composer with photo attachments, and past chats — in a column on desktop (`sidebar`), else a drawer.
  */
 export function ChatView({ sidebar, listOpen, onListOpenChange }: { sidebar: boolean; listOpen: boolean; onListOpenChange: (open: boolean) => void }) {
@@ -47,7 +45,6 @@ export function ChatView({ sidebar, listOpen, onListOpenChange }: { sidebar: boo
         onAttach={(photoIds) => {
           const s = useStore.getState();
           // Photos make a post: on the start screen that's a Post chat.
-          if (!s.activeChatId) s.setChatMode("post");
           if (picker === "combine") {
             const first = ctx.photos.find((p) => p.id === photoIds[0]);
             const category = findCategory(ctx.account.id, first?.category);
@@ -64,8 +61,7 @@ function Conversation({ engine, onAttach }: { engine: AiEngine; onAttach: (mode:
   const { t, l } = useT();
   const ctx = useChatContext();
   const chat = useActiveChat();
-  const mode = useStore((s) => s.chatMode);
-  const prompts = PROMPTS[chat?.mode ?? mode];
+  const prompts = PROMPTS;
   const messages = chat?.messages ?? [];
   // Admin preview is read-only: nothing can be sent, so no new chats are made or saved.
   const { isPreview } = useActiveClient();
@@ -112,7 +108,6 @@ function Conversation({ engine, onAttach }: { engine: AiEngine; onAttach: (mode:
           <h2 className="min-w-0 truncate text-[15px] font-semibold" dir="auto">
             {l(chat.title)}
           </h2>
-          <ModeTag mode={chat.mode} />
         </div>
       )}
 
@@ -126,7 +121,7 @@ function Conversation({ engine, onAttach }: { engine: AiEngine; onAttach: (mode:
       >
         <div ref={content} className="mx-auto w-full max-w-[760px] px-4 pt-2 pb-6">
           {messages.length === 0 ? (
-            <StartScreen mode={mode} prompts={prompts} onPrompt={runPrompt} readOnly={isPreview} />
+            <StartScreen prompts={prompts} onPrompt={runPrompt} readOnly={isPreview} />
           ) : (
             <div className="space-y-6 lg:pt-4">
               {messages.map((m) => {
@@ -177,8 +172,8 @@ function Conversation({ engine, onAttach }: { engine: AiEngine; onAttach: (mode:
   );
 }
 
-/** No chat open: "What would you like to do?", the three modes, and the selected mode's questions. */
-function StartScreen({ mode, prompts, onPrompt, readOnly }: { mode: ChatMode; prompts: Prompt[]; onPrompt: (p: Prompt) => void; readOnly: boolean }) {
+/** No chat open: "What would you like to do?", three shortcut cards (each sends its question) and more suggested questions. */
+function StartScreen({ prompts, onPrompt, readOnly }: { prompts: Prompt[]; onPrompt: (p: Prompt) => void; readOnly: boolean }) {
   const { t, l } = useT();
   const id = useId();
   return (
@@ -189,35 +184,27 @@ function StartScreen({ mode, prompts, onPrompt, readOnly }: { mode: ChatMode; pr
       <h2 className="mt-3 text-center text-[22px] font-bold tracking-tight lg:text-[26px]">{t("aiStartTitle")}</h2>
 
       <div className="mt-5 grid w-full max-w-2xl gap-2 sm:grid-cols-3" role="group" aria-label={t("aiStartTitle")}>
-        {MODES.map((m) => {
-          const on = mode === m.mode;
-          return (
-            <button
-              key={m.mode}
-              type="button"
-              aria-pressed={on}
-              aria-label={t(m.key)}
-              aria-describedby={`${id}-${m.mode}`}
-              data-testid={`mode-card-${m.mode}`}
-              disabled={readOnly}
-              onClick={() => useStore.getState().startChat(m.mode)}
-              className={cn(
-                "flex items-center gap-3 rounded-2xl border bg-ge-card p-3 text-start transition-[background-color,border-color,transform] hover:bg-ge-muted active:scale-[0.99] disabled:pointer-events-none disabled:opacity-50 sm:flex-col sm:items-start sm:p-4",
-                on && "border-ge-brand bg-ge-brand-soft/60 hover:bg-ge-brand-soft",
-              )}
-            >
-              <span className={cn("grid size-10 shrink-0 place-items-center rounded-xl", on ? "bg-ig-gradient text-white" : "bg-ge-brand-soft text-ge-brand-ink")}>
-                <m.icon className="size-5" />
+        {SHORTCUTS.map((m) => (
+          <button
+            key={m.id}
+            type="button"
+            aria-describedby={`${id}-${m.id}`}
+            data-testid={`shortcut-card-${m.id}`}
+            disabled={readOnly}
+            onClick={() => onPrompt(m.prompt)}
+            className="flex items-center gap-3 rounded-2xl border bg-ge-card p-3 text-start transition-[background-color,transform] hover:bg-ge-muted active:scale-[0.99] disabled:pointer-events-none disabled:opacity-50 sm:flex-col sm:items-start sm:p-4"
+          >
+            <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-ge-brand-soft text-ge-brand-ink">
+              <m.icon className="size-5" />
+            </span>
+            <span className="min-w-0">
+              <span className="block text-[15px] font-semibold">{t(m.key)}</span>
+              <span id={`${id}-${m.id}`} className="block text-[13px] text-ge-muted-foreground">
+                {l(m.prompt.q)}
               </span>
-              <span className="min-w-0">
-                <span className="block text-[15px] font-semibold">{t(m.key)}</span>
-                <span id={`${id}-${m.mode}`} className="block text-[13px] text-ge-muted-foreground">
-                  {t(m.body)}
-                </span>
-              </span>
-            </button>
-          );
-        })}
+            </span>
+          </button>
+        ))}
       </div>
 
       <h3 className="mt-6 w-full max-w-2xl px-1 text-[13px] font-semibold text-ge-muted-foreground">{t("aiTryAsking")}</h3>

@@ -48,6 +48,8 @@ export const qk = {
   trends: ["trends"] as const,
   generatorOptions: ["generator-options"] as const,
   drafts: ["drafts"] as const,
+  /** The Gallery: photos, albums and drafts (GallerySync loads it into the Gallery / AI chat store). */
+  gallery: ["gallery"] as const,
   scheduled: ["scheduled-posts"] as const,
   experiment: ["experiment"] as const,
   engagement: ["engagement"] as const,

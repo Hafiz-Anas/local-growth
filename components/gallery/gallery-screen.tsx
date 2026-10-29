@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, FolderPlus, Heart, ImagePlus, Images, MoreHorizontal, PencilLine, Plus, Sparkles, Trash2 } from "lucide-react";
+import { ChevronLeft, EyeOff, FolderPlus, Heart, ImagePlus, Images, MoreHorizontal, PencilLine, Plus, Sparkles, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Btn, EmptyState, IconBtn, Segmented, Skel } from "@/components/gallery/kit";
@@ -8,11 +8,13 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useFeature } from "@/components/providers/active-client-provider";
 import { useBackHandler } from "@/lib/gallery/back";
 import { date, daysFromNow, num } from "@/lib/gallery/format";
-import { useFakeLoading, useT } from "@/lib/gallery/hooks";
+import { ErrorState } from "@/components/shared/states";
+import { useT } from "@/lib/gallery/hooks";
+import { useGalleryQuery } from "./gallery-sync";
 import { useAlbums, usePhotos, useStore } from "@/lib/gallery/store";
 import { cn } from "@/lib/gallery/utils";
 import type { Lang, Photo } from "@/mock-data/gallery/types";
-import { SMART_ALBUMS } from "./albums";
+import { SMART_ALBUMS, smartAlbums } from "./albums";
 import { PhotoImage } from "./photo-image";
 import { PhotoTile } from "./photo-tile";
 import { usePhotoActions } from "./use-photo-actions";
@@ -24,7 +26,8 @@ export function GalleryScreen() {
   const { t, l, lang } = useT();
   const photos = usePhotos();
   const customAlbums = useAlbums();
-  const loading = useFakeLoading();
+  const gallery = useGalleryQuery();
+  const loading = !useStore((s) => s.galleryLoaded);
   const selecting = useStore((s) => s.selecting);
   const setSelecting = useStore((s) => s.setSelecting);
   const openSheet = useStore((s) => s.openSheet);
@@ -112,7 +115,8 @@ export function GalleryScreen() {
             <span className="max-sm:sr-only">{t("upload")}</span>
           </Btn>
         )}
-        {custom && !selecting && (
+        {/* Category albums (demo samples) can't be renamed or deleted. */}
+        {custom && !custom.category && !selecting && (
           <DropdownMenu>
             <DropdownMenuTrigger aria-label={t("albumOptions")} className="grid size-9 shrink-0 place-items-center rounded-full bg-ge-secondary hover:bg-ge-muted">
               <MoreHorizontal className="size-5" />
@@ -129,7 +133,11 @@ export function GalleryScreen() {
         )}
       </div>
 
-      {loading ? (
+      {loading && gallery.isError ? (
+        <div className="px-4 lg:px-0">
+          <ErrorState error={gallery.error} onRetry={() => void gallery.refetch()} />
+        </div>
+      ) : loading ? (
         <GridSkeleton />
       ) : showGrid ? (
         visible.length === 0 ? (
@@ -232,7 +240,8 @@ function AlbumsView({ photos, onOpen }: { photos: Photo[]; onOpen: (id: string) 
   const custom = useAlbums();
   const openSheet = useStore((s) => s.openSheet);
   const mine: AlbumCardData[] = custom.map((a) => ({ id: a.id, name: l(a.name), icon: Images, items: photos.filter((p) => p.albums.includes(a.id)) }));
-  const smart: AlbumCardData[] = SMART_ALBUMS.map((a) => ({ id: a.id, name: t(a.key), icon: a.icon, items: photos.filter(a.filter) }));
+  const demo = useStore((s) => s.demo);
+  const smart: AlbumCardData[] = smartAlbums(demo).map((a) => ({ id: a.id, name: t(a.key), icon: a.icon, items: photos.filter(a.filter) }));
   const grid = "grid grid-cols-2 gap-x-3 gap-y-4 sm:grid-cols-3 lg:grid-cols-4";
   const card = (a: AlbumCardData) => (
     <button key={a.id} type="button" onClick={() => onOpen(a.id)} className="group min-w-0 rounded-xl text-start">
@@ -281,6 +290,8 @@ function SelectionBar({ ids, fromAlbumId, onDone, onSelectAll }: { ids: string[]
   const ai = useFeature("aiChat");
   const none = ids.length === 0;
   const allFavorite = !none && ids.every((id) => photos.find((p) => p.id === id)?.favorite);
+  // Instagram posts are only hidden here: nothing changes on Instagram, and the button says so.
+  const hideOnly = !none && ids.every((id) => photos.find((p) => p.id === id)?.source === "instagram");
   const act = (f: () => void, done = true) => () => {
     f();
     if (done) onDone();
@@ -302,8 +313,8 @@ function SelectionBar({ ids, fromAlbumId, onDone, onSelectAll }: { ids: string[]
         <BarBtn label={allFavorite ? t("unfavorite") : t("favorite")} disabled={none} onClick={act(() => actions.favorite(ids, !allFavorite))}>
           <Heart className={cn(allFavorite && "fill-current")} />
         </BarBtn>
-        <BarBtn label={t("delete")} disabled={none} onClick={act(() => actions.remove(ids))} className="text-ge-destructive">
-          <Trash2 />
+        <BarBtn label={hideOnly ? t("hideFromGallery") : t("delete")} disabled={none} onClick={act(() => actions.remove(ids))} className="text-ge-destructive">
+          {hideOnly ? <EyeOff /> : <Trash2 />}
         </BarBtn>
       </div>
     </div>

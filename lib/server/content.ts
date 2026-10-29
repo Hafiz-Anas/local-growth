@@ -6,9 +6,9 @@ import { brandContextForCaptions, catalogProfile } from "./brand";
 import { FOCUS_SELECT, toBusinessFocus } from "./business-focus";
 import { ApiError, notFound } from "./http";
 
-/** Shared by the post-draft routes: a draft of the caller's business, or 404. */
+/** Shared by the post-draft routes: a Post Generator draft of the caller's business, or 404 (Gallery drafts: lib/server/gallery-drafts.ts). */
 export async function findOwnDraft(businessId: string, id: string) {
-  const draft = await db.postDraft.findFirst({ where: { id, businessId }, select: { id: true, status: true, category: true, angle: true, language: true, imageUrl: true } });
+  const draft = await db.postDraft.findFirst({ where: { id, businessId, origin: "GENERATOR" }, select: { id: true, status: true, category: true, angle: true, language: true, imageUrl: true } });
   if (!draft) throw notFound("Draft");
   return draft;
 }

@@ -204,6 +204,86 @@ export interface SimilarPostDto {
   hashtags: string[];
 }
 
+/** Gallery (lib/server/gallery.ts). Ids: an own photo's id, "ig:<media id>" or "sample:<key>" (lib/gallery/refs.ts). */
+export interface GalleryPhotoDto {
+  id: string;
+  /** upload: uploaded by the owner · instagram: a synced Instagram post · ai: AI-generated. */
+  source: "upload" | "instagram" | "ai";
+  /** A demo business's sample photo (or sample AI image): its image comes from the sample data. */
+  sample: boolean;
+  url: string | null;
+  thumbUrl: string | null;
+  title: string | null;
+  createdAt: string;
+  favorite: boolean;
+  albumIds: string[];
+  /** The newest Gallery / AI chat draft the photo is in. */
+  draftId: string | null;
+  instagram?: {
+    caption: string;
+    postedAt: string;
+    permalink: string | null;
+    format: "photo" | "carousel" | "reel";
+    likes: number;
+    comments: number;
+    reach: number | null;
+    saves: number | null;
+    shares: number | null;
+  };
+}
+
+export interface GalleryAlbumDto {
+  id: string;
+  name: string;
+}
+
+export interface CaptionVersionDto {
+  en: string;
+  ar: string;
+  at: string;
+}
+
+/** A Gallery / AI chat draft: captions as posted (text + hashtags). Nothing is published from it yet. */
+export interface GalleryDraftDto {
+  id: string;
+  photoIds: string[];
+  captionEn: string;
+  captionAr: string;
+  hashtags: string[];
+  suggestedFor: string | null;
+  /** Earlier captions, newest first. */
+  versions: CaptionVersionDto[];
+  origin: "ai_chat" | "gallery";
+  updatedAt: string;
+}
+
+export interface GalleryDto {
+  /** A demo business (mock Instagram connection): the screens add the sample photos, marked "Sample". */
+  demo: boolean;
+  photos: GalleryPhotoDto[];
+  albums: GalleryAlbumDto[];
+  drafts: GalleryDraftDto[];
+  /** Sample (and Instagram) photo ids the owner removed from the Gallery. */
+  hidden: string[];
+}
+
+/** POST /api/gallery/uploads: one permission per file. `blob`: PUT straight to Vercel Blob with `token`; `local`: PUT to `uploadUrl`. */
+export interface GalleryUploadTicketDto {
+  id: string;
+  mode: "blob" | "local";
+  pathname: string | null;
+  token: string | null;
+  uploadUrl: string | null;
+}
+
+/** POST /api/gallery/caption: the AI's caption for the owner's photo, or the neutral template when the AI is unavailable. */
+export interface PhotoCaptionDto {
+  caption: { en: string; ar: string };
+  hashtags: string[];
+  suggestedFor: string;
+  source: "ai" | "template";
+}
+
 export interface EngagementPoint {
   /** ISO date (week start). */
   date: string;

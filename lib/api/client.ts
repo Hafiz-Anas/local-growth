@@ -66,11 +66,11 @@ export async function apiFetch<T>(path: string, init: { method?: string; body?: 
   return unwrap<T>(res);
 }
 
-/** multipart/form-data upload (e.g. the profile photo). */
-export async function apiUpload<T>(path: string, form: FormData): Promise<T> {
+/** multipart/form-data upload (e.g. the profile photo; Gallery photos with local storage use PUT). */
+export async function apiUpload<T>(path: string, form: FormData, method: "POST" | "PUT" = "POST"): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(path, { method: "POST", body: form, headers: accountHeaders() });
+    res = await fetch(path, { method, body: form, headers: accountHeaders() });
   } catch {
     throw new ApiClientError(0, "network_error", "Network error.");
   }

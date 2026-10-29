@@ -1,17 +1,23 @@
 "use client";
 
-import { Check, Heart, MessageSquareText, Sparkles, User } from "lucide-react";
+import { Check, Heart, MessageSquareText, Send, Sparkles, User } from "lucide-react";
 import { memo } from "react";
 import { useT } from "@/lib/gallery/hooks";
 import { cn } from "@/lib/gallery/utils";
 import type { Photo } from "@/mock-data/gallery/types";
 import { PhotoImage, isPost } from "./photo-image";
 
-/** Where the photo came from: made by the AI, or uploaded by the user. `labeled` spells it out (viewer). */
+/**
+ * Where the photo came from: made by the AI, a post on Instagram, or uploaded by the user. A demo
+ * business's sample photos also say "Sample". `labeled` spells it out (viewer).
+ */
 export const SourceBadge = memo(function SourceBadge({ photo, labeled, className }: { photo: Photo; labeled?: boolean; className?: string }) {
   const { t } = useT();
   const ai = photo.source === "ai";
-  const label = ai ? t("madeByAi") : t("uploadedByYou");
+  const instagram = photo.source === "instagram";
+  const label = `${ai ? t("madeByAi") : instagram ? t("instagram") : t("uploadedByYou")}${photo.sample ? ` · ${t("sample")}` : ""}`;
+  const Icon = ai ? Sparkles : instagram ? Send : User;
+  const short = photo.sample ? t("sample") : ai ? t("aiShort") : null;
   if (labeled)
     return (
       <span
@@ -20,8 +26,9 @@ export const SourceBadge = memo(function SourceBadge({ photo, labeled, className
           ai ? "bg-ge-brand/90" : "bg-black/50",
           className,
         )}
+        data-testid="source-badge"
       >
-        {ai ? <Sparkles className="size-3.5" aria-hidden /> : <User className="size-3.5" aria-hidden />}
+        <Icon className="size-3.5" aria-hidden />
         {label}
       </span>
     );
@@ -30,12 +37,14 @@ export const SourceBadge = memo(function SourceBadge({ photo, labeled, className
       title={label}
       className={cn(
         "inline-flex h-[18px] items-center gap-0.5 rounded-full text-[10px] leading-none font-bold text-white backdrop-blur-sm",
-        ai ? "bg-ge-brand/90 px-1.5" : "w-[18px] justify-center bg-black/45",
+        short ? "px-1.5" : "w-[18px] justify-center",
+        ai ? "bg-ge-brand/90" : "bg-black/45",
         className,
       )}
+      data-testid="source-badge"
     >
-      {ai ? <Sparkles className="size-2.5" strokeWidth={2.6} aria-hidden /> : <User className="size-2.5" strokeWidth={2.6} aria-hidden />}
-      {ai && <span aria-hidden>{t("aiShort")}</span>}
+      <Icon className="size-2.5" strokeWidth={2.6} aria-hidden />
+      {short && <span aria-hidden>{short}</span>}
       <span className="sr-only">{label}</span>
     </span>
   );

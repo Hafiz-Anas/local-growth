@@ -112,7 +112,8 @@ export async function getGeneratorOptions(businessId: string, permissions: Permi
 
 export async function listDrafts(businessId: string, status?: DraftStatus): Promise<PostDraftDto[]> {
   const rows = await db.postDraft.findMany({
-    where: { businessId, ...(status ? { status } : { status: { in: ["DRAFT", "QUEUED"] } }) },
+    // The Post Generator's own drafts (Gallery / AI chat drafts are in the Gallery).
+    where: { businessId, origin: "GENERATOR", ...(status ? { status } : { status: { in: ["DRAFT", "QUEUED"] } }) },
     select: DRAFT_SELECT,
     orderBy: { createdAt: "desc" },
     take: 100,

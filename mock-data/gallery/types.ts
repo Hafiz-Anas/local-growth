@@ -66,6 +66,16 @@ export interface Photo {
   metrics?: PostMetrics;
   caption?: L;
   credit: { author: string; link: string };
+  /** A demo business's sample photo (shown with a "Sample" label); real businesses never get these. */
+  sample?: boolean;
+  /** The saved draft (PostDraft) this photo is in, with its hashtags, suggested time and earlier captions. */
+  draftId?: string;
+  hashtags?: string[];
+  suggestedFor?: string;
+  captionVersions?: { en: string; ar: string; at: string }[];
+  /** A synced Instagram post: its link, and whether Instagram gave no reach/saves/shares for it. */
+  permalink?: string;
+  metricsPartial?: boolean;
 }
 
 export interface CustomAlbum {

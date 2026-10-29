@@ -13,7 +13,10 @@ import type { CompetitorPostRef } from "@/lib/gallery/competitor-posts";
 import { compact, num, when } from "@/lib/gallery/format";
 import { useT } from "@/lib/gallery/hooks";
 import type { MessageKey } from "@/lib/gallery/i18n";
+import { galleryApi } from "@/lib/gallery/api";
+import { apiId } from "@/lib/gallery/hydrate";
 import { useAccount, useStore } from "@/lib/gallery/store";
+import { GALLERY_CAPTION_VERSIONS } from "@/lib/gallery/uploads";
 import { cn } from "@/lib/gallery/utils";
 import { answer, type ChatContext } from "@/mock-data/gallery/ai-chat";
 import { DIRECTION_LABEL, FEATURE_LABEL, fullCaption, inspirationSources, productsFor, recaption, retone, type AiMsg, type PostDraft, type Step } from "@/mock-data/gallery/ai-studio";
@@ -200,29 +203,65 @@ function PostCard({ msgId, post, ctx }: { msgId: string; post: PostDraft; ctx: C
   const update = (patch: Partial<PostDraft>) => useStore.getState().updateAiMsg(msgId, { post: { ...post, ...patch } });
   const s = useStore.getState;
 
+  // The owner's own photos get real AI captions; a demo business's sample photos keep the sample templates.
+  const real = photos.length > 0 && photos.every((p) => !p.sample);
+  const [saving, setSaving] = useState(false);
+
+  /** Saves the post as a real draft (photos, caption + hashtags in both languages, suggested time), or updates it. */
+  const persist = async (next: PostDraft): Promise<string | null> => {
+    const caption = fullCaption(next);
+    if (next.draftId) return (await s().updateDraft(next.draftId, { caption, hashtags: next.hashtags, suggestedFor: next.time })) ? next.draftId : null;
+    const versions = (next.versions ?? []).map((v) => ({ ...fullCaption({ ...next, caption: v.caption, hashtags: v.hashtags }), at: v.at }));
+    return s().saveDraft({ photoIds: next.photoIds, caption, hashtags: next.hashtags, suggestedFor: next.time, versions, origin: "ai_chat" });
+  };
+  const save = async (patch: Partial<PostDraft>): Promise<string | null> => {
+    setSaving(true);
+    const draftId = await persist({ ...post, ...patch });
+    setSaving(false);
+    if (draftId) update({ ...patch, draftId });
+    return draftId;
+  };
+
   const regenerate = (tone: CaptionTone) => {
     setToneMenu(false);
     setWriting(true);
-    window.setTimeout(() => {
-      useStore.getState().updateAiMsg(msgId, { post: retone(ctx, post, tone) });
-      setWriting(false);
-    }, 800);
+    const versions = [{ caption: post.caption, hashtags: post.hashtags, at: new Date().toISOString() }, ...(post.versions ?? [])].slice(0, GALLERY_CAPTION_VERSIONS);
+    if (!real) {
+      window.setTimeout(() => {
+        useStore.getState().updateAiMsg(msgId, { post: { ...retone(ctx, post, tone), versions } });
+        setWriting(false);
+      }, 800);
+      return;
+    }
+    galleryApi
+      .caption({ photoIds: photos.map(apiId), tone })
+      .then((r) => {
+        const next: PostDraft = { ...post, caption: r.caption, hashtags: r.hashtags, tone, edited: false, versions, captionSource: r.source };
+        useStore.getState().updateAiMsg(msgId, { post: next });
+        // A saved draft keeps the caption it replaces as an earlier version.
+        if (post.draftId) void s().updateDraft(post.draftId, { caption: fullCaption(next), hashtags: next.hashtags, regenerated: true });
+      })
+      .catch((error) => s().sync?.report(error))
+      .finally(() => setWriting(false));
   };
 
-  const approve = () => {
-    s().schedulePhotos(post.photoIds, post.time, fullCaption(post));
-    update({ status: "scheduled" });
-    toast.success(t("scheduledMoved", { when: when(post.time, lang) }));
+  /** Puts an earlier caption back; the current one becomes an earlier version. */
+  const pickVersion = (index: number) => {
+    const chosen = post.versions?.[index];
+    if (!chosen) return;
+    const versions = [{ caption: post.caption, hashtags: post.hashtags, at: new Date().toISOString() }, ...(post.versions ?? []).filter((_, i) => i !== index)];
+    const next: PostDraft = { ...post, caption: chosen.caption, hashtags: chosen.hashtags, versions };
+    useStore.getState().updateAiMsg(msgId, { post: next });
+    if (post.draftId) void s().updateDraft(post.draftId, { caption: fullCaption(next), hashtags: next.hashtags, regenerated: true });
   };
-  const postNow = () => {
-    s().publishPhotos(post.photoIds, fullCaption(post));
-    update({ status: "posted" });
-    toast.success(t("posted"));
+
+  // Publishing isn't connected yet: Approve and Post now save the post as a draft and say so — no pretend success.
+  const publishLater = async () => {
+    if (await save({ status: "saved" })) toast.info(t("publishingNext"));
   };
-  // Saves the post (photo, caption, hashtags) to the gallery: AI Generated + its category album. Nothing is scheduled.
-  const saveToGallery = () => {
-    s().savePost(post.photoIds, fullCaption(post));
-    update({ status: "saved" });
+  // Saves the post (photo, caption, hashtags, suggested time) as a draft in the Gallery. Nothing is scheduled.
+  const saveToGallery = async () => {
+    if (!(await save({ status: "saved" }))) return;
     const category = findCategory(account.id, photos[0]?.category);
     toast.success(category ? t("savedToGalleryIn", { album: l(category.name) }) : t("savedToGallery"));
   };
@@ -355,10 +394,11 @@ function PostCard({ msgId, post, ctx }: { msgId: string; post: PostDraft; ctx: C
             <Skel className="h-3.5 w-7/12" />
           </div>
         ) : (
-          <p className="text-[14.5px] leading-relaxed whitespace-pre-line" dir={captionLang === "ar" ? "rtl" : "ltr"} lang={captionLang}>
+          <p className="text-[14.5px] leading-relaxed whitespace-pre-line" dir={captionLang === "ar" ? "rtl" : "ltr"} lang={captionLang} data-testid="post-caption">
             {post.caption[captionLang]}
           </p>
         )}
+        {post.captionSource === "template" && !editing && !writing && <p className="text-[12px] text-ge-muted-foreground">{t("captionFallback")}</p>}
 
         <div className="flex flex-wrap gap-1.5" aria-label={t("hashtags")}>
           {post.hashtags.map((tag) => (
@@ -373,6 +413,26 @@ function PostCard({ msgId, post, ctx }: { msgId: string; post: PostDraft; ctx: C
           <span className="font-semibold">{when(post.time, lang)}</span>
           <span className="text-ge-muted-foreground">· {t("bestTime")}</span>
         </p>
+
+        {post.status === "new" && !editing && !writing && post.versions && post.versions.length > 0 && (
+          <details className="text-[12.5px]" data-testid="caption-versions">
+            <summary className="cursor-pointer font-semibold text-ge-muted-foreground">
+              {t("previousVersions")} ({num(post.versions.length, lang)})
+            </summary>
+            <ul className="mt-1.5 space-y-1.5">
+              {post.versions.map((v, i) => (
+                <li key={`${v.at}-${i}`} className="flex items-start gap-2 rounded-xl bg-ge-muted px-2.5 py-2">
+                  <p className="line-clamp-2 min-w-0 flex-1" dir={captionLang === "ar" ? "rtl" : "ltr"}>
+                    {v.caption[captionLang]}
+                  </p>
+                  <button type="button" onClick={() => pickVersion(i)} className="shrink-0 font-semibold text-ge-brand-ink hover:underline">
+                    {t("useVersion")}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
 
         {post.inspiredBy && <p className="text-[12px] text-ge-muted-foreground">{t("notCopied")}</p>}
         {post.edited && !editing && (
@@ -404,10 +464,14 @@ function PostCard({ msgId, post, ctx }: { msgId: string; post: PostDraft; ctx: C
             <Btn variant="secondary" onClick={() => setEditing(false)}>
               {t("cancel")}
             </Btn>
+            {/* Edit saves a real draft too, so the change is there after a reload. */}
             <Btn
-              onClick={() => {
-                update({ caption: { ...post.caption, [captionLang]: text }, edited: true });
-                setEditing(false);
+              disabled={saving || !text.trim()}
+              onClick={async () => {
+                if (await save({ caption: { ...post.caption, [captionLang]: text }, edited: true })) {
+                  setEditing(false);
+                  toast.success(t("savedToGallery"));
+                }
               }}
             >
               {t("save")}
@@ -415,11 +479,11 @@ function PostCard({ msgId, post, ctx }: { msgId: string; post: PostDraft; ctx: C
           </div>
         ) : (
           <div className="space-y-2">
-            <Btn className="w-full" icon={<CalendarClock />} onClick={approve} disabled={writing}>
+            <Btn className="w-full" icon={<CalendarClock />} onClick={publishLater} disabled={writing || saving}>
               {t("approveSchedule")}
             </Btn>
             <div className="grid grid-cols-4 gap-1">
-              <CardAction icon={<Send />} label={t("postNow")} onClick={postNow} disabled={writing} />
+              <CardAction icon={<Send />} label={t("postNow")} onClick={publishLater} disabled={writing || saving} />
               <CardAction
                 icon={<PencilLine />}
                 label={t("edit")}
@@ -431,7 +495,7 @@ function PostCard({ msgId, post, ctx }: { msgId: string; post: PostDraft; ctx: C
                 disabled={writing}
               />
               <CardAction icon={<RefreshCw className={cn(writing && "animate-spin")} />} label={t("regenerate")} onClick={() => setToneMenu((o) => !o)} pressed={toneMenu} disabled={writing} />
-              <CardAction icon={<ImageDown />} label={t("saveToGallery")} onClick={saveToGallery} disabled={writing} />
+              <CardAction icon={<ImageDown />} label={t("saveToGallery")} onClick={saveToGallery} disabled={writing || saving} />
             </div>
             {toneMenu && (
               <div className="flex flex-wrap gap-2 pt-1">
@@ -675,6 +739,12 @@ export function AnswerMessage({ msg, ctx, animate }: { msg: AiOf<"answer">; ctx:
   const photo = a.photoId ? ctx.photos.find((p) => p.id === a.photoId) : undefined;
   return (
     <AiRow id={msg.id}>
+      {/* Sample answers (demo businesses only) say so; "fallback" is just the note to try a suggested question. */}
+      {msg.answerId !== "fallback" && (
+        <span data-testid="sample-answer" className="me-1.5 inline-flex items-center rounded-full bg-ge-muted px-2 py-0.5 text-[11px] font-semibold text-ge-muted-foreground">
+          {t("sample")}
+        </span>
+      )}
       {a.estimate && (
         <span className="inline-flex items-center gap-1 rounded-full bg-ge-brand-soft px-2 py-0.5 text-[11px] font-semibold text-ge-brand-ink">
           <Sparkles className="size-3" /> {t("estimate")}

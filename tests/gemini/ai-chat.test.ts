@@ -4,13 +4,15 @@ import { AI_CHAT_MAX_QUESTION, cleanChatAnswer, questionLanguage } from "../../l
 import { aiChatPrompt } from "../../lib/services/text/prompts";
 
 describe("AI tab: typed questions", () => {
-  const input = { mode: "post" as const, language: "en" as const, businessName: "Mathanet Baity", businessNameAr: "مذاقات بيتي", question: "What works on Instagram?" };
+  const input = { language: "en" as const, businessName: "Mathanet Baity", businessNameAr: "مذاقات بيتي", question: "What works on Instagram?" };
 
   it("asks for a short general reply with no numbers, in the question's language", () => {
     const prompt = aiChatPrompt(input);
     assert.match(prompt.system, /Mathanet Baity/);
     assert.match(prompt.system, /Never give numbers/);
     assert.match(prompt.system, /under 80 words/);
+    // No modes: one prompt covers posts, results and competitors.
+    assert.match(prompt.system, /anything on their Instagram/);
     assert.match(prompt.system, /Reply in English/);
     assert.match(aiChatPrompt({ ...input, language: "ar" }).system, /Reply in Arabic/);
     assert.equal(prompt.user, input.question);

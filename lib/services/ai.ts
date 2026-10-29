@@ -8,6 +8,7 @@ import { parsePrefill, type PrefillSuggestion } from "./text/prefill";
 import { parseStyleGuide, type StyleGuideText } from "./text/style";
 import { parseSuggestedHandles } from "./text/suggest";
 import { parseSimilarPost, type SimilarPostText } from "./text/similar-post";
+import { parsePhotoCaption, type PhotoCaptionText } from "./text/photo-caption";
 import { parseReportSummary } from "./text/report";
 import type { BestSlot, GrowthSignal } from "@/lib/analysis/growth-signals";
 import { mockStrategyTips, parseStrategy, type StrategyRecommendation, type TipBusiness } from "./text/strategy";
@@ -38,9 +39,12 @@ import {
   replyPrompt,
   reportSummaryPrompt,
   similarPostPrompt,
+  photoCaptionPrompt,
+  photoCaptionData,
   strategyPrompt,
   type AiChatPromptInput,
   type SimilarPostPromptInput,
+  type PhotoCaptionPromptInput,
   type BrandPrefillPromptInput,
   type StyleGuidePromptInput,
   type SuggestCompetitorsPromptInput,
@@ -188,6 +192,11 @@ export interface AIService {
    * the business (EN + AR). Never made-up text: a failure says why and the chat shows its sample answer.
    */
   similarPost(request: { businessId: string; prompt: SimilarPostPromptInput }): Promise<SimilarPostAnswer>;
+  /**
+   * AI tab post card: a caption (EN + AR) and hashtags for the owner's own photo, from the image. Never
+   * made-up numbers or claims: a failure says why and the caller uses the neutral template (lib/server/photo-caption.ts).
+   */
+  photoCaption(request: { businessId: string; prompt: PhotoCaptionPromptInput }): Promise<PhotoCaptionAnswer>;
   /** Weekly tips (at most 3, ranked by impact). Never made-up text: a failure says why. */
   strategy(request: StrategyRequest): Promise<StrategyAnswer>;
   /** The weekly report's plain-language summary (EN + AR). A failure says why; the report then has numbers only. */
@@ -265,6 +274,7 @@ export interface ChatReplyRequest {
 export type ChatReplyAnswer = { ok: true; text: string } | { ok: false; reason: TextFailureReason };
 
 export type SimilarPostAnswer = { ok: true; post: SimilarPostText } | { ok: false; reason: TextFailureReason };
+export type PhotoCaptionAnswer = ({ ok: true } & PhotoCaptionText) | { ok: false; reason: TextFailureReason };
 
 /** Thrown when the provider can't build a brand profile (the route stores a FAILED version). */
 export class BrandContextError extends Error {}
@@ -497,6 +507,11 @@ export class MockAIService implements AIService {
     return { ok: false, reason: "not_configured" };
   }
 
+  /** MOCK: no model to look at the photo; the caller uses the neutral template. */
+  async photoCaption(): Promise<PhotoCaptionAnswer> {
+    return { ok: false, reason: "not_configured" };
+  }
+
   /** MOCK: tips written in code from the growth signals (lib/services/text/strategy.ts), every number from the data. */
   async strategy(request: StrategyRequest): Promise<StrategyAnswer> {
     const recommendations = mockStrategyTips(request.signals, request.bestSlot, request.business, request.prompt.decisions);
@@ -554,7 +569,7 @@ export class MockAIService implements AIService {
   }
 }
 
-type AICall = "ai.captions" | "ai.reply.comment" | "ai.reply.dm" | "ai.reply.rewrite" | "ai.competitor" | "ai.classify" | "ai.post" | "ai.monitor" | "ai.statistics" | "ai.shareability" | "ai.brand_context" | "ai.chat" | "ai.similar_post" | "ai.strategy" | "ai.report" | "ai.prefill" | "ai.style" | "ai.suggest";
+type AICall = "ai.captions" | "ai.reply.comment" | "ai.reply.dm" | "ai.reply.rewrite" | "ai.competitor" | "ai.classify" | "ai.post" | "ai.monitor" | "ai.statistics" | "ai.shareability" | "ai.brand_context" | "ai.chat" | "ai.similar_post" | "ai.photo_caption" | "ai.strategy" | "ai.report" | "ai.prefill" | "ai.style" | "ai.suggest";
 
 /**
  * Gemini text model (prompts in ./text/prompts.ts). Never fails: when the
@@ -821,6 +836,16 @@ export class GeminiAIService implements AIService {
       request.businessId,
       () => similarPostPrompt(request.prompt),
       (answer) => ({ ok: true, post: parseSimilarPost(answer, request.prompt.competitor) }),
+      (reason) => ({ ok: false, reason }),
+    );
+  }
+
+  async photoCaption(request: { businessId: string; prompt: PhotoCaptionPromptInput }): Promise<PhotoCaptionAnswer> {
+    return this.run<PhotoCaptionAnswer>(
+      "ai.photo_caption",
+      request.businessId,
+      () => photoCaptionPrompt(request.prompt),
+      (answer) => ({ ok: true, ...parsePhotoCaption(answer, photoCaptionData(request.prompt)) }),
       (reason) => ({ ok: false, reason }),
     );
   }

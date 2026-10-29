@@ -2,7 +2,7 @@
 
 import { Dialog } from "@base-ui/react/dialog";
 import { AnimatePresence, motion, type PanInfo } from "framer-motion";
-import { Bookmark, CalendarClock, ChevronLeft, ChevronRight, CircleCheck, FolderPlus, Heart, MessageCircle, PencilLine, Sparkles, SquareArrowOutUpRight, Trash2, TrendingUp, X } from "lucide-react";
+import { Bookmark, CalendarClock, ChevronLeft, ChevronRight, CircleCheck, EyeOff, FolderPlus, Heart, MessageCircle, PencilLine, Sparkles, SquareArrowOutUpRight, Trash2, TrendingUp, X } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { useOpenAi } from "@/components/ai-chat/use-open-ai";
@@ -242,7 +242,12 @@ function ViewerContent() {
                   onClick={() => actions.favorite([photo!.id], !photo!.favorite)}
                   post={post}
                 />
-                <Action icon={<Trash2 />} label={t("delete")} onClick={removeCurrent} post={post} />
+                {/* Instagram posts are only hidden from the Gallery: nothing changes on Instagram. */}
+                {photo!.source === "instagram" ? (
+                  <Action icon={<EyeOff />} label={t("hideFromGallery")} onClick={removeCurrent} post={post} />
+                ) : (
+                  <Action icon={<Trash2 />} label={t("delete")} onClick={removeCurrent} post={post} />
+                )}
               </div>
             </>
           )}

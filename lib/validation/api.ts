@@ -26,6 +26,7 @@ import { STAT_RANGES } from "@/lib/analysis/statistics";
 import { METHODS } from "@/lib/analysis/methods";
 import { MAX_RULE_KEYWORDS, MAX_RULE_POSTS, PRIVATE_REPLY_MAX, PUBLIC_REPLY_MAX, normalizeText } from "@/lib/keyword-replies";
 import { AI_CHAT_MAX_QUESTION, AI_CHAT_MODES } from "@/lib/services/text/ai-chat";
+import { GALLERY_ALBUM_NAME_MAX, GALLERY_MAX_BATCH, GALLERY_UPLOAD_MAX_BYTES, GALLERY_UPLOAD_TYPES } from "@/lib/gallery/uploads";
 import { normalizeTheme } from "@/lib/theme-script";
 import { emailSchema, newPasswordSchema } from "./auth";
 
@@ -446,7 +447,8 @@ export const activityQuery = z.object({
 
 /** POST /api/ai-chat — a question typed in the AI tab that none of its sample answers matches. */
 export const aiChatSchema = z.object({
-  mode: z.enum(AI_CHAT_MODES),
+  /** Sent by tabs from before chats lost their modes; ignored. */
+  mode: z.enum(AI_CHAT_MODES).optional(),
   question: text(AI_CHAT_MAX_QUESTION),
 });
 
@@ -541,3 +543,60 @@ export const monitorExtendSchema = z.object({ duration: z.enum(MONITOR_DURATIONS
 // Statistics -----------------------------------------------------------------------
 
 export const statisticsQuerySchema = z.object({ range: z.enum(STAT_RANGES).default("30d") });
+
+// Gallery ----------------------------------------------------------------------------
+
+/** Gallery photo ids: own ids, "ig:<id>" or "sample:<key>" (lib/gallery/refs.ts checks them further). */
+const galleryIds = z.array(z.string().min(1).max(100)).min(1).max(200);
+
+export const galleryFavoriteSchema = z.object({ ids: galleryIds, value: z.boolean() }).strict();
+export const galleryIdsSchema = z.object({ ids: galleryIds }).strict();
+
+export const galleryAlbumCreateSchema = z
+  .object({ name: text(GALLERY_ALBUM_NAME_MAX), photoIds: z.array(z.string().min(1).max(100)).max(500).optional(), position: z.number().int().min(0).max(1000).optional() })
+  .strict();
+export const galleryAlbumRenameSchema = z.object({ name: text(GALLERY_ALBUM_NAME_MAX) }).strict();
+export const galleryAlbumPhotosSchema = z.object({ ids: galleryIds, moveFrom: z.string().min(1).max(100).optional() }).strict();
+
+export const galleryUploadStartSchema = z
+  .object({
+    files: z
+      .array(z.object({ name: z.string().max(255), type: z.enum(GALLERY_UPLOAD_TYPES), size: z.number().int().min(1).max(GALLERY_UPLOAD_MAX_BYTES) }).strict())
+      .min(1)
+      .max(GALLERY_MAX_BATCH),
+  })
+  .strict();
+export const galleryUploadCompleteSchema = z.object({ url: z.string().min(1).max(1000) }).strict();
+
+const captionPair = z.object({ en: z.string().trim().max(2200), ar: z.string().trim().max(2200) }).strict();
+const captionVersion = z.object({ en: z.string().max(2200), ar: z.string().max(2200), at: z.string().max(40) }).strict();
+
+export const galleryDraftCreateSchema = z
+  .object({
+    photoIds: z.array(z.string().min(1).max(100)).min(1).max(10),
+    caption: captionPair,
+    hashtags: z.array(tag).max(30).default([]),
+    suggestedFor: isoDate.nullish(),
+    versions: z.array(captionVersion).max(20).default([]),
+    origin: z.enum(["ai_chat", "gallery"]).default("ai_chat"),
+  })
+  .strict();
+
+export const galleryDraftUpdateSchema = z
+  .object({
+    caption: captionPair.optional(),
+    hashtags: z.array(tag).max(30).optional(),
+    suggestedFor: isoDate.nullish(),
+    /** true: the caption came from Regenerate, so the one it replaces is kept as a version. */
+    regenerated: z.boolean().optional(),
+  })
+  .strict();
+
+export const photoCaptionSchema = z
+  .object({
+    photoIds: z.array(z.string().min(1).max(100)).min(1).max(10),
+    tone: z.enum(["base", "shorter", "formal", "friendly"]).default("base"),
+    /** What the owner asked for, if anything ("for the weekend offer"). */
+    request: z.string().trim().max(300).optional(),
+  })
+  .strict();

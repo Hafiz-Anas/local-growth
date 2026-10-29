@@ -6,8 +6,11 @@ import { translate, type MessageKey } from "@/lib/gallery/i18n";
 import { useInsights } from "@/lib/gallery/hooks";
 import { useAccount, useCompetitors, usePhotos, useStore } from "@/lib/gallery/store";
 import { apiFetch } from "@/lib/api/client";
+import { galleryApi } from "@/lib/gallery/api";
 import type { CompetitorPostRef } from "@/lib/gallery/competitor-posts";
-import { matchQuestion, matchRule, type ChatContext } from "@/mock-data/gallery/ai-chat";
+import { apiId } from "@/lib/gallery/hydrate";
+import { suggestPostTime } from "@/lib/gallery/suggest-time";
+import { chatFallback, localAnswerFor, type ChatContext } from "@/mock-data/gallery/ai-chat";
 import {
   DIRECTION_LABEL,
   PHOTO_STEPS,
@@ -32,6 +35,7 @@ import {
   whyItWorks,
   type AiMsg,
   type InspoSource,
+  type PostDraft,
   type Product,
 } from "@/mock-data/gallery/ai-studio";
 import { findCategory } from "@/mock-data/gallery/categories";
@@ -41,6 +45,8 @@ import type { SimilarPostDto } from "@/types";
 
 let uid = 0;
 const id = () => `ai-${Date.now().toString(36)}-${uid++}`;
+/** The current time, for the typing pause (only read in event handlers and callbacks). */
+const now = () => Date.now();
 
 /** The same message in both languages. */
 const both = (key: MessageKey, vars?: (lang: Lang) => Record<string, string | number>): L => ({
@@ -57,13 +63,18 @@ export function useChatContext(): ChatContext {
   const photos = usePhotos();
   const insights = useInsights();
   const competitors = useCompetitors();
+  const demo = useStore((s) => s.demo);
   return useMemo(
-    () => ({ account, photos, insights, competitors, own: ownComparison[account.id as AccountId] ?? ownComparison.mathanet }),
-    [account, photos, insights, competitors],
+    () => ({ account, photos, insights, competitors, own: ownComparison[account.id as AccountId] ?? ownComparison.mathanet, demo }),
+    [account, photos, insights, competitors, demo],
   );
 }
 
-/** Turns prompts, attachments and picks into chat messages. All answers are mock data. */
+/**
+ * Turns prompts, attachments and picks into chat messages. Posts for a real business's own photos are
+ * written by the AI (POST /api/gallery/caption, neutral template when it's unavailable); a demo business's
+ * sample photos, and the analytics / competitor answers, use the design proposal's sample data.
+ */
 export function useAiEngine(ctx: ChatContext) {
   const [typing, setTyping] = useState(false);
   const s = useStore.getState;
@@ -81,14 +92,62 @@ export function useAiEngine(ctx: ChatContext) {
 
   const userMsg = (text: L, extra?: { photoIds?: string[]; refThumb?: string; reference?: CompetitorPostRef }): AiMsg => ({ id: id(), role: "user", text, ...extra });
 
+  /** A real business with no photos yet: ask for some first. */
+  const uploadFirst = (text: L, photoIds?: string[]) => exchange(userMsg(text, photoIds ? { photoIds } : undefined), () => ({ id: id(), role: "ai", kind: "text", text: both("uploadFirst") }));
+
+  /**
+   * A post for the owner's own photos (a real business): the AI writes the caption from the photos and the
+   * business's details. `request` is what the owner typed, `steps` the progress shown on the card.
+   */
+  const realPost = (photoIds: string[], text: L, request?: string, extra?: { chatId?: string; intro?: L; inspiredBy?: string }) => {
+    const photos = photoIds.map((pid) => ctx.photos.find((p) => p.id === pid)).filter((p) => p !== undefined);
+    if (!photos.length) {
+      if (!extra?.chatId) return uploadFirst(text);
+      s().pushAi([{ id: id(), role: "ai", kind: "text", text: both("uploadFirst") }], { chatId: extra.chatId });
+      return setTyping(false);
+    }
+    // The question is already in the chat when `chatId` is given (a reply that turned into a post).
+    const chatId = extra?.chatId ?? s().pushAi([userMsg(text, { photoIds: photos.map((p) => p.id) })], { title: text });
+    const started = now();
+    setTyping(true);
+    galleryApi
+      .caption({ photoIds: photos.map(apiId), request: request?.trim() || undefined })
+      .then((r) => {
+        window.setTimeout(
+          () => {
+            const post: PostDraft = {
+              photoIds: photos.map((p) => p.id),
+              caption: r.caption,
+              hashtags: r.hashtags,
+              time: r.suggestedFor,
+              tone: "base",
+              status: "new",
+              captionSource: r.source,
+              inspiredBy: extra?.inspiredBy,
+            };
+            s().pushAi([{ id: id(), role: "ai", kind: "post", steps: PHOTO_STEPS, ready: false, text: extra?.intro ?? both("postReadyOwn"), post }], { chatId });
+            setTyping(false);
+          },
+          Math.max(0, DELAY - (now() - started)),
+        );
+      })
+      .catch((error) => {
+        s().sync?.report(error);
+        setTyping(false);
+      });
+  };
+  /** The newest photo not posted yet (uploads first), else the newest photo. */
+  const latestOwn = () => (unposted(ctx.photos)[0] ?? ctx.photos[0])?.id;
+
+
   /** "This looks like kunafa from your Sweets album." followed by the next line of the reply. */
   const seen = (photoIds: string[], next: MessageKey): L => {
     const recognised = recognise(ctx, photoIds.map((pid) => ctx.photos.find((p) => p.id === pid)).filter((p) => p !== undefined));
     return { en: `${recognised.en} ${translate("en", next)}`, ar: `${recognised.ar} ${translate("ar", next)}` };
   };
 
-  const postFromPhotos = (photoIds: string[], text: L, wantsOptions = false) => {
-    s().setChatMode("post");
+  const postFromPhotos = (photoIds: string[], text: L, wantsOptions = false, request?: string) => {
+    if (!ctx.demo) return realPost(photoIds, text, request);
     exchange(userMsg(text, { photoIds }), () => {
       if (wantsOptions)
         return { id: id(), role: "ai", kind: "directions", steps: [{ key: "look" }, { key: "directions" }], ready: false, text: seen(photoIds, "directionsIntro"), options: directions(ctx, photoIds) };
@@ -99,7 +158,8 @@ export function useAiEngine(ctx: ChatContext) {
 
   /** 2–4 photos: take one feature from each, then offer directions on a new AI image that mixes them. */
   const combine = (photoIds: string[], text: L, prompt: string) => {
-    s().setChatMode("post");
+    // Real businesses get no AI images in this phase: their photos become one post (a carousel).
+    if (!ctx.demo) return realPost(photoIds.slice(0, 10), text, prompt);
     const ids = photoIds.slice(0, 4);
     const photos = ids.map((pid) => ctx.photos.find((p) => p.id === pid)).filter((p) => p !== undefined);
     const features = combineFeatures(ids, prompt);
@@ -134,7 +194,11 @@ export function useAiEngine(ctx: ChatContext) {
       post: photoPost(ctx, [photo.id]),
     };
   };
-  const nextPost = (text: L) => exchange(userMsg(text), nextPostReply);
+  const nextPost = (text: L) => {
+    if (ctx.demo) return exchange(userMsg(text), nextPostReply);
+    const latest = latestOwn();
+    return latest ? realPost([latest], text) : uploadFirst(text);
+  };
 
   const directionsForNext = (text: L) => {
     const ids = unposted(ctx.photos)
@@ -208,26 +272,30 @@ export function useAiEngine(ctx: ChatContext) {
 
   /**
    * A typed question none of the sample answers matches: a short reply from the AI (POST /api/ai-chat,
-   * Gemini through the app's AI service). When the AI is off, over its budget or fails, the proposal's
-   * sample answer for the mode is shown instead, as before. Nothing is saved.
+   * Gemini through the app's AI service). When the AI is off, over its budget or fails (`chatFallback`): a
+   * post question still gets a post; a demo business gets the sample answer its keywords match, else a note
+   * to try a suggested question; a real business gets an honest note, never sample data. Nothing is saved.
    */
   const askAi = (text: L, question: string) => {
-    const mode = s().chatMode;
-    const fallback = matchQuestion(question, mode);
+    const fallback = chatFallback(question, ctx.demo === true);
     const chatId = s().pushAi([userMsg(text)], { title: text });
     const started = Date.now();
     setTyping(true);
-    apiFetch<{ text: string | null }>("/api/ai-chat", { method: "POST", body: { mode, question } })
+    apiFetch<{ text: string | null }>("/api/ai-chat", { method: "POST", body: { question } })
       .then((r) => r.text)
       .catch(() => null)
       .then((reply) => {
         window.setTimeout(
           () => {
+            // A real business asking for a post gets one for its own newest photo, not a sample.
+            if (!reply && fallback.kind === "post" && !ctx.demo) return realPost([latestOwn()].filter((x) => x !== undefined), text, question, { chatId });
             const msg: AiMsg = reply
               ? { id: id(), role: "ai", kind: "text", text: same(reply) }
-              : fallback === "post-next"
+              : fallback.kind === "post"
                 ? nextPostReply()
-                : { id: id(), role: "ai", kind: "answer", answerId: fallback };
+                : fallback.kind === "sample"
+                  ? { id: id(), role: "ai", kind: "answer", answerId: fallback.answerId }
+                  : { id: id(), role: "ai", kind: "text", text: both("noAnswerOwn") };
             s().pushAi([msg], { chatId });
             setTyping(false);
           },
@@ -244,13 +312,15 @@ export function useAiEngine(ctx: ChatContext) {
    * and wording are never reused. Nothing is saved.
    */
   const similar = (reference: CompetitorPostRef, text: L, photoIds: string[]) => {
-    s().setChatMode("post");
     const source = { handle: reference.handle, caption: reference.post.caption ?? "", icon: reference.post.icon, format: reference.post.format };
     const attached = photoIds.map((pid) => ctx.photos.find((p) => p.id === pid)).find((p) => p !== undefined);
     // What their post is about, in the owner's categories (none when it matches nothing they sell).
-    const theirs = findCategory(ctx.account.id, matchCategory(ctx, source));
-    const photo = attached ?? similarPhoto(ctx, theirs?.id);
-    const category = findCategory(ctx.account.id, photo.category);
+    const theirs = ctx.demo ? findCategory(ctx.account.id, matchCategory(ctx, source)) : undefined;
+    // A real business's own photo: the one attached, else its newest (never a sample photo).
+    const ownId = attached?.id ?? (ctx.demo ? undefined : latestOwn());
+    const photo = ctx.demo ? (attached ?? similarPhoto(ctx, theirs?.id)) : ctx.photos.find((p) => p.id === ownId);
+    if (!photo) return uploadFirst(text);
+    const category = ctx.demo ? findCategory(ctx.account.id, photo.category) : undefined;
     const style = competitorStyle(source.caption);
     const chatId = s().pushAi([userMsg(text, { reference, photoIds: attached ? [attached.id] : undefined })], { title: text });
     const started = Date.now();
@@ -264,7 +334,6 @@ export function useAiEngine(ctx: ChatContext) {
       .then((ai) => {
         window.setTimeout(
           () => {
-            const base = similarPost(ctx, photo.id, style, reference.handle);
             const why = ai ?? whyItWorks(source, style, theirs);
             const line = (lang: Lang) =>
               [
@@ -275,6 +344,12 @@ export function useAiEngine(ctx: ChatContext) {
                 "",
                 translate(lang, category ? "similarOutroAlbum" : "similarOutro", { dish: photo.dish[lang], album: category?.name[lang] ?? "" }),
               ].join("\n");
+            const intro = { en: line("en"), ar: line("ar") };
+            // A real business without the AI's post: the caption endpoint writes it for their photo (or its neutral template).
+            if (!ctx.demo && !ai) return realPost([photo.id], text, `A post in the style of @${reference.handle}'s post: ${why.style.en}`, { chatId, intro, inspiredBy: reference.handle });
+            const base = ctx.demo
+              ? similarPost(ctx, photo.id, style, reference.handle)
+              : { photoIds: [photo.id], caption: ai!.caption, hashtags: ai!.hashtags, time: suggestPostTime(new Date(), "Asia/Kuwait", null).toISOString(), tone: style, inspiredBy: reference.handle, status: "new" as const, captionSource: "ai" as const };
             s().pushAi(
               [
                 {
@@ -283,7 +358,7 @@ export function useAiEngine(ctx: ChatContext) {
                   kind: "post",
                   steps: [{ key: "style", v: same(reference.handle) }, ...PHOTO_STEPS],
                   ready: false,
-                  text: { en: line("en"), ar: line("ar") },
+                  text: intro,
                   post: ai ? { ...base, caption: ai.caption, hashtags: ai.hashtags } : base,
                 },
               ],
@@ -301,7 +376,7 @@ export function useAiEngine(ctx: ChatContext) {
 
     /** Sends what's in the composer. */
     send() {
-      const { composer, chatMode } = s();
+      const { composer } = s();
       const q = composer.text.trim();
       if (typing || (!q && composer.photoIds.length === 0 && !composer.reference)) return;
       s().setComposer({ text: "", photoIds: [], reference: undefined });
@@ -309,15 +384,18 @@ export function useAiEngine(ctx: ChatContext) {
       const text = q ? same(q) : both(composer.photoIds.length > 1 ? "photosPrompt" : "photoPrompt");
       const lower = q.toLowerCase();
       if (composer.photoIds.length > 1 && /combin|mix|merge|blend|دمج|ادمج|اجمع|امزج|مزج/.test(lower)) return combine(composer.photoIds, text, q);
-      if (composer.photoIds.length) return postFromPhotos(composer.photoIds, text, /direction|option|idea|اتجاه|خيار|أفكار/.test(lower));
-      if (chatMode === "post") {
+      if (composer.photoIds.length) return postFromPhotos(composer.photoIds, text, /direction|option|idea|اتجاه|خيار|أفكار/.test(lower), q);
+      // The sample products, styles and directions belong to the demo's sample account. With no modes, the
+      // style / product / directions flows only start when the question is about a post.
+      if (ctx.demo) {
         const product = productsFor(ctx.account.id).find((p) => lower.includes(p.name.en.toLowerCase()) || q.includes(p.name.ar));
         if (product) return productDirections(product, text);
-        if (/like this|style|inspir|مثل|أسلوب|إلهام/.test(lower)) return askInspiration(text);
-        if (/product|منتج/.test(lower)) return askProduct(text);
-        if (/direction|option|idea|اتجاه|خيار|أفكار/.test(lower)) return directionsForNext(text);
+        const aboutPost = /post|caption|منشور|انشر|أنشر|كابشن/.test(lower);
+        if (aboutPost && /like this|style|inspir|مثل|أسلوب|إلهام/.test(lower)) return askInspiration(text);
+        if (aboutPost && /product|منتج/.test(lower)) return askProduct(text);
+        if (aboutPost && /direction|option|idea|اتجاه|خيار|أفكار/.test(lower)) return directionsForNext(text);
       }
-      const hit = matchRule(q, chatMode);
+      const hit = localAnswerFor(q, ctx.demo === true);
       if (hit) return answer(text, hit);
       askAi(text, q);
     },
@@ -329,9 +407,12 @@ export function useAiEngine(ctx: ChatContext) {
     prompt(promptId: string, text: L): "attach" | void {
       if (typing) return;
       if (promptId === "x-combine") return "attach";
+      if (!ctx.demo && (promptId === "x-latest" || promptId === "x-directions" || promptId === "x-idea" || promptId === "post-next")) return nextPost(text);
       if (promptId === "x-latest") return ctx.photos[0] ? postFromPhotos([ctx.photos[0].id], text) : nextPost(text);
       if (promptId === "x-idea") return ideaFromTopPost(text);
       if (promptId === "x-directions") return directionsForNext(text);
+      // The other suggested questions have sample answers: a real business asks the AI instead.
+      if (!ctx.demo) return askAi(text, text.en);
       answer(text, promptId);
     },
 

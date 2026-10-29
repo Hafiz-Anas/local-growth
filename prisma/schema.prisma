@@ -55,6 +55,24 @@ enum DraftImageSource {
   UPLOADED
 }
 
+enum DraftOrigin {
+  GENERATOR
+  AI_CHAT
+  GALLERY
+}
+
+enum GalleryPhotoSource {
+  UPLOADED
+  INSTAGRAM
+  AI_GENERATED
+  SAMPLE
+}
+
+enum GalleryPhotoStatus {
+  PENDING
+  READY
+}
+
 enum ScheduledPostStatus {
   SCHEDULED
   /// Claimed by "Publish now" or the publish cron; Instagram calls in progress.
@@ -387,6 +405,8 @@ model Business {
   statisticsSummaries StatisticsSummary[]
   shareFindings       ShareFindings?
   styleGuide          StyleGuide?
+  galleryPhotos       GalleryPhoto[]
+  galleryAlbums       GalleryAlbum[]
 }
 
 /// A login's access to one Instagram account (Business). One user can have several — the
@@ -907,10 +927,11 @@ model SystemSetting {
 model PostDraft {
   id         String      @id @default(cuid())
   businessId String
-  /// Product category id from the generator (e.g. "nuts").
-  category   String
-  /// Occasion / angle id (e.g. "new_batch").
-  angle      String
+  /// Product category id from the generator (e.g. "nuts"); "" for Gallery / AI chat drafts.
+  category   String      @default("")
+  /// Occasion / angle id (e.g. "new_batch"); "" for Gallery / AI chat drafts.
+  angle      String      @default("")
+  /// The caption in `language` (Gallery / AI chat drafts: the Arabic one, else the English one, with hashtags).
   caption    String
   language   String      @default("ar")
   status     DraftStatus @default(DRAFT)
@@ -923,12 +944,106 @@ model PostDraft {
   publishError String?
   createdBy  String?
   createdAt  DateTime    @default(now())
+  /// Where the draft was made: the old Post Generator, or the Gallery / AI chat (lib/server/gallery-drafts.ts).
+  origin          DraftOrigin @default(GENERATOR)
+  /// Gallery / AI chat drafts: the caption in both languages, as posted (text + hashtags).
+  captionEn       String?
+  captionAr       String?
+  hashtags        String[]    @default([])
+  /// The AI's suggested posting time (nothing is scheduled from it yet).
+  suggestedFor    DateTime?
+  /// Earlier captions, newest first: [{ en, ar, at }] (Regenerate keeps them, up to GALLERY_CAPTION_VERSIONS).
+  captionVersions Json        @default("[]")
+  updatedAt       DateTime    @default(now()) @updatedAt
 
-  business       Business        @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  author         User?           @relation("DraftAuthor", fields: [createdBy], references: [id], onDelete: SetNull)
+  business       Business         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  author         User?            @relation("DraftAuthor", fields: [createdBy], references: [id], onDelete: SetNull)
   scheduledPosts ScheduledPost[]
+  /// The Gallery photos of a Gallery / AI chat draft, in order (the first is the cover, kept in imageUrl too).
+  photos         PostDraftPhoto[]
 
   @@index([businessId, status, createdAt])
+  @@index([businessId, origin, status])
+}
+
+/// A photo of a Gallery / AI chat draft. Both belong to the same business (checked on write).
+model PostDraftPhoto {
+  draftId  String
+  photoId  String
+  position Int    @default(0)
+
+  draft PostDraft    @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  photo GalleryPhoto @relation(fields: [photoId], references: [id], onDelete: Cascade)
+
+  @@id([draftId, photoId])
+  @@index([photoId])
+}
+
+/// A photo in a business's Gallery (lib/server/gallery.ts). Own files (UPLOADED, AI_GENERATED) are stored
+/// with StorageService; INSTAGRAM (synced posts) and SAMPLE (demo photos) rows only reference the image and
+/// are created the first time the owner favourites, files, hides or drafts it.
+model GalleryPhoto {
+  id          String             @id @default(cuid())
+  businessId  String
+  source      GalleryPhotoSource
+  /// PENDING from the upload permission until the file is checked (POST …/complete); the daily cron clears old ones.
+  status      GalleryPhotoStatus @default(READY)
+  storageKey  String?
+  url         String?
+  thumbKey    String?
+  thumbUrl    String?
+  contentType String?
+  bytes       Int?
+  width       Int?
+  height      Int?
+  /// The file's name without extension (uploads), shown as the photo's title.
+  title       String?
+  /// INSTAGRAM: the synced post's id. SAMPLE / sample AI images: the demo photo's key.
+  igMediaId   String?
+  sampleKey   String?
+  favorite    Boolean            @default(false)
+  /// Removed from the Gallery. Own files are deleted for good by the daily cron a day later (Undo until then);
+  /// Instagram and sample photos stay hidden (nothing changes on Instagram).
+  removedAt   DateTime?
+  uploadedBy  String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  business Business            @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  albums   GalleryAlbumPhoto[]
+  drafts   PostDraftPhoto[]
+
+  @@unique([businessId, igMediaId])
+  @@unique([businessId, sampleKey])
+  @@index([businessId, status, createdAt])
+  @@index([status, createdAt])
+  @@index([removedAt])
+}
+
+/// An album the owner made in the Gallery. (Category albums are demo-only and come from the sample data.)
+model GalleryAlbum {
+  id         String   @id @default(cuid())
+  businessId String
+  name       String
+  position   Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  business Business            @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  photos   GalleryAlbumPhoto[]
+
+  @@index([businessId, position])
+}
+
+model GalleryAlbumPhoto {
+  albumId String
+  photoId String
+  addedAt DateTime @default(now())
+
+  album GalleryAlbum @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  photo GalleryPhoto @relation(fields: [photoId], references: [id], onDelete: Cascade)
+
+  @@id([albumId, photoId])
+  @@index([photoId])
 }
 
 model ScheduledPost {

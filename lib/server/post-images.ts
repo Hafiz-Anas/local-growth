@@ -27,7 +27,7 @@ const STORAGE_PREFIX = "post-images";
 
 async function editableDraft(businessId: string, id: string) {
   const draft = await db.postDraft.findFirst({
-    where: { id, businessId },
+    where: { id, businessId, origin: "GENERATOR" },
     select: { id: true, status: true, caption: true, category: true, angle: true, imageUrl: true },
   });
   if (!draft) throw notFound("Draft");

@@ -27,6 +27,9 @@ import { createServer } from "node:http";
  *   from the data (or an invented number while `state.inventShares` is set, which must be rejected);
  * - "Create a similar post" (schema with "hook_en") gets an explanation and "Stub similar caption" posts, or — while
  *   `state.copySimilar` is set — a caption copied from the competitor's (which the app must reject);
+ * - photo captions (schema with "caption_en" and no "hook_en", sent with the photos) get "Stub caption (<tone>) for your
+ *   photo." with the number of images in `state.captionImages`; a request containing "[invent]" gets a caption with
+ *   an invented price (which the app must reject and replace with its neutral template);
  * - chat requests get an answer echoing the question (Arabic for an Arabic question);
  * - a question containing "[down]", or `state.fail`, gets a 503.
  */
@@ -34,7 +37,7 @@ import { createServer } from "node:http";
 export interface StubCall {
   system: string;
   turns: Array<{ role: string; text: string }>;
-  kind: "strategy" | "report" | "monitor" | "statistics" | "shareability" | "prefill" | "style" | "suggest" | "reply" | "competitor" | "classify" | "postInsight" | "similar" | "chat";
+  kind: "strategy" | "report" | "monitor" | "statistics" | "shareability" | "prefill" | "style" | "suggest" | "reply" | "competitor" | "classify" | "postInsight" | "similar" | "caption" | "chat";
 }
 
 export const STUB_PORT = Number(process.env.E2E_GEMINI_STUB_PORT ?? 4010);
@@ -74,7 +77,7 @@ export function stubRecommendations(n: number, system: string) {
 
 export async function startGeminiStub(port = STUB_PORT) {
   const calls: StubCall[] = [];
-  const state = { fail: false, styleImages: 0, analyses: 0, inventNumbersFor: "", rewrites: 0, inventFor: "", inventMonitor: false, inventStatistics: false, inventShares: false, copySimilar: false };
+  const state = { fail: false, styleImages: 0, analyses: 0, inventNumbersFor: "", rewrites: 0, inventFor: "", inventMonitor: false, inventStatistics: false, inventShares: false, copySimilar: false, captionImages: 0 };
   const server = createServer((req, res) => {
     let raw = "";
     req.on("data", (chunk) => (raw += chunk));
@@ -107,6 +110,8 @@ export async function startGeminiStub(port = STUB_PORT) {
                   ? "classify"
                 : props.hook_en
                   ? "similar"
+                  : props.caption_en
+                    ? "caption"
                   : system.includes("You reply on behalf of")
                     ? "reply"
                     : "chat";
@@ -192,6 +197,15 @@ export async function startGeminiStub(port = STUB_PORT) {
           caption_en: state.copySimilar ? theirs : "Stub similar caption for your photo. Order by DM today.",
           caption_ar: state.copySimilar ? theirs : "وصف تجريبي مشابه لصورتكم. اطلبوا بالخاص اليوم.",
           hashtags: ["#stubtag", "#q8food"],
+        });
+      } else if (kind === "caption") {
+        state.captionImages = (body.contents ?? []).flatMap((c) => c.parts).filter((p) => p.inlineData).length;
+        const tone = system.includes("under 20 words") ? "shorter" : system.includes("Polite and formal") ? "formal" : system.includes("lively") ? "friendly" : "base";
+        const invent = system.includes("[invent]");
+        text = JSON.stringify({
+          caption_en: invent ? "Only 3.5 KD today, our best-selling treat!" : `Stub caption (${tone}) for your photo.`,
+          caption_ar: invent ? "فقط ٣٫٥ د.ك اليوم!" : `وصف تجريبي (${tone}) لصورتكم.`,
+          hashtags: ["#stubcaption", "#q8food"],
         });
       } else if (kind === "classify") {
         const ids = [...system.matchAll(/- id (\S+) \|/g)].map((m) => m[1]);

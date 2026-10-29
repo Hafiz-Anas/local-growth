@@ -60,6 +60,10 @@ export const STYLE_UPLOAD_LIMIT: RateLimitRule = { name: "style-upload", limit: 
 export const COMPETITOR_SUGGEST_LIMIT: RateLimitRule = { name: "competitor-suggest", limit: 3, windowMs: 60 * 60 * 1000 };
 /** Typed questions the AI tab sends to the AI per business (the rest are answered from sample data in the browser). */
 export const AI_CHAT_LIMIT: RateLimitRule = { name: "ai-chat", limit: 30, windowMs: 60 * 60 * 1000 };
+/** AI captions for the owner's photos (AI chat post card, Regenerate); over it the neutral template is used. */
+export const PHOTO_CAPTION_LIMIT: RateLimitRule = { name: "photo-caption", limit: 40, windowMs: 60 * 60 * 1000 };
+/** Gallery photos started per business per hour. */
+export const GALLERY_UPLOAD_LIMIT: RateLimitRule = { name: "gallery-upload", limit: 300, windowMs: 60 * 60 * 1000 };
 
 interface Bucket {
   count: number;

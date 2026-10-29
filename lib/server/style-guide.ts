@@ -1,9 +1,6 @@
 import "server-only";
-import { readFile } from "node:fs/promises";
-import path from "node:path";
 import { after } from "next/server";
-import sharp from "sharp";
-import { STYLE_PHOTO_MAX, UPLOAD_LIMITS } from "@/config/onboarding";
+import { STYLE_PHOTO_MAX } from "@/config/onboarding";
 import { db } from "@/lib/db";
 import type { Prisma } from "@/lib/generated/prisma/client";
 import { getAIService } from "@/lib/services/ai";
@@ -13,6 +10,7 @@ import { STYLE_SUMMARY_MAX } from "@/lib/services/text/style";
 import type { StyleGuideDto, StylePhoto } from "@/types";
 import { aiPace } from "./ai-pace";
 import { ApiError } from "./http";
+import { fetchImage, toAnalysisJpeg } from "./image-fetch";
 import { getInstagramAccount } from "./instagram-account";
 import { getRateLimiter, STYLE_GUIDE_LIMIT } from "./rate-limit";
 
@@ -28,7 +26,6 @@ import { getRateLimiter, STYLE_GUIDE_LIMIT } from "./rate-limit";
 /** Uploaded style photos live under this storage prefix. */
 export const STYLE_UPLOAD_PREFIX = "style";
 /** Longest side sent to the model: plenty to judge the style, few tokens. */
-const ANALYSIS_SIDE = 768;
 /** Recent posts looked at when none were picked. */
 const RECENT_POSTS = 12;
 /** Businesses analysed per daily run (finished onboarding, connected, no guide yet). */
@@ -202,37 +199,6 @@ async function loadImages(businessId: string, photos: StylePhoto[]): Promise<Arr
     if (jpeg) images.push({ mimeType: "image/jpeg", data: jpeg.toString("base64") });
   }
   return images;
-}
-
-async function toAnalysisJpeg(input: Buffer): Promise<Buffer | null> {
-  try {
-    return await sharp(input).rotate().resize(ANALYSIS_SIDE, ANALYSIS_SIDE, { fit: "inside", withoutEnlargement: true }).flatten({ background: "#ffffff" }).jpeg({ quality: 80 }).toBuffer();
-  } catch {
-    return null;
-  }
-}
-
-/** Bytes behind an image link: our storage, a bundled file under public/ (mock posts), or HTTPS (Instagram's CDN). */
-async function fetchImage(url: string | null): Promise<Buffer | null> {
-  if (!url) return null;
-  const storage = getStorageService();
-  const key = storage.keyFromUrl(url);
-  if (key) return storage.read(key);
-  if (url.startsWith("/") && !url.startsWith("//")) {
-    const root = path.resolve(process.cwd(), "public");
-    const file = path.resolve(root, `.${decodeURIComponent(url.split("?")[0])}`);
-    if (!file.startsWith(root + path.sep)) return null;
-    return readFile(file).catch(() => null);
-  }
-  if (!url.startsWith("https://")) return null;
-  try {
-    const response = await fetch(url, { signal: AbortSignal.timeout(15_000), cache: "no-store" });
-    if (!response.ok || !(response.headers.get("content-type") ?? "").startsWith("image/")) return null;
-    const data = Buffer.from(await response.arrayBuffer());
-    return data.length <= UPLOAD_LIMITS.image ? data : null;
-  } catch {
-    return null;
-  }
 }
 
 /**

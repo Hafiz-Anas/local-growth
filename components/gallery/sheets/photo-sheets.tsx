@@ -1,7 +1,6 @@
 "use client";
 
 import { BarChart3, CalendarClock, Check, FolderPlus, ImageUp, Images, PencilLine, Send, Sparkles } from "lucide-react";
-import Image from "next/image";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { BarChart } from "@/components/gallery/charts";
@@ -14,9 +13,11 @@ import { compact, dayKey, num, time, when } from "@/lib/gallery/format";
 import { useInsights, useT } from "@/lib/gallery/hooks";
 import { useAlbums, usePhotos, useStore } from "@/lib/gallery/store";
 import { alternativeTimes, suggestedTime } from "@/lib/gallery/suggest";
+import { suggestPostTime } from "@/lib/gallery/suggest-time";
+import { uploadGalleryPhotos, type UploadProblem } from "@/lib/gallery/upload-client";
+import { GALLERY_ACCEPT, GALLERY_MAX_BATCH } from "@/lib/gallery/uploads";
 import { cn } from "@/lib/gallery/utils";
-import { cameraRoll } from "@/mock-data/gallery/photos";
-import type { AccountId, Lang } from "@/mock-data/gallery/types";
+import type { Lang } from "@/mock-data/gallery/types";
 import { useSheet } from "./use-sheet";
 
 /* ---------- Schedule ---------- */
@@ -26,8 +27,10 @@ export function ScheduleSheet() {
   const { t, lang } = useT();
   const photos = usePhotos();
   const insights = useInsights();
-  const suggested = data?.suggested ?? suggestedTime(insights);
-  const options = [suggested, ...alternativeTimes(insights).filter((x) => x !== suggested)].slice(0, 4);
+  const demo = useStore((s) => s.demo);
+  // Real businesses: the draft's suggested time (from their own posts), else tomorrow evening — never the sample insights.
+  const suggested = data?.suggested ?? (demo ? suggestedTime(insights) : suggestPostTime(new Date(), "Asia/Kuwait", null).toISOString());
+  const options = demo ? [suggested, ...alternativeTimes(insights).filter((x) => x !== suggested)].slice(0, 4) : [suggested];
   const [choice, setChoice] = useState<string>("0");
   const [customDate, setCustomDate] = useState(dayKey(options[0]));
   const [customTime, setCustomTime] = useState("20:30");
@@ -35,10 +38,12 @@ export function ScheduleSheet() {
 
   const at = choice === "custom" ? new Date(`${customDate}T${customTime}:00+03:00`).toISOString() : options[Number(choice)];
 
-  const confirm = () => {
+  // Publishing isn't connected yet: the time is kept with the post's draft, and the sheet says so.
+  const confirm = async () => {
     if (!data) return;
-    useStore.getState().schedulePhotos(data.photoIds, at, data.caption);
-    toast.success(t("scheduledToast", { when: when(at, lang) }));
+    const draftId = chosen.find((p) => p.draftId)?.draftId;
+    if (draftId && !(await useStore.getState().updateDraft(draftId, { suggestedFor: at }))) return;
+    toast.info(draftId ? t("publishingNextTime") : t("publishingNext"));
     close();
     setChoice("0");
   };
@@ -50,11 +55,14 @@ export function ScheduleSheet() {
       title={t("schedule")}
       footer={
         <Btn size="lg" className="w-full" icon={<CalendarClock />} onClick={confirm}>
-          {t("schedule")}
+          {t("saveTime")}
         </Btn>
       }
     >
       <div className="space-y-5 px-4 pt-1 pb-4">
+        <p className="rounded-xl bg-ge-muted px-3 py-2.5 text-[13px] text-ge-muted-foreground" data-testid="schedule-note">
+          {t("scheduleNote")}
+        </p>
         {chosen.length > 0 && (
           <div className="no-scrollbar flex gap-1.5 overflow-x-auto">
             {chosen.map((p) => (
@@ -132,7 +140,8 @@ function Radio({ checked, onSelect, children }: { checked: boolean; onSelect: ()
 export function AlbumSheet() {
   const { open, data, close } = useSheet("album");
   const { t, l } = useT();
-  const albums = useAlbums();
+  // Category albums (demo samples) come from the sample data: photos can't be filed into or moved out of them.
+  const albums = useAlbums().filter((a) => !a.category);
   const photos = usePhotos();
   const from = albums.find((a) => a.id === data?.fromAlbumId);
   const [move, setMove] = useState(true);
@@ -210,16 +219,19 @@ export function AlbumNameSheet() {
     if (open) setName(album ? l(album.name) : "");
   }
 
-  const submit = () => {
+  const [saving, setSaving] = useState(false);
+  const submit = async () => {
     const n = name.trim();
-    if (!n || !data) return;
+    if (!n || !data || saving) return;
     const s = useStore.getState();
     if (album) {
       s.renameAlbum(album.id, n);
       toast.success(t("albumRenamed"));
     } else {
-      const id = s.createAlbum(n);
-      if (data.photoIds?.length) s.addToAlbum(data.photoIds, id);
+      setSaving(true);
+      const id = await s.createAlbum(n, data.photoIds);
+      setSaving(false);
+      if (!id) return;
       toast.success(data.photoIds?.length ? t("addedToAlbum", { album: n }) : t("albumCreated", { album: n }));
     }
     close();
@@ -231,7 +243,7 @@ export function AlbumNameSheet() {
       onClose={close}
       title={album ? t("renameAlbum") : t("newAlbum")}
       footer={
-        <Btn size="lg" className="w-full" disabled={!name.trim()} onClick={submit}>
+        <Btn size="lg" className="w-full" disabled={!name.trim() || saving} onClick={submit}>
           {album ? t("save") : t("createAlbum")}
         </Btn>
       }
@@ -257,93 +269,85 @@ export function AlbumNameSheet() {
     </Sheet>
   );
 }
-/* ---------- Upload (mock file picker) ---------- */
+/* ---------- Upload ---------- */
 
+/**
+ * Real uploads from the phone or computer (one or many; pick or drop). Photos are made smaller in the browser
+ * and sent straight to storage (lib/gallery/upload-client.ts); each one that can't be used says why.
+ */
 export function UploadSheet() {
   const { open, close } = useSheet("upload");
-  const { t, l, lang } = useT();
-  const accountId = useStore((s) => s.activeAccountId) as AccountId;
-  const photos = usePhotos();
-  const [selected, setSelected] = useState<string[]>([]);
+  const { t, lang } = useT();
   const fileRef = useRef<HTMLInputElement>(null);
-  const roll = (cameraRoll(accountId) ?? []).filter((r) => !photos.some((p) => p.src === r.src));
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const busy = progress !== null;
 
-  const done = (n: number) => {
-    toast.success(n === 1 ? t("uploadedOne") : t("uploaded", { n: num(n, lang) }));
-    setSelected([]);
-    close();
-  };
+  const reason = (problem: UploadProblem) =>
+    t(problem === "type" ? "uploadReasonType" : problem === "size" ? "uploadReasonSize" : problem === "empty" ? "uploadReasonEmpty" : "uploadReasonFailed");
 
-  const upload = () => {
-    const items = roll.filter((r) => selected.includes(r.src));
-    useStore.getState().uploadPhotos(items.map(({ src, thumb, dish, credit, category }) => ({ src, thumb, dish, credit, category })));
-    done(items.length);
-  };
-
-  const fromDevice = (files: FileList | null) => {
-    if (!files?.length) return;
-    // Object URLs stay in this browser tab; nothing leaves the device.
-    const items = Array.from(files)
-      .filter((f) => f.type.startsWith("image/"))
-      .map((f) => {
-        const url = URL.createObjectURL(f);
-        const name = f.name.replace(/\.[^.]+$/, "");
-        return { src: url, thumb: url, dish: { en: name, ar: name }, credit: { author: "You", link: "" } };
-      });
-    useStore.getState().uploadPhotos(items);
-    done(items.length);
+  const upload = async (list: FileList | File[] | null) => {
+    const files = Array.from(list ?? []);
+    if (!files.length || busy) return;
+    const s = useStore.getState();
+    if (s.readOnly) return s.sync?.blocked();
+    setProgress({ done: 0, total: Math.min(files.length, GALLERY_MAX_BATCH) });
+    try {
+      const result = await uploadGalleryPhotos(files, (done, total) => setProgress({ done, total }));
+      s.addUploaded(result.photos);
+      const n = result.photos.length;
+      if (n) toast.success(n === 1 ? t("uploadedOne") : t("uploaded", { n: num(n, lang) }));
+      if (result.failures.length === 1) toast.error(t("uploadFailedOne", { name: result.failures[0].name, reason: reason(result.failures[0].problem) }));
+      else if (result.failures.length > 1) toast.error(t("uploadFailedN", { n: num(result.failures.length, lang) }));
+      if (result.skipped) toast.info(t("uploadSkipped", { n: num(GALLERY_MAX_BATCH, lang) }));
+      if (n) close();
+    } catch (error) {
+      s.sync?.report(error);
+    } finally {
+      setProgress(null);
+      if (fileRef.current) fileRef.current.value = "";
+    }
   };
 
   return (
-    <Sheet
-      open={open}
-      onClose={close}
-      title={t("uploadPhotos")}
-      footer={
-        <Btn size="lg" className="w-full" icon={<ImageUp />} disabled={selected.length === 0} onClick={upload}>
-          {t("upload")}
-          {selected.length > 0 && ` (${num(selected.length, lang)})`}
-        </Btn>
-      }
-    >
-      <div className="pb-4">
-        <p className="px-4 pb-2 text-[13px] font-semibold text-ge-muted-foreground">{t("cameraRoll")}</p>
-        {roll.length === 0 ? (
-          <p className="px-4 pb-4 text-[14px] text-ge-muted-foreground">{t("allCaughtUp")}</p>
-        ) : (
-          <div className="grid grid-cols-3 gap-[2px] sm:grid-cols-4">
-            {roll.map((r) => {
-              const on = selected.includes(r.src);
-              return (
-                <button
-                  key={r.src}
-                  type="button"
-                  aria-pressed={on}
-                  aria-label={l(r.dish)}
-                  onClick={() => setSelected((s) => (on ? s.filter((x) => x !== r.src) : [...s, r.src]))}
-                  className="relative aspect-square bg-ge-muted"
-                >
-                  <Image unoptimized src={r.thumb} alt="" fill sizes="33vw" className={cn("object-cover transition-transform", on && "scale-[0.94] opacity-80")} />
-                  <span
-                    className={cn(
-                      "absolute end-1.5 bottom-1.5 grid size-[22px] place-items-center rounded-full border-[1.5px] border-white shadow",
-                      on ? "bg-ge-brand" : "bg-black/20",
-                    )}
-                  >
-                    {on && <Check className="size-3.5 text-white" strokeWidth={3} />}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        )}
-        <div className="px-4 pt-4">
-          <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={(e) => fromDevice(e.target.files)} />
-          <Btn variant="outline" className="w-full" icon={<Images />} onClick={() => fileRef.current?.click()}>
-            {t("browseFiles")}
-          </Btn>
-          <p className="mt-2 text-center text-[12px] text-ge-muted-foreground">{t("browseNote")}</p>
+    <Sheet open={open} onClose={() => !busy && close()} title={t("uploadPhotos")}>
+      <div className="px-4 pb-5">
+        <input
+          ref={fileRef}
+          type="file"
+          accept={GALLERY_ACCEPT}
+          multiple
+          hidden
+          onChange={(e) => void upload(e.target.files)}
+          data-testid="gallery-file-input"
+        />
+        <div
+          onDragOver={(e) => (e.preventDefault(), setDragging(true))}
+          onDragLeave={() => setDragging(false)}
+          onDrop={(e) => (e.preventDefault(), setDragging(false), void upload(e.dataTransfer.files))}
+          className={cn(
+            "flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed px-4 py-8 text-center transition-colors",
+            dragging ? "border-ge-brand bg-ge-brand-soft" : "border-ge-foreground/15",
+          )}
+        >
+          <ImageUp className="size-9 text-ge-muted-foreground" strokeWidth={1.5} aria-hidden />
+          {progress ? (
+            <div className="w-full max-w-xs space-y-2" role="status" aria-live="polite">
+              <p className="text-[14px] font-medium">{t("uploadingProgress", { done: num(progress.done, lang), total: num(progress.total, lang) })}</p>
+              <div className="h-1.5 overflow-hidden rounded-full bg-ge-muted">
+                <div className="h-full rounded-full bg-ge-brand transition-[width]" style={{ width: `${(progress.done / Math.max(1, progress.total)) * 100}%` }} />
+              </div>
+            </div>
+          ) : (
+            <>
+              <Btn icon={<Images />} onClick={() => fileRef.current?.click()}>
+                {t("browseFiles")}
+              </Btn>
+              <p className="hidden text-[13px] text-ge-muted-foreground lg:block">{t("uploadDrop")}</p>
+            </>
+          )}
         </div>
+        <p className="mt-3 text-center text-[12px] text-ge-muted-foreground">{t("browseNote")}</p>
       </div>
     </Sheet>
   );
@@ -356,7 +360,7 @@ export function PerformanceSheet() {
   const { t, l, lang } = useT();
   const photos = usePhotos();
   const photo = data ? photos.find((p) => p.id === data.photoId) : undefined;
-  const published = photos.filter((p) => p.status === "published" && p.metrics);
+  const published = photos.filter((p) => p.status === "published" && p.metrics && !p.metricsPartial);
   const avgReach = published.reduce((s, p) => s + p.metrics!.reach, 0) / Math.max(1, published.length);
   const m = photo?.metrics;
 
@@ -375,10 +379,12 @@ export function PerformanceSheet() {
                 {photo.postType && ` • ${t(photo.postType)}`}
                 {photo.promoted && ` • ${t("promoted")}`}
               </p>
-              <div className="mt-1 flex items-center gap-1.5 text-[12px]">
-                <Delta value={((m.reach - avgReach) / avgReach) * 100} lang={lang} />
-                <span className="text-ge-muted-foreground">{t("performanceVsAvg")}</span>
-              </div>
+              {!photo.metricsPartial && avgReach > 0 && (
+                <div className="mt-1 flex items-center gap-1.5 text-[12px]">
+                  <Delta value={((m.reach - avgReach) / avgReach) * 100} lang={lang} />
+                  <span className="text-ge-muted-foreground">{t("performanceVsAvg")}</span>
+                </div>
+              )}
             </div>
           </div>
           <dl className="grid grid-cols-3 gap-2 sm:grid-cols-5">
@@ -386,9 +392,14 @@ export function PerformanceSheet() {
               [
                 ["likes", m.likes],
                 ["comments", m.comments],
-                ["reach", m.reach],
-                ["saves", m.saves],
-                ["shares", m.shares],
+                // Instagram doesn't share reach, saves and shares for every post: those are left out, never shown as 0.
+                ...(photo.metricsPartial
+                  ? []
+                  : ([
+                      ["reach", m.reach],
+                      ["saves", m.saves],
+                      ["shares", m.shares],
+                    ] as const)),
               ] as const
             ).map(([k, v]) => (
               <div key={k} className="rounded-xl bg-ge-muted p-3">
@@ -397,17 +408,20 @@ export function PerformanceSheet() {
               </div>
             ))}
           </dl>
-          <div>
-            <h3 className="mb-3 text-[13px] font-semibold text-ge-muted-foreground">{t("reachOverTime")}</h3>
-            <BarChart
-              title={t("reachOverTime")}
-              values={m.reachByDay}
-              labels={m.reachByDay.map((_, i) => t("dayN", { n: num(i + 1, lang) }))}
-              tickLabels={m.reachByDay.map((_, i) => num(i + 1, lang))}
-              format={(v) => num(v, lang)}
-              height={120}
-            />
-          </div>
+          {photo.metricsPartial && <p className="text-[12.5px] text-ge-muted-foreground">{t("metricsPending")}</p>}
+          {m.reachByDay.length > 0 && (
+            <div>
+              <h3 className="mb-3 text-[13px] font-semibold text-ge-muted-foreground">{t("reachOverTime")}</h3>
+              <BarChart
+                title={t("reachOverTime")}
+                values={m.reachByDay}
+                labels={m.reachByDay.map((_, i) => t("dayN", { n: num(i + 1, lang) }))}
+                tickLabels={m.reachByDay.map((_, i) => num(i + 1, lang))}
+                format={(v) => num(v, lang)}
+                height={120}
+              />
+            </div>
+          )}
           {photo.caption && (
             <p className="rounded-xl border p-3 text-[13.5px] leading-snug whitespace-pre-line text-ge-muted-foreground" dir="auto">
               {l(photo.caption)}
@@ -448,19 +462,18 @@ export function PostSheet() {
     setText(caption[captionLang]);
     setEditing(true);
   };
-  const saveEdit = () => {
+  // Saved on the server before it says so (the draft is there after a reload).
+  const saveEdit = async () => {
     if (!photo || !caption) return;
-    s().updateCaption([photo.id], { ...caption, [captionLang]: text });
+    if (!(await s().updateCaption([photo.id], { ...caption, [captionLang]: text }))) return;
     setEditing(false);
     toast.success(t("captionSaved"));
   };
-  const schedule = () => photo && s().openSheet({ type: "schedule", photoIds: [photo.id], caption });
-  const postNow = () => {
-    if (!photo || !caption) return;
-    s().publishPhotos([photo.id], caption);
-    toast.success(t("posted"));
-    close();
-  };
+  const schedule = () => photo && s().openSheet({ type: "schedule", photoIds: [photo.id], caption, suggested: photo.suggestedFor });
+  // Publishing isn't connected yet: say so plainly; the post stays a draft.
+  const postNow = () => toast.info(t("publishingNext"));
+  // Posted Instagram posts are shown as they are on Instagram; only drafts are edited here.
+  const editable = !!photo?.draftId;
 
   const footer = !photo ? null : editing ? (
     <div className="grid grid-cols-2 gap-2">
@@ -472,25 +485,29 @@ export function PostSheet() {
       </Btn>
     </div>
   ) : photo.status === "published" ? (
-    <div className="grid grid-cols-2 gap-2">
+    <div className="grid grid-cols-1 gap-2">
       <Btn size="lg" icon={<BarChart3 />} onClick={() => s().openSheet({ type: "performance", photoId: photo.id })}>
         {t("viewPerformance")}
       </Btn>
-      <Btn size="lg" variant="secondary" icon={<PencilLine />} onClick={startEdit}>
-        {t("edit")}
-      </Btn>
+      {photo.permalink && (
+        <a href={photo.permalink} target="_blank" rel="noreferrer" className="text-center text-[13.5px] font-semibold text-ge-brand-ink hover:underline">
+          {t("viewOnInstagram")}
+        </a>
+      )}
     </div>
   ) : (
     <div className="grid grid-cols-3 gap-2">
       <Btn size="lg" className="col-span-3" icon={<CalendarClock />} onClick={schedule}>
         {photo.status === "scheduled" ? t("reschedule") : t("schedule")}
       </Btn>
-      <Btn size="lg" variant="secondary" className="col-span-2" icon={<Send />} onClick={postNow}>
+      <Btn size="lg" variant="secondary" className={editable ? "col-span-2" : "col-span-3"} icon={<Send />} onClick={postNow}>
         {t("postNow")}
       </Btn>
-      <Btn size="lg" variant="outline" icon={<PencilLine />} onClick={startEdit}>
-        {t("edit")}
-      </Btn>
+      {editable && (
+        <Btn size="lg" variant="outline" icon={<PencilLine />} onClick={startEdit}>
+          {t("edit")}
+        </Btn>
+      )}
     </div>
   );
 

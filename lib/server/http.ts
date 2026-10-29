@@ -61,6 +61,12 @@ export type ApiErrorCode =
   | "account_switched"
   | "login_expired"
   | "login_active"
+  /** A Gallery upload that can't be kept; details: [{ path: "reason", message: "type" | "size" | "missing" | "unreadable" }]. */
+  | "upload_invalid"
+  /** File storage isn't set up for uploads (no BLOB_READ_WRITE_TOKEN with STORAGE_PROVIDER="vercel-blob"). */
+  | "storage_unavailable"
+  /** The business has GALLERY_MAX_ALBUMS albums. */
+  | "album_limit"
   | "internal_error";
 
 /** Throw from route code (or guards); `handler()` turns it into the JSON error response. */

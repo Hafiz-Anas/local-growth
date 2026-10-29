@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useMemo, useSyncExternalStore } from "react";
 import { insights as mockInsights } from "@/mock-data/gallery/insights";
 import type { AccountId, Insights, L, Photo, PostType } from "@/mock-data/gallery/types";
 import { useI18n } from "@/lib/i18n/provider";
@@ -35,20 +35,6 @@ export function useMounted() {
     () => true,
     () => false,
   );
-}
-
-/**
- * Shows a short skeleton when a screen first appears and whenever the account changes,
- * so the demo feels like it's loading real data.
- */
-export function useFakeLoading(ms = 450) {
-  const tick = useStore((s) => s.switchTick);
-  const [doneTick, setDoneTick] = useState(-1);
-  useEffect(() => {
-    const id = window.setTimeout(() => setDoneTick(tick), ms);
-    return () => window.clearTimeout(id);
-  }, [tick, ms]);
-  return doneTick !== tick;
 }
 
 /** Full insights for the active account: static mock numbers plus figures derived from its photos. */

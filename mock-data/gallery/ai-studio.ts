@@ -2,7 +2,6 @@
 // Nothing is sent to any AI service; every caption comes from the templates below.
 import type { CompetitorPostRef } from "@/lib/gallery/competitor-posts";
 import { suggestedTime } from "@/lib/gallery/suggest";
-import type { ChatMode } from "./ai-chat";
 import { captionFor as categoryCaption, categoriesFor, findCategory, hashtagsFor as categoryTags, type Category } from "./categories";
 import { NOW, ago } from "./clock";
 import type { Account, AccountId, CaptionTone, Competitor, Insights, L, Photo } from "./types";
@@ -45,6 +44,12 @@ export interface PostDraft {
   inspiredBy?: string;
   status: PostStatus;
   edited?: boolean;
+  /** The real draft (PostDraft) this post was saved as; later edits update it. */
+  draftId?: string;
+  /** Earlier captions Regenerate replaced, newest first ("Earlier captions" on the card). */
+  versions?: { caption: L; hashtags: string[]; at: string }[];
+  /** A real business's post: "ai" when the AI wrote the caption, "template" for the neutral fallback. */
+  captionSource?: "ai" | "template";
 }
 
 export type StepKey = "look" | "style" | "product" | "caption" | "hashtags" | "time" | "directions" | "images" | "combine";
@@ -73,7 +78,6 @@ export type AiMsg =
 export interface AiChat {
   id: string;
   title: L;
-  mode: ChatMode;
   at: string; // ISO, last activity
   messages: AiMsg[];
 }
@@ -504,7 +508,6 @@ export function seedChats(ctx: StudioContext): AiChat[] {
     {
       id: `seed-${ctx.account.id}-1`,
       title: { en: "What should I post tomorrow?", ar: "ماذا أنشر غداً؟" },
-      mode: "post",
       at: ago(1, 2),
       messages: [
         { id: "s1u", role: "user", text: { en: "What should I post tomorrow?", ar: "ماذا أنشر غداً؟" } },
@@ -522,7 +525,6 @@ export function seedChats(ctx: StudioContext): AiChat[] {
     {
       id: `seed-${ctx.account.id}-2`,
       title: { en: "How did my reach change this week?", ar: "كيف تغيّر الوصول هذا الأسبوع؟" },
-      mode: "analytics",
       at: ago(2, 5),
       messages: [
         { id: "s2u", role: "user", text: { en: "How did my reach change this week?", ar: "كيف تغيّر الوصول هذا الأسبوع؟" } },
@@ -534,7 +536,6 @@ export function seedChats(ctx: StudioContext): AiChat[] {
     chats.push({
       id: `seed-${ctx.account.id}-3`,
       title: { en: "Who is growing fastest?", ar: "من الأسرع نمواً؟" },
-      mode: "competitors",
       at: ago(4, 1),
       messages: [
         { id: "s3u", role: "user", text: { en: "Who is growing fastest?", ar: "من الأسرع نمواً؟" } },

@@ -6,7 +6,6 @@ import { NOW, kuwaitAt } from "./clock";
 import { TIME_SLOTS } from "./insights";
 import type { Account, Competitor, Insights, L, Lang, Photo } from "./types";
 
-export type ChatMode = "post" | "analytics" | "competitors";
 
 export interface ChatContext {
   account: Account;
@@ -14,6 +13,8 @@ export interface ChatContext {
   insights: Insights;
   competitors: Competitor[];
   own: { postsPerWeek: number; engagementRate: number };
+  /** A demo business: its photos are the samples, so posts use the sample templates and AI images. */
+  demo?: boolean;
 }
 
 export interface AiAnswer {
@@ -167,31 +168,57 @@ export function answer(id: string, ctx: ChatContext): AiAnswer {
     default:
       return {
         text: {
-          en: "In this demo I answer with sample data. Try one of the suggested questions to see what the assistant can do.",
-          ar: "في هذا العرض أجيب ببيانات تجريبية. جرّب أحد الأسئلة المقترحة لترى ما يمكن للمساعد فعله.",
+          en: "I can't answer that one right now. Try one of the suggested questions below, or ask again in a moment.",
+          ar: "لا أستطيع الإجابة عن هذا السؤال الآن. جرّبوا أحد الأسئلة المقترحة أدناه، أو اسألوا مرة أخرى بعد قليل.",
         },
       };
   }
 }
 
-/** The sample answer for a typed question its keywords match, or null (see matchQuestion). */
-export function matchRule(text: string, mode: ChatMode): string | null {
+/**
+ * The sample answer for a typed question its keywords match, or null (see matchQuestion). Chats have no
+ * mode, so the rules cover every topic; the more specific ones come first ("best time to post" is about
+ * timing, "which post did best" about results, "what should I post" asks for a post).
+ */
+export function matchRule(text: string): string | null {
   const q = text.toLowerCase();
   const rules: [RegExp, string][] = [
     [/hashtag|هاشتاق|وسم/, "post-hashtags"],
     [/caption|وصف|كابشن/, "post-caption"],
-    [/shar|مشارك/, "an-shared"],
-    [/post|انشر|أنشر|منشور/, mode === "analytics" ? "an-best" : "post-next"],
-    [/reach|وصول/, "an-reach"],
-    [/best|أفضل/, "an-best"],
-    [/when|time|متى|وقت/, "an-when"],
     [/compet|منافس/, "co-compare"],
+    [/shar|مشارك/, "an-shared"],
+    [/when|time|متى|وقت/, "an-when"],
+    [/best|أفضل/, "an-best"],
+    [/reach|وصول/, "an-reach"],
+    [/post|انشر|أنشر|منشور/, "post-next"],
     [/grow|نمو/, "co-fastest"],
   ];
   return rules.find(([re]) => re.test(q))?.[1] ?? null;
 }
 
-/** Pick an answer for typed questions by simple keyword matching. */
-export function matchQuestion(text: string, mode: ChatMode): string {
-  return matchRule(text, mode) ?? (mode === "post" ? "post-next" : mode === "analytics" ? "an-reach" : "co-compare");
+/** Pick an answer for typed questions by simple keyword matching; "fallback" says to try a suggested question. */
+export function matchQuestion(text: string): string {
+  return matchRule(text) ?? "fallback";
+}
+
+/**
+ * What a question gets at once, before the AI is asked: "post-next" (the post flow, real photos for a real
+ * business) or, for demo businesses only, a sample answer its keywords match. Null asks the AI.
+ */
+export function localAnswerFor(text: string, demo: boolean): string | null {
+  const rule = matchRule(text);
+  if (rule === "post-next") return rule;
+  return demo ? rule : null;
+}
+
+export type ChatFallback = { kind: "post" } | { kind: "sample"; answerId: string } | { kind: "honest" };
+
+/**
+ * When the AI can't answer: a post question still gets a post; a demo business gets the sample answer
+ * (or the note to try a suggested question); a real business never gets sample data, only an honest note.
+ */
+export function chatFallback(text: string, demo: boolean): ChatFallback {
+  const answerId = matchQuestion(text);
+  if (answerId === "post-next") return { kind: "post" };
+  return demo ? { kind: "sample", answerId } : { kind: "honest" };
 }

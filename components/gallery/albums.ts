@@ -19,3 +19,6 @@ export const SMART_ALBUMS: SmartAlbum[] = [
   { id: "ai", key: "aiGenerated", icon: Sparkles, filter: (p) => p.source === "ai" || !!p.aiPost },
   { id: "favorites", key: "favorites", icon: Heart, filter: (p) => p.favorite },
 ];
+
+/** The collections a business sees: Scheduled only for demo businesses (their samples) until publishing is connected. */
+export const smartAlbums = (demo: boolean) => (demo ? SMART_ALBUMS : SMART_ALBUMS.filter((a) => a.id !== "scheduled"));

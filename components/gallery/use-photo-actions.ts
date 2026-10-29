@@ -28,11 +28,19 @@ export function usePhotoActions() {
       s().toggleFavorite(ids, value);
       toast.success(value ? t("addedToFavorites") : t("removedFromFavorites"));
     },
+    /** Removes photos from the Gallery (Undo puts them back). Instagram posts are only hidden: nothing changes on Instagram. */
     remove(ids: string[]) {
       const removed = s().deletePhotos(ids);
-      toast.success(ids.length > 1 ? t("deletedN", { n: num(ids.length, lang) }) : t("deleted"), {
-        action: { label: t("undo"), onClick: () => s().restorePhotos(removed) },
-      });
+      if (!removed.length) return;
+      const hidden = removed.every((p) => p.source === "instagram");
+      const message = hidden
+        ? removed.length > 1
+          ? t("hiddenN", { n: num(removed.length, lang) })
+          : t("hiddenFromGallery")
+        : removed.length > 1
+          ? t("deletedN", { n: num(removed.length, lang) })
+          : t("deleted");
+      toast.success(message, { action: { label: t("undo"), onClick: () => s().restorePhotos(removed) } });
     },
   };
 }

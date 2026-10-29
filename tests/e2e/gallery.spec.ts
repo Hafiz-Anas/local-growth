@@ -1,12 +1,14 @@
+import path from "node:path";
 import { expect, test, type Browser, type Locator, type Page } from "@playwright/test";
 
 /**
- * The Gallery (components/gallery, copied from the design proposal): front-end only, on the
- * proposal's mock data (mock-data/gallery) held in memory — so the specs move around with in-app
- * links, never page.goto, once they've changed something. Library grouped by date, badges, albums
- * (category albums + collections), the viewer (plain photo vs. ready post), photo actions, select
- * mode, upload, and "Create post with AI" through Approve / Save to gallery. Uses the seeded
- * "Mathanet Baity" demo business (home-cooking sample photos).
+ * The Gallery (components/gallery, from the design proposal) for a demo business: the seeded "Mathanet Baity"
+ * (mock Instagram connection) sees the home-cooking sample photos, each marked "Sample", plus its own uploads;
+ * what the owner does (favourites, albums, removing, drafts, uploads) is saved on the server. Library grouped
+ * by date, badges, albums (demo category albums + collections), the viewer (plain photo vs. ready post), photo
+ * actions, select mode, real uploads, and "Create post with AI" through Approve / Save to gallery (real drafts;
+ * publishing isn't connected yet). Counts are compared before/after, so the spec also runs on an unseeded DB.
+ * A real business (no samples, empty state, drafts after a reload, other businesses' data): gallery-real.spec.ts.
  */
 
 const USER = { email: "user@mathanetbaity.dev", password: "User@123" };
@@ -32,9 +34,13 @@ const toast = (text: string | RegExp) => page.locator("[data-sonner-toast]").fil
 /** A ready post has the "Ready post · …" badge; a plain photo doesn't. */
 const isPostTile = async (tile: Locator) => (await tile.locator('span[title^="Ready post"]').count()) > 0;
 
-async function firstTile(kind: "plain" | "post"): Promise<Locator> {
+async function firstTile(kind: "plain" | "post", { notAi = false } = {}): Promise<Locator> {
   const n = await tiles().count();
-  for (let i = 0; i < n; i++) if ((kind === "post") === (await isPostTile(tiles().nth(i)))) return tiles().nth(i);
+  for (let i = 0; i < n; i++) {
+    const tile = tiles().nth(i);
+    if (notAi && (await tile.locator('span[title^="Made by AI"]').count()) > 0) continue;
+    if ((kind === "post") === (await isPostTile(tile))) return tile;
+  }
   throw new Error(`no ${kind} tile`);
 }
 /** Closes whatever sheets and viewer are still open (Escape closes the top one). */
@@ -82,9 +88,11 @@ test("Library: a dense photo grid grouped by date, with the source and published
   await expect(main().getByRole("heading", { name: "This week" })).toBeVisible();
   await expect(main().getByRole("heading", { name: "Last week" })).toBeVisible();
   expect(await tiles().count()).toBeGreaterThan(20);
-  // Source badge on every tile (AI or uploaded); the published badge on Instagram posts only.
-  await expect(main().locator('span[title="Made by AI"]').first()).toBeVisible();
-  await expect(main().locator('span[title="Uploaded by you"]').first()).toBeVisible();
+  // Source badge on every tile (AI, uploaded or Instagram), marked "Sample" on the demo's sample photos; the
+  // published badge on Instagram posts only.
+  await expect(main().locator('span[title="Made by AI · Sample"]').first()).toBeVisible();
+  await expect(main().locator('span[title="Uploaded by you · Sample"]').first()).toBeVisible();
+  await expect(main().locator('span[title="Instagram · Sample"]').first()).toBeVisible();
   await expect(main().locator('span[title="Ready post · Published"]').first()).toBeVisible();
   await expect(main().locator('span[title="Ready post · Scheduled"]').first()).toBeVisible();
   // Five columns on desktop, edge to edge like Photos.
@@ -134,7 +142,8 @@ test("a published post opens as an Instagram post with its caption and hashtags;
   await viewer().getByRole("button", { name: "Open post" }).click();
   const sheet = page.getByRole("dialog", { name: "Ready post" }).last();
   await expect(sheet.getByRole("button", { name: "View performance" })).toBeVisible();
-  await expect(sheet.getByRole("button", { name: "Edit" })).toBeVisible();
+  // A posted Instagram post is shown as it is on Instagram: only drafts are edited here.
+  await expect(sheet.getByRole("button", { name: "Edit" })).toHaveCount(0);
   // Caption language switch (EN / ع).
   await sheet.getByRole("tab", { name: "ع" }).click();
   await expect(sheet.locator('[lang="ar"]').first()).toBeVisible();
@@ -144,16 +153,21 @@ test("a published post opens as an Instagram post with its caption and hashtags;
   await expect(viewer()).toHaveCount(0);
 });
 
-test("a scheduled post can be rescheduled or posted now from Open post", async () => {
+test("a scheduled post's Reschedule and Post now say publishing is coming next (no pretend success)", async () => {
   await main().locator('button[aria-label]:has(span[title="Ready post · Scheduled"])').first().click();
   await viewer().getByRole("button", { name: "Open post" }).click();
   const sheet = page.getByRole("dialog", { name: "Ready post" }).last();
+  await sheet.getByRole("button", { name: "Post now" }).click();
+  await expect(toast("Publishing is coming next. Your post is saved as a draft.")).toBeVisible();
   await sheet.getByRole("button", { name: "Reschedule" }).click();
   const schedule = page.getByRole("dialog", { name: "Schedule" });
+  await expect(schedule.getByTestId("schedule-note")).toHaveText("Scheduling isn't connected yet. We'll keep the time you pick with your draft.");
   await expect(schedule.getByText("Best time to post")).toBeVisible();
   await expect(schedule.getByRole("radio")).toHaveCount(5);
-  await schedule.getByRole("button", { name: "Schedule", exact: true }).click();
-  await expect(toast(/^Scheduled for/)).toBeVisible();
+  await schedule.getByRole("button", { name: "Save time" }).click();
+  // A sample post has no saved draft yet, so the message is the general one (twice: Post now, then Save time).
+  await expect(toast(/^Publishing is coming next/)).toHaveCount(2);
+  await expect(toast(/^Scheduled for/)).toHaveCount(0);
   await closeAll();
 });
 
@@ -163,7 +177,9 @@ test("Favorite and Delete (with Undo) from the viewer", async () => {
   const all = await albumCount("All Photos");
   await main().getByRole("tab", { name: "Library" }).click();
 
-  const tile = await firstTile("plain");
+  // A plain photo that isn't a favourite yet (earlier runs may have favourited some).
+  let tile = await firstTile("plain");
+  for (let i = 0; (await tile.locator("svg.lucide-heart").count()) > 0; i++) tile = tiles().nth(i);
   const name = (await tile.getAttribute("aria-label"))!;
   await tile.click();
   await viewer().getByRole("button", { name: "Favorite", exact: true }).click();
@@ -181,24 +197,17 @@ test("Favorite and Delete (with Undo) from the viewer", async () => {
   await main().getByRole("tab", { name: "Library" }).click();
 });
 
-test("Add to album: a new album, a category album changes the photo's category; rename and delete an album", async () => {
-  // New album from the viewer's Add to album sheet.
+test("Add to album: a new album with the photo (category albums are the demo's samples, not targets); rename and delete it", async () => {
   const tile = await firstTile("plain");
   await tile.click();
   await viewer().getByRole("button", { name: "Add to album", exact: true }).click();
   const albumSheet = page.getByRole("dialog", { name: "Add to album" });
-  await expect(albumSheet.getByText("Category: the AI writes posts for it").first()).toBeVisible();
+  await expect(albumSheet.getByText("Category: the AI writes posts for it")).toHaveCount(0);
   await albumSheet.getByRole("button", { name: "New album" }).click();
   const nameSheet = page.getByRole("dialog", { name: "New album" });
   await nameSheet.getByRole("textbox", { name: "Album name" }).fill("Ramadan");
   await nameSheet.getByRole("button", { name: "Create album" }).click();
   await expect(toast("Added to Ramadan")).toBeVisible();
-
-  // Moving the photo into another category album changes its category (shown under its name).
-  await viewer().getByRole("button", { name: "Add to album", exact: true }).click();
-  await page.getByRole("dialog", { name: "Add to album" }).getByRole("button", { name: /^Appetizers/ }).click();
-  await expect(toast("Added to Appetizers")).toBeVisible();
-  await expect(viewer().getByText(/^Appetizers • /)).toBeVisible();
   await page.keyboard.press("Escape");
 
   await openAlbums();
@@ -216,6 +225,10 @@ test("Add to album: a new album, a category album changes the photo's category; 
   await page.getByRole("menuitem", { name: "Delete album" }).click();
   await expect(toast("Deleted “Eid”. Its photos are still in your library.")).toBeVisible();
   await expect(albumCard("Eid")).toHaveCount(0);
+  // A category album has no options menu (it can't be renamed or deleted).
+  await albumCard("Sweets").click();
+  await expect(main().getByRole("button", { name: "Album options" })).toHaveCount(0);
+  await main().getByRole("button", { name: "Back" }).click();
   await main().getByRole("tab", { name: "Library" }).click();
 });
 
@@ -235,25 +248,27 @@ test("Select mode: a toolbar appears; select several and favorite them", async (
   await expect(page.getByText("2 selected")).toHaveCount(0);
 });
 
-test("Upload: picks from the mock camera roll and adds to Uploads", async () => {
+test("Upload: two real photos from this device join Uploads (and stay after a reload)", async () => {
   await openAlbums();
   const uploads = await albumCount("Uploads");
   await main().getByRole("tab", { name: "Library" }).click();
   await main().getByRole("button", { name: "Upload" }).click();
   const sheet = page.getByRole("dialog", { name: "Upload photos" });
-  await expect(sheet.getByText("Recents")).toBeVisible();
-  await sheet.locator("button[aria-pressed]").first().click();
-  await sheet.getByRole("button", { name: /^Upload \(1\)$/ }).click();
-  await expect(toast("Uploaded 1 photo")).toBeVisible();
+  await expect(sheet.getByRole("button", { name: "Choose photos" })).toBeVisible();
+  await sheet.getByTestId("gallery-file-input").setInputFiles([path.resolve("public/photos/qahwa/02.jpg"), path.resolve("public/photos/qahwa/03.jpg")]);
+  await expect(toast("Uploaded 2 photos")).toBeVisible({ timeout: 30_000 });
   await openAlbums();
-  expect(await albumCount("Uploads")).toBe(uploads + 1);
+  expect(await albumCount("Uploads")).toBe(uploads + 2);
+  await page.reload();
+  await main().getByRole("tab", { name: "Albums" }).click();
+  expect(await albumCount("Uploads")).toBe(uploads + 2);
   await main().getByRole("tab", { name: "Library" }).click();
 });
 
-test("Create post with AI: recognises the photo; the post matches its item; Approve moves it to Scheduled", async () => {
+test("Create post with AI: recognises the photo; the post matches its item; Approve saves it as a draft (publishing comes next)", async () => {
   await openAlbums();
+  const drafts = await albumCount("Drafts");
   const scheduled = await albumCount("Scheduled");
-  // An album no earlier test changed (moving a photo into another category album changes what the AI calls it).
   await albumCard("Family spreads").click();
   const tile = await firstTile("plain");
   const dish = (await tile.getAttribute("aria-label"))!;
@@ -264,7 +279,6 @@ test("Create post with AI: recognises the photo; the post matches its item; Appr
   await expect(page.getByRole("textbox", { name: "Ask anything…" })).toHaveValue("Create a post from this photo");
   await page.getByRole("button", { name: "Send" }).click();
   await expect(page.getByText(`This looks like ${dish.toLowerCase()} from your Family spreads album.`)).toBeVisible({ timeout: 20_000 });
-  // The newest post card (its buttons give way to a status line once it is approved).
   const card = page.locator("article").last();
   await expect(card.getByRole("button", { name: "Approve and schedule" })).toBeVisible();
   await expect(card.locator("bdi", { hasText: /^#/ }).first()).toBeVisible();
@@ -272,34 +286,41 @@ test("Create post with AI: recognises the photo; the post matches its item; Appr
   // The caption is about this photo's item.
   await expect(card.getByText(new RegExp(dish.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i")).first()).toBeVisible();
   await card.getByRole("button", { name: "Approve and schedule" }).click();
-  await expect(toast(/Moved to the Scheduled album\.$/)).toBeVisible();
-  await expect(card.getByRole("status")).toContainText("Scheduled for");
+  await expect(toast("Publishing is coming next. Your post is saved as a draft.")).toBeVisible();
+  await expect(card.getByRole("status")).toContainText("Saved");
+  await expect(card.getByRole("status")).not.toContainText("Scheduled for");
 
   await backToGallery();
   await openAlbums();
-  expect(await albumCount("Scheduled")).toBe(scheduled + 1);
+  expect(await albumCount("Drafts")).toBe(drafts + 1);
+  expect(await albumCount("Scheduled")).toBe(scheduled);
   await main().getByRole("tab", { name: "Library" }).click();
 });
 
-test("Save to gallery saves the post into AI Generated and its category album, without scheduling", async () => {
+test("Save to gallery saves the post as a draft (AI Generated and its category album), without scheduling", async () => {
   await openAlbums();
   const ai = await albumCount("AI Generated");
   const scheduled = await albumCount("Scheduled");
   await albumCard("Main dishes").click();
-  await (await firstTile("plain")).click();
+  // A photo not in AI Generated yet (sample AI images already are).
+  await (await firstTile("plain", { notAi: true })).click();
   await viewer().getByRole("button", { name: "Create post with AI" }).click();
   await page.waitForURL(/\/ai$/);
   await page.getByRole("button", { name: "Send" }).click();
   await expect(page.getByText(/from your Main dishes album\./)).toBeVisible({ timeout: 20_000 });
   const card = page.locator("article").last();
   await card.getByRole("button", { name: "Save to gallery" }).click();
-  await expect(toast("Saved to AI Generated and Main dishes")).toBeVisible();
+  await expect(toast("Saved as a draft. Find it in Drafts and Main dishes.")).toBeVisible();
   await expect(card.getByRole("status")).toContainText("Saved");
 
   await backToGallery();
   await openAlbums();
   expect(await albumCount("AI Generated")).toBe(ai + 1);
   expect(await albumCount("Scheduled")).toBe(scheduled);
+  // A real draft: still there after a reload.
+  await page.reload();
+  await main().getByRole("tab", { name: "Albums" }).click();
+  expect(await albumCount("AI Generated")).toBe(ai + 1);
 });
 
 test("phone and Arabic: Photos-style grid edge to edge, viewer and albums translated, right to left", async ({ browser }) => {

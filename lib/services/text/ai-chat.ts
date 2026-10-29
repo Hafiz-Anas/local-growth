@@ -6,8 +6,8 @@ import { isArabic } from "./output";
  * sent here, for a short general reply. Pure (no server-only) so it can be unit-tested.
  */
 
+/** The modes chats used to have; older tabs may still send one, which the API ignores. */
 export const AI_CHAT_MODES = ["post", "analytics", "competitors"] as const;
-export type AiChatMode = (typeof AI_CHAT_MODES)[number];
 export const AI_CHAT_MAX_QUESTION = 500;
 
 /** The answer follows the question: any Arabic letter → Arabic. */

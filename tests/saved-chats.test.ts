@@ -6,7 +6,6 @@ import type { AiChat } from "../mock-data/gallery/ai-studio";
 const chat = (id: string, at: string, extra?: Partial<AiChat>): AiChat => ({
   id,
   title: { en: "What should I post tomorrow?", ar: "ماذا أنشر غداً؟" },
-  mode: "post",
   at,
   messages: [{ id: `${id}u`, role: "user", text: { en: "Hi", ar: "Hi" } }],
   ...extra,
@@ -19,10 +18,15 @@ describe("AI chats saved in the browser", () => {
   });
 
   it("read back what was stored", () => {
-    const [c] = parseSavedChats(JSON.stringify([chat("c1", "2026-10-29T09:00:00.000Z", { mode: "analytics" })]));
+    const [c] = parseSavedChats(JSON.stringify([chat("c1", "2026-10-29T09:00:00.000Z")]));
     assert.equal(c.id, "c1");
-    assert.equal(c.mode, "analytics");
     assert.equal(c.messages.length, 1);
+  });
+
+  it("drop the mode older chats were saved with (chats have no modes now)", () => {
+    const [c] = parseSavedChats(JSON.stringify([{ ...chat("old", "2026-10-29T09:00:00.000Z"), mode: "analytics" }]));
+    assert.equal(c.id, "old");
+    assert.equal("mode" in c, false);
   });
 
   it("show answers that were still working when the page closed as finished", () => {
@@ -39,9 +43,8 @@ describe("AI chats saved in the browser", () => {
     assert.deepEqual(parseSavedChats("{}"), []);
     const raw = JSON.stringify([
       chat("ok", "2026-10-29T09:00:00.000Z", { messages: [{ id: "u", role: "user", text: { en: "x", ar: "x" } }, { id: 3 } as never, { id: "z", role: "bot" } as never] }),
-      { ...chat("bad-mode", "2026-10-29T09:00:00.000Z"), mode: "projects" },
       { ...chat("bad-date", "yesterday") },
-      { id: "no-title", mode: "post", at: "2026-10-29T09:00:00.000Z", messages: [] },
+      { id: "no-title", at: "2026-10-29T09:00:00.000Z", messages: [] },
       null,
     ]);
     const list = parseSavedChats(raw);

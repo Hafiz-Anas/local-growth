@@ -1,4 +1,3 @@
-import type { ChatMode } from "@/mock-data/gallery/ai-chat";
 import type { AiChat, AiMsg } from "@/mock-data/gallery/ai-studio";
 
 /*
@@ -9,7 +8,6 @@ import type { AiChat, AiMsg } from "@/mock-data/gallery/ai-studio";
 export const chatsStorageKey = (businessId: string) => `lge_ai_chats:${businessId}`;
 export const MAX_SAVED_CHATS = 50;
 
-export const CHAT_MODES: ChatMode[] = ["post", "analytics", "competitors"];
 
 const isText = (x: unknown): x is { en: string; ar: string } => !!x && typeof x === "object" && typeof (x as { en: unknown }).en === "string" && typeof (x as { ar: unknown }).ar === "string";
 
@@ -37,12 +35,17 @@ export function parseSavedChats(raw: string | null): AiChat[] {
           typeof c === "object" &&
           typeof c.id === "string" &&
           isText(c.title) &&
-          CHAT_MODES.includes(c.mode) &&
           typeof c.at === "string" &&
           !Number.isNaN(Date.parse(c.at)) &&
           Array.isArray(c.messages),
       )
-      .map((c) => ({ ...c, messages: c.messages.filter(isMessage).map((m) => ("ready" in m && !m.ready ? { ...m, ready: true } : m)) }))
+      .map((c) => ({
+        // Only the chat's own fields: chats saved before modes were removed carry one, which isn't kept.
+        id: c.id,
+        title: c.title,
+        at: c.at,
+        messages: c.messages.filter(isMessage).map((m) => ("ready" in m && !m.ready ? { ...m, ready: true } : m)),
+      }))
       .slice(0, MAX_SAVED_CHATS);
   } catch {
     return [];

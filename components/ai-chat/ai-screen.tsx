@@ -8,7 +8,6 @@ import { useActiveChat, useStore } from "@/lib/gallery/store";
 import { HeaderActions } from "@/components/shell/header-actions";
 import { CLIENT_FIXED_START } from "@/components/layout/sidebar";
 import { ChatView } from "./chat-view";
-import { ModeTag } from "./modes";
 
 /** The AI tab: a full-screen chat between the header and the tab bar (or beside the sidebar, below the header, on desktop). */
 export function AiScreen() {
@@ -29,7 +28,6 @@ export function AiScreen() {
               <span className="truncate" dir="auto">
                 {l(chat.title)}
               </span>
-              <ModeTag mode={chat.mode} />
             </>
           ) : (
             <>

@@ -260,8 +260,9 @@ test("Create a similar post (mock mode): the chat explains why it works and writ
     const caption = await card.locator("p[lang]").first().innerText();
     for (const c of theirs) expect(caption).not.toContain(c.replace(/#\S+/g, "").trim());
 
+    // Publishing isn't connected yet: Approve saves the post as a draft and says so.
     await card.getByRole("button", { name: "Approve and schedule" }).click();
-    await expect(toast(/Scheduled for /)).toBeVisible();
+    await expect(toast("Publishing is coming next. Your post is saved as a draft.")).toBeVisible();
     await expect(card.getByRole("status")).toBeVisible();
   } finally {
     await page.unroute("**/api/ai-chat/similar-post");

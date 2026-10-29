@@ -16,11 +16,9 @@ export function useOpenAi() {
     const s = useStore.getState();
     if (reference) {
       s.newChat();
-      s.setChatMode("post");
       s.setComposer({ photoIds: [], reference, text: translate(s.lang, "similarPrompt", { handle: reference.handle }) });
     } else if (photoIds?.length) {
       s.newChat();
-      s.setChatMode("post");
       s.setComposer({ photoIds, text: translate(s.lang, photoIds.length > 1 ? "photosPrompt" : "photoPrompt") });
     }
     s.closeViewer();

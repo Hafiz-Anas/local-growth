@@ -20,7 +20,6 @@ import { groupChats, type ChatGroup } from "@/lib/gallery/saved-chats";
 import { useChats, useStore } from "@/lib/gallery/store";
 import { cn } from "@/lib/gallery/utils";
 import type { AiChat } from "@/mock-data/gallery/ai-studio";
-import { ModeTag } from "./modes";
 
 const GROUP_LABEL: Record<ChatGroup, MessageKey> = {
   today: "today",
@@ -32,7 +31,7 @@ const GROUP_LABEL: Record<ChatGroup, MessageKey> = {
 export type ChatEdit = { type: "rename" | "delete"; chat: AiChat } | null;
 
 /**
- * "New chat", then past chats by Today / Yesterday / Earlier, each with its mode and a Rename / Delete menu.
+ * "New chat", then past chats by Today / Yesterday / Earlier, each with a Rename / Delete menu.
  * Admin preview is read-only, also for these browser-saved chats: no menu.
  */
 export function ChatList({
@@ -102,7 +101,6 @@ export function ChatList({
                     >
                       {l(c.title)}
                     </span>
-                    <ModeTag mode={c.mode} />
                   </button>
                   {!isPreview && (
                     <DropdownMenu>
