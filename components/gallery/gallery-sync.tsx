@@ -11,7 +11,7 @@ import type { Client } from "@/types";
  * The Gallery and AI chat run on the design proposal's mock data. Each business gets the closest of
  * its three sample accounts (home cooking, café, bakery), shown with the business's own @handle and
  * picture on posts. The language follows the app. Also loads the business's saved inspiration
- * (competitor posts, kept in this browser).
+ * (competitor posts) and its AI chats, both kept in this browser.
  */
 export function mockAccountFor(client: Pick<Client, "handle" | "businessName" | "category">): AccountId {
   const text = `${client.handle} ${client.businessName} ${client.category}`.toLowerCase();
@@ -32,5 +32,7 @@ export function GallerySync() {
   useLayoutEffect(() => useStore.getState().setLang(locale), [locale]);
   useLayoutEffect(() => useStore.getState().setBusiness(account, { handle, avatar }), [account, handle, avatar]);
   useLayoutEffect(() => useStore.getState().loadInspiration(client.id), [client.id]);
+  // After setBusiness: the chats belong to the sample account it picked.
+  useLayoutEffect(() => useStore.getState().loadChats(client.id), [client.id]);
   return null;
 }

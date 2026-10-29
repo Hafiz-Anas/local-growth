@@ -31,6 +31,7 @@ import {
   unposted,
   whyItWorks,
   type AiMsg,
+  type InspoSource,
   type Product,
 } from "@/mock-data/gallery/ai-studio";
 import { findCategory } from "@/mock-data/gallery/categories";
@@ -148,6 +149,32 @@ export function useAiEngine(ctx: ChatContext) {
       text: both("directionsFor"),
       options: directions(ctx, ids),
     }));
+  };
+
+  /** A new post in the style of `source` (one of the owner's or a competitor's posts), on the owner's own photo. */
+  const inspiredReply = (source: InspoSource): AiMsg => {
+    const post = inspiredPost(ctx, source);
+    const photo = ctx.photos.find((p) => p.id === post.photoIds[0])!;
+    return {
+      id: id(),
+      role: "ai",
+      kind: "post",
+      steps: [{ key: "style", v: same(source.handle) }, ...PHOTO_STEPS],
+      ready: false,
+      text: {
+        en: `@${source.handle}'s post works because it uses ${STYLE_LABEL[source.style].en}. Here's a new post in that style, on your own "${photo.dish.en}" photo:`,
+        ar: `منشور ⁦@${source.handle}⁩ ناجح لأنه يستخدم ${STYLE_LABEL[source.style].ar}. هذا منشور جديد بنفس الأسلوب على صورتك «${photo.dish.ar}»:`,
+      },
+      post,
+    };
+  };
+
+  /** "Give me an idea from their top post": the most engaging competitor's latest post, as a new post for the owner. */
+  const ideaFromTopPost = (text: L) => {
+    const top = [...ctx.competitors].sort((a, b) => b.engagementRate - a.engagementRate)[0];
+    const source = top && findSource(ctx, `comp:${top.id}:0`);
+    if (!source) return answer(text, "co-working");
+    exchange(userMsg(text, { refThumb: source.thumb }), () => inspiredReply(source));
   };
 
   const askInspiration = (text: L) => exchange(userMsg(text), () => ({ id: id(), role: "ai", kind: "pickInspiration" }));
@@ -295,12 +322,15 @@ export function useAiEngine(ctx: ChatContext) {
       askAi(text, q);
     },
 
-    /** Suggested prompts. Returns "attach" when the photo picker should open instead. */
+    /**
+     * Suggested questions: the ids of the mock answers (mock-data/gallery/ai-chat.ts) or one of the flows
+     * here. Returns "attach" when the photo picker should open instead (combine photos).
+     */
     prompt(promptId: string, text: L): "attach" | void {
       if (typing) return;
-      if (promptId === "x-photo" || promptId === "x-combine") return "attach";
-      if (promptId === "x-like") return askInspiration(text);
-      if (promptId === "x-product") return askProduct(text);
+      if (promptId === "x-combine") return "attach";
+      if (promptId === "x-latest") return ctx.photos[0] ? postFromPhotos([ctx.photos[0].id], text) : nextPost(text);
+      if (promptId === "x-idea") return ideaFromTopPost(text);
       if (promptId === "x-directions") return directionsForNext(text);
       answer(text, promptId);
     },
@@ -309,20 +339,7 @@ export function useAiEngine(ctx: ChatContext) {
       const source = findSource(ctx, sourceId);
       if (!source || typing) return;
       s().updateAiMsg(msgId, { chosen: sourceId });
-      const post = inspiredPost(ctx, source);
-      const photo = ctx.photos.find((p) => p.id === post.photoIds[0])!;
-      exchange(userMsg(both("likeThisPost", () => ({ handle: source.handle })), { refThumb: source.thumb }), () => ({
-        id: id(),
-        role: "ai",
-        kind: "post",
-        steps: [{ key: "style", v: same(source.handle) }, ...PHOTO_STEPS],
-        ready: false,
-        text: {
-          en: `@${source.handle}'s post works because it uses ${STYLE_LABEL[source.style].en}. Here's a new post in that style, on your own "${photo.dish.en}" photo:`,
-          ar: `منشور ⁦@${source.handle}⁩ ناجح لأنه يستخدم ${STYLE_LABEL[source.style].ar}. هذا منشور جديد بنفس الأسلوب على صورتك «${photo.dish.ar}»:`,
-        },
-        post,
-      }));
+      exchange(userMsg(both("likeThisPost", () => ({ handle: source.handle })), { refThumb: source.thumb }), () => inspiredReply(source));
     },
 
     pickProduct(msgId: string, productId: string) {

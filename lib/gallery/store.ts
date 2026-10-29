@@ -11,14 +11,15 @@ import { insights as mockInsights } from "@/mock-data/gallery/insights";
 import { initialPhotos, seeded } from "@/mock-data/gallery/photos";
 import type { Account, AccountId, Competitor, CustomAlbum, L, Lang, Photo } from "@/mock-data/gallery/types";
 import { MAX_SAVED_INSPIRATION, inspirationStorageKey, parseSavedInspiration, type CompetitorPostRef, type SavedInspiration } from "./competitor-posts";
+import { MAX_SAVED_CHATS, chatsStorageKey, parseSavedChats, shiftChats } from "./saved-chats";
 
 /*
  * The Gallery and AI chat state, copied from the design proposal (lib/store.ts there) without its
  * other demo screens. Front-end only: everything is mock data (mock-data/gallery) held in memory,
  * so it resets on a page load. Nothing is uploaded, stored, published or sent to the server.
- * Except competitor posts saved as inspiration (Competitors → Inspiration): they are also kept in
- * this browser's localStorage, one list per business, so they survive a reload. Still never sent to
- * the server.
+ * Except competitor posts saved as inspiration (Competitors → Inspiration) and the AI chats: they are
+ * also kept in this browser's localStorage, one list per business, so they survive a reload. Still
+ * never sent to the server.
  */
 
 /** This business's saved inspiration from localStorage; empty when storage is blocked or unreadable. */
@@ -36,6 +37,25 @@ function writeSaved(businessId: string | null, list: SavedInspiration[]) {
     window.localStorage.setItem(inspirationStorageKey(businessId), JSON.stringify(list));
   } catch {
     // Private window / storage full: the list still works until the next page load.
+  }
+}
+
+/** This business's AI chats from localStorage; null when nothing was stored yet (or storage is blocked). */
+function readChats(businessId: string): AiChat[] | null {
+  try {
+    const raw = window.localStorage.getItem(chatsStorageKey(businessId));
+    return raw === null ? null : parseSavedChats(raw);
+  } catch {
+    return null;
+  }
+}
+
+function writeChats(businessId: string | null, list: AiChat[]) {
+  if (!businessId) return;
+  try {
+    window.localStorage.setItem(chatsStorageKey(businessId), JSON.stringify(list.slice(0, MAX_SAVED_CHATS)));
+  } catch {
+    // Private window / storage full: the chats still work until the next page load.
   }
 }
 
@@ -71,8 +91,10 @@ interface State extends DemoData {
    */
   viewer: { ids: string[]; index: number; competitor?: CompetitorPostRef[] } | null;
   chatMode: ChatMode;
-  /** Open AI chat; null shows a new, empty chat. */
+  /** Open AI chat; null shows the start screen (a new, empty chat). */
   activeChatId: string | null;
+  /** The business whose AI chats are loaded (GallerySync sets it); they're saved in localStorage. */
+  chatsOwner: string | null;
   /** What's in the AI chat input: text, attached photos and a competitor post to use as a reference. */
   composer: { text: string; photoIds: string[]; reference?: CompetitorPostRef };
   /** Competitor posts saved as inspiration, newest first, for `inspirationOwner` (kept in localStorage). */
@@ -122,8 +144,14 @@ interface State extends DemoData {
   toggleInspiration: (post: CompetitorPostRef) => boolean;
   /** Loads the business's saved inspiration from this browser. */
   loadInspiration: (businessId: string) => void;
+  /** Loads the business's AI chats from this browser; the first time, the sample chats. */
+  loadChats: (businessId: string) => void;
   newChat: () => void;
+  /** A new, empty chat in `mode` (the start screen's cards). */
+  startChat: (mode: ChatMode) => void;
   openChat: (id: string) => void;
+  renameChat: (id: string, title: string) => void;
+  deleteChat: (id: string) => void;
   /** Adds messages to the open chat, starting a new chat if none is open. Returns the chat id. */
   pushAi: (msgs: AiMsg[], opts?: { title?: L; chatId?: string }) => string;
   updateAiMsg: (msgId: string, patch: Partial<AiMsg>) => void;
@@ -137,14 +165,8 @@ function freshData(): DemoData {
     photos: per((id) => structuredClone(initialPhotos[id])),
     albums: per((id) => categoriesFor(id).map((c) => ({ id: categoryAlbumId(c.id), name: c.name, category: c.id }))),
     competitors: per((id) => structuredClone(mockCompetitors[id])),
-    chats: per((id) =>
-      seedChats({
-        account: mockAccounts.find((a) => a.id === id)!,
-        photos: initialPhotos[id],
-        insights: mockInsights[id],
-        competitors: mockCompetitors[id],
-      }),
-    ),
+    // Filled by loadChats (saved in this browser, else the sample chats).
+    chats: per(() => []),
     lastAnalysis: per(() => undefined),
   };
 }
@@ -154,6 +176,11 @@ const nextId = (prefix: string) => `${prefix}-${Date.now().toString(36)}-${uid++
 
 export const useStore = create<State>()((set, get) => {
   const acc = () => get().activeAccountId;
+  /** Updates the active account's chats and saves them in this browser. */
+  const setChats = (f: (list: AiChat[]) => AiChat[], extra?: Partial<State>) => {
+    set((s) => ({ ...extra, chats: { ...s.chats, [acc()]: f(s.chats[acc()] ?? []) } }));
+    writeChats(get().chatsOwner, get().chats[acc()] ?? []);
+  };
   const mapPhotos = (ids: string[], f: (p: Photo) => Photo) =>
     set((s) => ({ photos: { ...s.photos, [acc()]: s.photos[acc()].map((p) => (ids.includes(p.id) ? f(p) : p)) } }));
 
@@ -165,6 +192,7 @@ export const useStore = create<State>()((set, get) => {
     viewer: null,
     chatMode: "post",
     activeChatId: null,
+    chatsOwner: null,
     composer: { text: "", photoIds: [] },
     inspiration: [],
     inspirationOwner: null,
@@ -295,32 +323,48 @@ export const useStore = create<State>()((set, get) => {
     loadInspiration: (businessId) => {
       if (get().inspirationOwner !== businessId) set({ inspirationOwner: businessId, inspiration: readSaved(businessId) });
     },
+    loadChats: (businessId) => {
+      if (get().chatsOwner === businessId) return;
+      const id = acc();
+      let list = readChats(businessId);
+      if (list === null) {
+        const seeds = seedChats({ account: get().accounts.find((a) => a.id === id)!, photos: initialPhotos[id], insights: mockInsights[id], competitors: mockCompetitors[id] });
+        list = shiftChats(seeds, NOW, new Date());
+        writeChats(businessId, list);
+      }
+      set((s) => ({ chatsOwner: businessId, activeChatId: null, chats: { ...s.chats, [id]: list } }));
+    },
     newChat: () => set({ activeChatId: null, composer: { text: "", photoIds: [] } }),
+    startChat: (chatMode) => set({ activeChatId: null, chatMode, composer: { text: "", photoIds: [] } }),
     openChat: (id) => {
       const chat = (get().chats[acc()] ?? []).find((c) => c.id === id);
       set({ activeChatId: id, chatMode: chat?.mode ?? get().chatMode, composer: { text: "", photoIds: [] } });
     },
+    renameChat: (id, title) => setChats((list) => list.map((c) => (c.id === id ? { ...c, title: { en: title, ar: title } } : c))),
+    deleteChat: (id) =>
+      setChats(
+        (list) => list.filter((c) => c.id !== id),
+        get().activeChatId === id ? { activeChatId: null, composer: { text: "", photoIds: [] } } : undefined,
+      ),
     pushAi: (msgs, opts) => {
       const s = get();
       const list = s.chats[acc()] ?? [];
       const existing = list.find((c) => c.id === (opts?.chatId ?? s.activeChatId));
-      const at = NOW.toISOString();
+      // A late answer for a chat deleted meanwhile is dropped.
+      if (opts?.chatId && !existing) return opts.chatId;
+      // Real time, not the demo clock: chats are saved and grouped by Today / Yesterday / Earlier.
+      const at = new Date().toISOString();
       const chat: AiChat = existing
         ? { ...existing, at, messages: [...existing.messages, ...msgs] }
         : { id: nextId("chat"), title: opts?.title ?? { en: "New chat", ar: "محادثة جديدة" }, mode: s.chatMode, at, messages: msgs };
       // Most recent chat first, like ChatGPT. Late answers for a chat that's no longer open don't switch to it.
-      set({ activeChatId: opts?.chatId ? s.activeChatId : chat.id, chats: { ...s.chats, [acc()]: [chat, ...list.filter((c) => c.id !== chat.id)] } });
+      setChats(() => [chat, ...list.filter((c) => c.id !== chat.id)], { activeChatId: opts?.chatId ? s.activeChatId : chat.id });
       return chat.id;
     },
     updateAiMsg: (msgId, patch) =>
-      set((s) => ({
-        chats: {
-          ...s.chats,
-          [acc()]: (s.chats[acc()] ?? []).map((c) =>
-            c.messages.some((m) => m.id === msgId) ? { ...c, messages: c.messages.map((m) => (m.id === msgId ? ({ ...m, ...patch } as AiMsg) : m)) } : c,
-          ),
-        },
-      })),
+      setChats((list) =>
+        list.map((c) => (c.messages.some((m) => m.id === msgId) ? { ...c, messages: c.messages.map((m) => (m.id === msgId ? ({ ...m, ...patch } as AiMsg) : m)) } : c)),
+      ),
   };
 });
 

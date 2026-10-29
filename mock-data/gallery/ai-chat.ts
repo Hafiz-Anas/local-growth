@@ -8,24 +8,6 @@ import type { Account, Competitor, Insights, L, Lang, Photo } from "./types";
 
 export type ChatMode = "post" | "analytics" | "competitors";
 
-export const suggestions: Record<ChatMode, { id: string; q: L }[]> = {
-  post: [
-    { id: "post-next", q: { en: "What should I post tomorrow?", ar: "ماذا أنشر غداً؟" } },
-    { id: "post-caption", q: { en: "Write a caption for my latest photo", ar: "اكتب وصفاً لآخر صورة" } },
-    { id: "post-hashtags", q: { en: "Which hashtags should I use?", ar: "ما الهاشتاقات المناسبة؟" } },
-  ],
-  analytics: [
-    { id: "an-reach", q: { en: "How did my reach change this week?", ar: "كيف تغيّر الوصول هذا الأسبوع؟" } },
-    { id: "an-best", q: { en: "Which post did best this month?", ar: "ما أفضل منشور هذا الشهر؟" } },
-    { id: "an-when", q: { en: "When should I post?", ar: "متى أنشر؟" } },
-  ],
-  competitors: [
-    { id: "co-compare", q: { en: "How do I compare with my competitors?", ar: "كيف أقارن بمنافسيّ؟" } },
-    { id: "co-working", q: { en: "What is working for them?", ar: "ما الذي ينجح عندهم؟" } },
-    { id: "co-fastest", q: { en: "Who is growing fastest?", ar: "من الأسرع نمواً؟" } },
-  ],
-};
-
 export interface ChatContext {
   account: Account;
   photos: Photo[];
@@ -127,6 +109,19 @@ export function answer(id: string, ctx: ChatContext): AiAnswer {
         photoId: best.id,
       };
     }
+    case "an-shared": {
+      const top = [...published].sort((a, b) => b.metrics!.shares - a.metrics!.shares)[0];
+      if (!top) return answer("an-best", ctx);
+      const m = top.metrics!;
+      return {
+        text: both((l) =>
+          l === "ar"
+            ? `أكثر منشور تمت مشاركته هو «${top.dish.ar}»: شاركه ${num(m.shares, l)} شخص ووصل إلى ${compact(m.reach, l)} حساب. المنشورات التي يرسلها الناس لأصدقائهم تجلب متابعين جدداً.`
+            : `Your most shared post is "${top.dish.en}": ${num(m.shares, l)} people shared it and it reached ${compact(m.reach, l)} accounts. Posts people send to friends bring in new followers.`,
+        ),
+        photoId: top.id,
+      };
+    }
     case "an-when": {
       const top = bestSlots(ins, 3);
       return {
@@ -185,6 +180,7 @@ export function matchRule(text: string, mode: ChatMode): string | null {
   const rules: [RegExp, string][] = [
     [/hashtag|هاشتاق|وسم/, "post-hashtags"],
     [/caption|وصف|كابشن/, "post-caption"],
+    [/shar|مشارك/, "an-shared"],
     [/post|انشر|أنشر|منشور/, mode === "analytics" ? "an-best" : "post-next"],
     [/reach|وصول/, "an-reach"],
     [/best|أفضل/, "an-best"],
