@@ -2,13 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { NavItem } from "@/config/navigation";
+import { NavIcon } from "@/components/layout/nav-icon";
+import { HOME_HREF, type NavItem } from "@/config/navigation";
 import { cn } from "@/lib/gallery/utils";
 import { useI18n } from "@/lib/i18n/provider";
 import { isActiveItem } from "@/lib/navigation";
-import { HOME_HREF, SECTION_ICONS } from "./nav";
 
-/** Phone bottom bar from the design proposal: icons only, the AI tab in the centre in the brand colour. */
+/**
+ * Phone bottom bar from the design proposal: icons only, the AI tab in the centre in the brand colour.
+ * Same sections, labels and icons (NavIcon) as the desktop sidebar.
+ */
 export function TabBar({ items }: { items: NavItem[] }) {
   const pathname = usePathname();
   const { t } = useI18n();
@@ -17,8 +20,6 @@ export function TabBar({ items }: { items: NavItem[] }) {
     <nav aria-label={t("nav.main")} className="ge fixed inset-x-0 bottom-0 z-40 border-t bg-ge-background/95 pb-safe backdrop-blur-xl lg:hidden" data-testid="tab-bar">
       <ul className="mx-auto flex h-[52px] max-w-lg items-stretch">
         {items.map((section) => {
-          const Icon = SECTION_ICONS[section.icon];
-          if (!Icon) return null;
           const active = isActiveItem(pathname, section, HOME_HREF);
           if (section.icon === "ai")
             return (
@@ -36,7 +37,7 @@ export function TabBar({ items }: { items: NavItem[] }) {
                       active && "ring-2 ring-ge-brand/30 ring-offset-2 ring-offset-ge-background",
                     )}
                   >
-                    <Icon className="size-[20px]" strokeWidth={active ? 2.5 : 2} />
+                    <NavIcon name="ai" active={active} className="size-[20px]" strokeWidth={active ? 2.5 : 2} />
                   </span>
                 </Link>
               </li>
@@ -49,7 +50,12 @@ export function TabBar({ items }: { items: NavItem[] }) {
                 aria-current={active ? "page" : undefined}
                 className="relative grid h-full place-items-center rounded-lg transition-transform active:scale-90"
               >
-                <Icon className={cn("size-[26px]", active ? "text-ge-foreground" : "text-ge-foreground/80")} strokeWidth={active ? 2.6 : 1.7} />
+                <NavIcon
+                  name={section.icon}
+                  active={active}
+                  className={cn("size-[26px]", active ? "text-ge-foreground" : "text-ge-foreground/80")}
+                  strokeWidth={active ? 2.6 : 1.7}
+                />
               </Link>
             </li>
           );

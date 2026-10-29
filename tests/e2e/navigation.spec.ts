@@ -1,4 +1,4 @@
-import { expect, test, type Browser, type Page } from "@playwright/test";
+import { expect, test, type Browser, type Locator, type Page } from "@playwright/test";
 
 /**
  * Client navigation (config/navigation.ts), end to end: the five sections in the Instagram sidebar
@@ -180,6 +180,49 @@ test("Arabic, right to left: the sections and tabs are translated", async () => 
   await expect(tabLabels(page)).toHaveText(["أداء المنشورات", "التوصيات", "التقارير الأسبوعية", "أساليب التسويق", "مراقبة المنشورات", "أفضل أوقات النشر"]);
   await switchLanguage(page, "en");
   await page.setViewportSize({ width: 1366, height: 800 });
+});
+
+// Each nav link as { href, label (visible text or aria-label), icon (the lucide-* classes of its svg) }.
+const navEntries = (links: Locator) =>
+  links.evaluateAll((els) =>
+    els.map((a) => ({
+      href: a.getAttribute("href"),
+      label: a.getAttribute("aria-label") ?? (a as HTMLElement).innerText.trim(),
+      icon: [...(a.querySelector("svg")?.classList ?? [])].filter((c) => c.startsWith("lucide-")).sort().join(" "),
+    })),
+  );
+
+// One definition (config/navigation.ts + NavIcon): every phone tab is the sidebar's section with the same label and icon.
+test("desktop and phone show the same icon and label for every section, in English and Arabic, and the tab bar works by keyboard", async () => {
+  for (const lang of ["en", "ar"] as const) {
+    await page.setViewportSize({ width: 1366, height: 800 });
+    await page.goto("/post-performance");
+    if ((await page.locator("html").getAttribute("dir")) !== (lang === "ar" ? "rtl" : "ltr")) await switchLanguage(page, lang);
+    const desktop = await navEntries(sidebar(page).locator("nav a[href]"));
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(tabBar(page)).toBeVisible();
+    const phone = await navEntries(tabBar(page).getByRole("link"));
+
+    expect(phone.map((e) => e.label)).toEqual(lang === "en" ? SECTIONS : ["المعرض", "التفاعل", "الذكاء الاصطناعي", "الإحصاءات", "المنافسون"]);
+    for (const tab of phone) {
+      expect(tab.icon, `${tab.label} has an icon`).not.toBe("");
+      expect(desktop.find((e) => e.href === tab.href), `${tab.label} on desktop`).toEqual(tab);
+    }
+    // Competitors and Insights used to differ (swords vs compass, two bar charts).
+    expect(phone.find((e) => e.href === "/competitors")?.icon).toContain("lucide-compass");
+
+    // Keyboard: Tab walks the tabs in order, Enter opens one.
+    await tabBar(page).getByRole("link").first().focus();
+    for (const tab of phone.slice(1)) {
+      await page.keyboard.press("Tab");
+      await expect(page.locator(":focus")).toHaveAttribute("aria-label", tab.label);
+    }
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(/\/competitors$/);
+    await expect(tabBar(page).getByRole("link", { name: phone.at(-1)!.label })).toHaveAttribute("aria-current", "page");
+  }
+  await page.setViewportSize({ width: 1366, height: 800 });
+  await switchLanguage(page, "en");
 });
 
 test("feature switches: hidden pages and sections disappear everywhere (not grayed out)", async ({ browser }) => {

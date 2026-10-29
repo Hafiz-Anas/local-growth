@@ -9,7 +9,7 @@ import { SITE } from "@/config/site";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 import { HeaderActions } from "./header-actions";
-import { HOME_HREF } from "./nav";
+import { HOME_HREF } from "@/config/navigation";
 
 /**
  * The client header, Instagram-style like the rest of the platform: the active account (switches between
