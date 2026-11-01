@@ -207,8 +207,16 @@ export function matchQuestion(text: string): string {
  */
 export function localAnswerFor(text: string, demo: boolean): string | null {
   const rule = matchRule(text);
-  if (rule === "post-next") return rule;
+  if (rule === "post-next") return demo || asksForPost(text) ? rule : null;
   return demo ? rule : null;
+}
+
+/**
+ * A real business's question that asks for a post to be made ("What should I post tomorrow?", "Make a post"),
+ * not one about how its posts did ("How are my posts doing?"), which the AI answers from its data.
+ */
+export function asksForPost(text: string): boolean {
+  return /\b(what|which)\b.*\b(should|could|can|to)\b.*\bpost\b|\b(create|make|write|draft|prepare|suggest|give me)\b.*\bpost\b|\b(new|next) post\b|\bpost ideas?\b|ماذا أنشر|ماذا انشر|شو أنشر|منشور جديد|المنشور القادم|(اصنع|اكتب|جهز|جهّز|اقترح|أعطني|اعطني).*منشور/i.test(text);
 }
 
 export type ChatFallback = { kind: "post" } | { kind: "sample"; answerId: string } | { kind: "honest" };
@@ -219,6 +227,6 @@ export type ChatFallback = { kind: "post" } | { kind: "sample"; answerId: string
  */
 export function chatFallback(text: string, demo: boolean): ChatFallback {
   const answerId = matchQuestion(text);
-  if (answerId === "post-next") return { kind: "post" };
+  if (answerId === "post-next" && (demo || asksForPost(text))) return { kind: "post" };
   return demo ? { kind: "sample", answerId } : { kind: "honest" };
 }

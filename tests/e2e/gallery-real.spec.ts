@@ -73,6 +73,8 @@ test.beforeAll(async ({ browser }: { browser: Browser }) => {
   await pool.query(`DELETE FROM "GalleryAlbum" WHERE "businessId" = $1`, [businessId]);
   await pool.query(`DELETE FROM "GalleryPhoto" WHERE "businessId" = $1`, [businessId]);
   await pool.query(`DELETE FROM "InstagramMedia" WHERE "businessId" = $1`, [businessId]);
+  // AI chats are saved on the server: none to start with.
+  await pool.query(`DELETE FROM "AssistantConversation" WHERE "businessId" = $1`, [businessId]);
   await pool.query(`UPDATE "InstagramConnection" SET provider = 'META' WHERE "businessId" = $1`, [businessId]);
   // Dalla & Bean's own photo, a pending upload, an album and a draft.
   await pool.query(

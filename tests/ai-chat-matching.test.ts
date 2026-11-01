@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { chatFallback, localAnswerFor, matchQuestion, matchRule } from "../mock-data/gallery/ai-chat";
+import { asksForPost, chatFallback, localAnswerFor, matchQuestion, matchRule } from "../mock-data/gallery/ai-chat";
 
 // Chats have no mode: one set of keyword rules covers every topic (components/ai-chat/engine.ts).
 describe("AI chat: typed questions without modes", () => {
@@ -43,6 +43,19 @@ describe("AI chat: sample answers are for demo businesses only", () => {
       assert.deepEqual(chatFallback(q, false), { kind: "honest" }, q);
     }
     assert.deepEqual(chatFallback("What should I post tomorrow?", false), { kind: "post" });
+  });
+
+  it("a real business's question about how its posts did goes to the AI; only asking for a post starts the post flow", () => {
+    for (const q of ["How are my posts doing?", "Did my posts get more reach this week?", "كيف أداء منشوراتي؟"]) {
+      assert.equal(localAnswerFor(q, false), null, q);
+      assert.deepEqual(chatFallback(q, false), { kind: "honest" }, q);
+    }
+    for (const q of ["What should I post tomorrow?", "Make a post for the weekend", "Give me new post ideas", "ماذا أنشر غداً؟", "اكتب منشور عن العبايات"]) {
+      assert.equal(localAnswerFor(q, false), "post-next", q);
+      assert.ok(asksForPost(q), q);
+    }
+    // Demo businesses keep the proposal's flows.
+    assert.equal(localAnswerFor("How are my posts doing?", true), "post-next");
   });
 
   it("a demo business keeps the sample answer (or the note to try a suggested question)", () => {

@@ -1,8 +1,9 @@
 import type { AiChat, AiMsg } from "@/mock-data/gallery/ai-studio";
 
 /*
- * AI chats are kept in this browser, one list per business, like saved inspiration
- * (lib/gallery/competitor-posts.ts). Never sent to the server. Pure, so it can be unit-tested.
+ * AI chats are saved in the database (lib/gallery/chats-api.ts). Browsers used before that kept them in
+ * localStorage, one list per business: the store reads that list once, imports it (POST /api/ai-chats/import)
+ * and deletes it. Also the chat list's Today / Yesterday / Earlier groups. Pure, so it can be unit-tested.
  */
 
 export const chatsStorageKey = (businessId: string) => `lge_ai_chats:${businessId}`;
@@ -20,7 +21,15 @@ function isMessage(x: unknown): x is AiMsg {
 }
 
 /**
- * The stored chats, keeping only well-formed ones; anything unreadable is an empty list.
+ * Messages read back from the server, keeping only well-formed ones (answers that were still "working"
+ * when they were saved show as finished).
+ */
+export function readChatMessages(list: unknown[]): AiMsg[] {
+  return list.filter(isMessage).map((m) => ("ready" in m && !m.ready ? { ...m, ready: true } : m));
+}
+
+/**
+ * The chats kept in localStorage, keeping only well-formed ones; anything unreadable is an empty list.
  * Answers that were still "working" when the page closed show as finished.
  */
 export function parseSavedChats(raw: string | null): AiChat[] {
@@ -44,7 +53,7 @@ export function parseSavedChats(raw: string | null): AiChat[] {
         id: c.id,
         title: c.title,
         at: c.at,
-        messages: c.messages.filter(isMessage).map((m) => ("ready" in m && !m.ready ? { ...m, ready: true } : m)),
+        messages: readChatMessages(c.messages),
       }))
       .slice(0, MAX_SAVED_CHATS);
   } catch {

@@ -2,7 +2,7 @@ import "server-only";
 import { logIntegration } from "@/lib/server/integration-log";
 import type { CaptionStyle, PostPurpose, PurposePattern, StyleNotes } from "@/types";
 import { getContentCatalog, type CatalogProfile } from "./catalog";
-import { cleanChatAnswer } from "./text/ai-chat";
+import { checkChatNumbers, cleanChatAnswer } from "./text/ai-chat";
 import type { BusinessFocus } from "./text/focus";
 import { parsePrefill, type PrefillSuggestion } from "./text/prefill";
 import { parseStyleGuide, type StyleGuideText } from "./text/style";
@@ -183,8 +183,9 @@ export interface AIService {
   /** Reads the onboarding inputs (business, posts, basics) and describes the brand. */
   buildBrandContext(input: BrandContextInput): Promise<BrandContextDraft>;
   /**
-   * A short general reply to a question typed in the AI tab that none of its sample answers matches.
-   * Never made-up text: a failure says why and the chat shows its sample answer instead.
+   * An answer to a question asked in the AI tab, from the business facts and the chat's earlier turns.
+   * Never made-up text or numbers: sentences stating a number not in the facts are dropped, and a failure
+   * (or an answer mostly dropped) says why — the chat then shows its honest fallback (or a demo's sample answer).
    */
   chatReply(request: ChatReplyRequest): Promise<ChatReplyAnswer>;
   /**
@@ -271,7 +272,8 @@ export interface ChatReplyRequest {
   prompt: AiChatPromptInput;
 }
 
-export type ChatReplyAnswer = { ok: true; text: string } | { ok: false; reason: TextFailureReason };
+/** `dropped`: sentences left out because they stated a number that isn't in the facts. */
+export type ChatReplyAnswer = { ok: true; text: string; dropped: number } | { ok: false; reason: TextFailureReason };
 
 export type SimilarPostAnswer = { ok: true; post: SimilarPostText } | { ok: false; reason: TextFailureReason };
 export type PhotoCaptionAnswer = ({ ok: true } & PhotoCaptionText) | { ok: false; reason: TextFailureReason };
@@ -824,7 +826,10 @@ export class GeminiAIService implements AIService {
       (answer) => {
         const text = cleanChatAnswer(answer);
         if (!text) throw new TextGenerationError("bad_output", "The model's answer was empty.", 200);
-        return { ok: true, text };
+        // Every number must be in the facts: sentences with an invented one go; most of it gone → no answer.
+        const checked = checkChatNumbers(text, request.prompt.facts);
+        if (!checked.usable) throw new TextGenerationError("bad_output", `The model's answer quoted numbers that aren't in the data (${checked.dropped} sentence${checked.dropped === 1 ? "" : "s"}).`, 200);
+        return { ok: true, text: checked.text, dropped: checked.dropped };
       },
       (reason) => ({ ok: false, reason }),
     );

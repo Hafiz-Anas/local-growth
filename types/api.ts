@@ -671,3 +671,39 @@ export interface WeeklyReportDto {
   /** Null when the AI was unavailable: the report has numbers only. */
   summary: { en: string; ar: string } | null;
 }
+
+// ─── AI tab chats (saved in the database) ────────────────────────────────────
+
+/**
+ * One chat message as the AI tab draws it (AiMsg in mock-data/gallery/ai-studio.ts): stored as sent and
+ * returned as stored; the browser checks its shape again when it reads it.
+ */
+export type AiChatMessageDto = { id: string; role: "user" | "ai"; kind?: string; text?: { en: string; ar: string }; sample?: boolean } & Record<string, unknown>;
+
+export interface AiChatSummaryDto {
+  /** The chat's id (made in the browser). */
+  id: string;
+  title: { en: string; ar: string };
+  /** Last activity. */
+  at: string;
+  /** One of a demo business's sample chats. */
+  sample: boolean;
+}
+
+/** GET /api/ai-chats */
+export interface AiChatListDto {
+  chats: AiChatSummaryDto[];
+  /** A demo business that hasn't had its sample chats yet: the browser sends them (POST /api/ai-chats/import). */
+  sampleDue: boolean;
+}
+
+/** GET /api/ai-chats/:id */
+export interface AiChatDto extends AiChatSummaryDto {
+  messages: AiChatMessageDto[];
+}
+
+/** POST /api/ai-chat: the AI's answer, already saved in the chat (null: show the fallback). */
+export interface AiChatAnswerDto {
+  text: string | null;
+  message: AiChatMessageDto | null;
+}

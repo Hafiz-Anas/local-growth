@@ -6,6 +6,8 @@ import { translate, type MessageKey } from "@/lib/gallery/i18n";
 import { useInsights } from "@/lib/gallery/hooks";
 import { useAccount, useCompetitors, usePhotos, useStore } from "@/lib/gallery/store";
 import { apiFetch } from "@/lib/api/client";
+import { chatsApi } from "@/lib/gallery/chats-api";
+import { readChatMessages } from "@/lib/gallery/saved-chats";
 import { galleryApi } from "@/lib/gallery/api";
 import type { CompetitorPostRef } from "@/lib/gallery/competitor-posts";
 import { apiId } from "@/lib/gallery/hydrate";
@@ -271,26 +273,34 @@ export function useAiEngine(ctx: ChatContext) {
   };
 
   /**
-   * A typed question none of the sample answers matches: a short reply from the AI (POST /api/ai-chat,
-   * Gemini through the app's AI service). When the AI is off, over its budget or fails (`chatFallback`): a
-   * post question still gets a post; a demo business gets the sample answer its keywords match, else a note
-   * to try a suggested question; a real business gets an honest note, never sample data. Nothing is saved.
+   * A typed question none of the sample answers matches (and, for a real business, the suggested ones): the AI
+   * answers from the business's own facts and this chat's earlier turns (POST /api/ai-chat). The question is
+   * saved in the chat first; the server saves the answer (numbers checked) and returns it. When the AI is off,
+   * over its budget, fails or invented most of its numbers (`chatFallback`): a post question still gets a post;
+   * a demo business gets the sample answer its keywords match, else a note to try a suggested question; a real
+   * business gets an honest note, never sample data. Those fallbacks are saved like any other message.
    */
   const askAi = (text: L, question: string) => {
     const fallback = chatFallback(question, ctx.demo === true);
     const chatId = s().pushAi([userMsg(text)], { title: text });
+    const answerId = id();
     const started = Date.now();
     setTyping(true);
-    apiFetch<{ text: string | null }>("/api/ai-chat", { method: "POST", body: { question } })
-      .then((r) => r.text)
+    s()
+      .flushChat(chatId)
+      .then(() => chatsApi.ask({ question, chatId, answerId }))
       .catch(() => null)
       .then((reply) => {
         window.setTimeout(
           () => {
+            if (reply?.message) {
+              s().pushAi(readChatMessages([reply.message]), { chatId, saved: true });
+              return setTyping(false);
+            }
             // A real business asking for a post gets one for its own newest photo, not a sample.
-            if (!reply && fallback.kind === "post" && !ctx.demo) return realPost([latestOwn()].filter((x) => x !== undefined), text, question, { chatId });
-            const msg: AiMsg = reply
-              ? { id: id(), role: "ai", kind: "text", text: same(reply) }
+            if (!reply?.text && fallback.kind === "post" && !ctx.demo) return realPost([latestOwn()].filter((x) => x !== undefined), text, question, { chatId });
+            const msg: AiMsg = reply?.text
+              ? { id: answerId, role: "ai", kind: "text", text: same(reply.text), ...(ctx.demo ? { sample: true } : {}) }
               : fallback.kind === "post"
                 ? nextPostReply()
                 : fallback.kind === "sample"
@@ -411,8 +421,8 @@ export function useAiEngine(ctx: ChatContext) {
       if (promptId === "x-latest") return ctx.photos[0] ? postFromPhotos([ctx.photos[0].id], text) : nextPost(text);
       if (promptId === "x-idea") return ideaFromTopPost(text);
       if (promptId === "x-directions") return directionsForNext(text);
-      // The other suggested questions have sample answers: a real business asks the AI instead.
-      if (!ctx.demo) return askAi(text, text.en);
+      // The other suggested questions have sample answers: a real business asks the AI instead (in the app's language).
+      if (!ctx.demo) return askAi(text, text[s().lang] || text.en);
       answer(text, promptId);
     },
 

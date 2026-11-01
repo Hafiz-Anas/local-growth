@@ -16,8 +16,11 @@ import { focusLines, type BusinessFocus } from "./focus";
 
 export const ASSISTANT_MODES = ["post", "analytics", "competitors"] as const;
 export type AssistantMode = (typeof ASSISTANT_MODES)[number];
-/** Which sections the data block holds: an assistant mode, or "strategy" (everything, for recommendations). */
-export type FactsScope = AssistantMode | "strategy";
+/**
+ * Which sections the data block holds: an assistant mode, "strategy" (everything, for recommendations) or
+ * "chat" (the AI tab: like strategy, plus whatever competitor analysis was loaded for the question).
+ */
+export type FactsScope = AssistantMode | "strategy" | "chat";
 
 
 export interface AssistantMetric {
@@ -236,6 +239,8 @@ const STATUS_TEXT: Record<AssistantFacts["instagram"]["status"], string> = {
 
 /** Everything the model may use, as labelled plain text. Sections are absent when there's no data. */
 export function formatFacts(facts: AssistantFacts, mode: FactsScope, now = new Date()): string {
+  /** Recommendations and the AI tab see every analytics section. */
+  const wide = mode === "analytics" || mode === "strategy" || mode === "chat";
   const b = facts.business;
   const ig = facts.instagram;
   const lines: string[] = [
@@ -269,12 +274,12 @@ export function formatFacts(facts: AssistantFacts, mode: FactsScope, now = new D
       "",
       "## Account metrics (last 30 days)",
       metric("Accounts reached", m.reach),
-      metric("Engagement rate", m.engagementRate, "%"),
+      metric("Account engagement rate, last 30 days (Instagram's figure for the whole account)", m.engagementRate, "%"),
       metric("Net new followers", m.followerGrowth),
       metric("Profile visits", m.profileVisits),
     );
   }
-  if (facts.followers && (mode === "analytics" || mode === "strategy")) {
+  if (facts.followers && wide) {
     const f = facts.followers;
     lines.push(`Followers: ${f.first.value} on ${day(f.first.date)} → ${f.last.value} on ${day(f.last.date)} (${f.days} daily points)`);
   }
@@ -285,7 +290,7 @@ export function formatFacts(facts: AssistantFacts, mode: FactsScope, now = new D
     push(
       "",
       `## Recent posts (${stats.count}, newest first)`,
-      `Averages per post: ${stats.avgLikes} likes, ${stats.avgComments} comments${stats.avgReach !== null ? `, reach ${stats.avgReach}` : ""}${stats.avgEngagementPct !== null ? `, engagement ${stats.avgEngagementPct}% of followers` : ""}`,
+      `Averages per post: ${stats.avgLikes} likes, ${stats.avgComments} comments${stats.avgReach !== null ? `, reach ${stats.avgReach}` : ""}${stats.avgEngagementPct !== null ? `, average engagement per post ${stats.avgEngagementPct}% of followers` : ""}`,
       `By type: ${stats.byType.map((g) => `${g.type} ${g.avgInteractions} likes+comments on average (${g.posts} post${g.posts === 1 ? "" : "s"})`).join("; ")}`,
       `Best by likes+comments: ${stats.best.map((p) => `${day(p.postedAt)} (${p.likes + p.comments})`).join(", ")}`,
       stats.weakest.length ? `Weakest by likes+comments: ${stats.weakest.map((p) => `${day(p.postedAt)} (${p.likes + p.comments})`).join(", ")}` : null,
@@ -308,21 +313,21 @@ export function formatFacts(facts: AssistantFacts, mode: FactsScope, now = new D
     );
   }
 
-  if (mode === "competitors" || (mode === "strategy" && facts.competitors)) {
+  if (mode === "competitors" || ((mode === "strategy" || mode === "chat") && facts.competitors)) {
     const competitors = facts.competitors ?? [];
     lines.push("", `## Tracked competitors (${competitors.length})`);
     if (!competitors.length) lines.push("None. The business hasn't added any competitors that we could load.");
     for (const c of competitors) {
       const recent = c.recentPosts.length ? `${c.recentPosts.length} recent posts averaging ${round(avg(c.recentPosts.map((p) => p.likes)))} likes and ${round(avg(c.recentPosts.map((p) => p.comments)))} comments` : "no recent posts loaded";
       lines.push(
-        `@${c.handle} (${c.name}): ${c.followers} followers${c.followerChangePct !== null ? ` (${pct(c.followerChangePct)} in ~30 days)` : ""}, engagement ${c.engagementRate}%, ${c.postsPerWeek} posts/week, ${recent}${c.lastFetchedAt ? `; data from ${day(c.lastFetchedAt)}` : ""}${c.note ? `; note: ${c.note}` : ""}`,
+        `@${c.handle} (${c.name}): ${c.followers} followers${c.followerChangePct !== null ? ` (${pct(c.followerChangePct)} in ~30 days)` : ""}, account engagement rate ${c.engagementRate}%, ${c.postsPerWeek} posts/week, ${recent}${c.lastFetchedAt ? `; data from ${day(c.lastFetchedAt)}` : ""}${c.note ? `; note: ${c.note}` : ""}`,
       );
     }
     lines.push("We have no prices, ads, audience or reach data for competitors.");
   }
 
   const analysis = facts.analysis;
-  if (analysis && (mode === "analytics" || mode === "strategy")) {
+  if (analysis && wide) {
     if (analysis.you) lines.push("", "## Content mix and posting habits (measured)", ...statsLines("The business", analysis.you, analysis.followers ?? null).slice(1));
     if (analysis.methods && analysis.methods.ranking.length) {
       const m = analysis.methods;
@@ -336,12 +341,12 @@ export function formatFacts(facts: AssistantFacts, mode: FactsScope, now = new D
       );
     }
   }
-  if (analysis?.statistics && (mode === "analytics" || mode === "strategy")) {
+  if (analysis?.statistics && wide) {
     lines.push("", "## Statistics: the last 30 days vs the 30 before (from stored daily follower counts and posts; correlation, not causation)", statisticsDataBlock(analysis.statistics.data, { demo: analysis.statistics.demo }));
   }
-  if (analysis?.monitoring && (mode === "analytics" || mode === "strategy")) lines.push(...monitoringLines(analysis.monitoring));
-  if (facts.shareability?.length && mode === "strategy") lines.push(...facts.shareability);
-  if (analysis?.competitors && mode === "competitors") {
+  if (analysis?.monitoring && wide) lines.push(...monitoringLines(analysis.monitoring));
+  if (facts.shareability?.length && (mode === "strategy" || mode === "chat")) lines.push(...facts.shareability);
+  if (analysis?.competitors && (mode === "competitors" || mode === "chat")) {
     lines.push("", "## Competitor analysis (measured from their public posts; content types are estimates from captions)");
     if (analysis.you) lines.push(...statsLines("The business", analysis.you, analysis.followers ?? null));
     for (const c of analysis.competitors) {

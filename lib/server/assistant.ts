@@ -16,17 +16,17 @@ import { statisticsFacts } from "./statistics";
 import { ownPosts } from "./post-data";
 
 /**
- * The data block behind Recommendations and Weekly reports: the business's stored Instagram data,
- * brand profile and tracked competitors (formatted by lib/services/text/assistant.ts). It was the old
- * AI assistant's grounding data; the chat itself is gone (the AI tab is front-end only for now).
+ * The data block behind Recommendations, Weekly reports and the AI tab's answers: the business's stored
+ * Instagram data, brand profile and tracked competitors (formatted by lib/services/text/assistant.ts).
  */
 
 // ─── Grounding data ──────────────────────────────────────────────────────────
 
 /**
  * Everything an answer may use. Instagram sections are left out when there's no data to show.
- * Competitors are loaded for the competitors mode, and for "strategy" when `withCompetitors`
- * (the business has the competitors feature). Shared by the recommendations and the weekly reports.
+ * Competitors are loaded for the competitors mode, and for "strategy" / "chat" when `withCompetitors`
+ * (the business has the competitors feature). Shared by the recommendations, the weekly reports and
+ * the AI tab (lib/server/chat-facts.ts).
  */
 export async function gatherAssistantFacts(businessId: string, mode: FactsScope, { withCompetitors = false, permissions }: { withCompetitors?: boolean; permissions?: Permissions } = {}): Promise<AssistantFacts> {
   const business = await db.business.findUniqueOrThrow({
@@ -125,7 +125,7 @@ export async function gatherAssistantFacts(businessId: string, mode: FactsScope,
     }
   }
 
-  if (mode === "competitors" || (mode === "strategy" && withCompetitors)) {
+  if (mode === "competitors" || ((mode === "strategy" || mode === "chat") && withCompetitors)) {
     try {
       facts.competitors = (await listCompetitors(businessId)).map((c) => ({
         handle: c.handle,
@@ -147,10 +147,14 @@ export async function gatherAssistantFacts(businessId: string, mode: FactsScope,
   return facts;
 }
 
-/** The analysis pages' numbers for the chat (Analytics: content mix + methods; Competitors: competitor analysis). Never calls the AI. */
-async function gatherAnalysis(businessId: string, mode: FactsScope, permissions: Permissions): Promise<AssistantFacts["analysis"]> {
+/**
+ * The analysis pages' numbers (Analytics: content mix + methods; Competitors: competitor analysis). The AI tab's
+ * "chat" scope gets the analytics part here and adds the competitor part itself when the question is about them.
+ * Never calls the AI.
+ */
+export async function gatherAnalysis(businessId: string, mode: FactsScope, permissions: Permissions): Promise<AssistantFacts["analysis"]> {
   try {
-    if (mode === "analytics") {
+    if (mode === "analytics" || mode === "chat") {
       const own = await ownPosts(businessId);
       const methods = isFeatureEnabled(permissions, "methods") ? await methodsOverview(businessId, permissions) : null;
       const monitoring = isFeatureEnabled(permissions, "monitoring") ? await monitoringFacts(businessId) : null;

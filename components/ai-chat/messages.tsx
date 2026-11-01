@@ -813,9 +813,15 @@ function CopyButton({ text }: { text: string }) {
 }
 
 export function TextMessage({ msg }: { msg: AiOf<"text"> }) {
-  const { l } = useT();
+  const { t, l } = useT();
   return (
     <AiRow id={msg.id}>
+      {/* A demo business's AI answers come from its sample data: they say so, like the sample answers. */}
+      {msg.sample && (
+        <span data-testid="sample-answer" className="me-1.5 inline-flex items-center rounded-full bg-ge-muted px-2 py-0.5 text-[11px] font-semibold text-ge-muted-foreground">
+          {t("sample")}
+        </span>
+      )}
       <p className="whitespace-pre-line" dir="auto">
         {l(msg.text)}
       </p>

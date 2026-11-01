@@ -22,7 +22,7 @@ function totalsLine(label: string, t: PeriodTotals, previous: PeriodTotals | nul
     `${label}: ${t.posts} posts (${t.postsPerWeek} per week)${vs(t.postsPerWeek, previous?.postsPerWeek)}`,
     `average likes+comments per post ${t.avgInteractions}${vs(t.avgInteractions, previous?.avgInteractions)}`,
     t.avgReach !== null ? `average reach per post ${t.avgReach} (${t.reachPosts} posts)${vs(t.avgReach, previous?.avgReach)}` : "reach: not reported",
-    t.engagementPct !== null ? `engagement ${t.engagementPct}% of followers per post${vs(t.engagementPct, previous?.engagementPct)}` : "engagement: not available",
+    t.engagementPct !== null ? `average engagement per post ${t.engagementPct}% of followers${vs(t.engagementPct, previous?.engagementPct)}` : "average engagement per post: not available",
   ].join("; ");
 }
 

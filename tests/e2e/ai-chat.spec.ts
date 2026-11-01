@@ -1,3 +1,4 @@
+import { Pool } from "pg";
 import { expect, test, type Browser, type Page } from "@playwright/test";
 
 /**
@@ -6,8 +7,9 @@ import { expect, test, type Browser, type Page } from "@playwright/test";
  * answers (chart, photo link, estimate), gallery photos attached inside the chat, the post card's actions
  * (saved as real drafts; Post now says publishing is coming next), no footer banner (the AI tab is the way in),
  * typed questions (POST /api/ai-chat; stubbed here so the result doesn't depend on the AI provider),
- * the chat list (New chat, Today / Yesterday / Earlier, Rename, Delete — no mode tags), chats kept in this
- * browser across a reload, and the feature switches. A real business's chat: gallery-real.spec.ts.
+ * the chat list (New chat, Today / Yesterday / Earlier, Rename, Delete — no mode tags), chats saved on the
+ * server across a reload, and the feature switches. A real business's chat: gallery-real.spec.ts and
+ * ai-chat-real.spec.ts (answers from the business's data, follow-ups, other devices, access).
  */
 
 const USER = { email: "user@mathanetbaity.dev", password: "User@123" };
@@ -41,7 +43,18 @@ const PROMPTS = ["What should I post tomorrow?", "Which post got shared the most
 const card = (id: string) => page.getByTestId(`shortcut-card-${id}`);
 
 test.beforeAll(async ({ browser }: { browser: Browser }) => {
+  // Chats are saved on the server: start from none, so the demo business gets its sample chats again.
+  const url = process.env.DATABASE_URL ?? "";
+  if (!/@(localhost|127\.0\.0\.1)[:/]/.test(url)) throw new Error("Set DATABASE_URL to the local e2e database.");
+  const pool = new Pool({ connectionString: url.replace(/\?.*$/, "") });
+  const { rows } = await pool.query<{ businessId: string }>(`SELECT "businessId" FROM "User" WHERE email = $1`, [USER.email]);
+  await pool.query(`DELETE FROM "AssistantConversation" WHERE "businessId" = $1`, [rows[0].businessId]);
+  await pool.query(`UPDATE "Business" SET "aiChatsSeededAt" = NULL WHERE id = $1`, [rows[0].businessId]);
+  await pool.end();
   page = await browser.newPage({ viewport: { width: 1366, height: 860 } });
+  // next dev answers the first request to a dynamic route it hasn't compiled yet with an HTML 404: compile them first.
+  for (const route of ["/api/ai-chats/x", "/api/ai-chats/x/messages", "/api/ai-chats/x/messages/y", `/api/admin/preview/${rows[0].businessId}/gallery`, `/api/admin/preview/${rows[0].businessId}/ai-chats`, `/api/admin/preview/${rows[0].businessId}/ai-chats/x`])
+    await page.request.get(route);
   await login(page);
 });
 test.afterAll(async () => page.close());
@@ -160,6 +173,8 @@ test("typed questions: the AI's short reply when it answers, the proposal's samp
   await composer().fill("Tell me something useful");
   await composer().press("Enter");
   await expect(page.getByText("Post when your followers are online.")).toBeVisible();
+  // A demo business's AI answers come from its sample data: marked "Sample".
+  await expect(page.getByText("Post when your followers are online.").locator("..")).toContainText("Sample");
 
   // The question goes without a mode now.
   let sent: unknown = null;
@@ -168,7 +183,9 @@ test("typed questions: the AI's short reply when it answers, the proposal's samp
   await composer().fill("Anything else?");
   await composer().press("Enter");
   await expect(page.getByText(/^I can't answer that one right now\. Try one of the suggested questions/)).toBeVisible();
-  expect(sent).toEqual({ question: "Anything else?" });
+  // The question goes with its saved chat (whose history the server reads) and the answer's id.
+  expect(sent).toMatchObject({ question: "Anything else?", chatId: expect.any(String), answerId: expect.any(String) });
+  expect(Object.keys(sent as object).sort()).toEqual(["answerId", "chatId", "question"]);
   await page.unroute("**/api/ai-chat");
 
   // A question its keywords match never leaves the browser.
@@ -197,7 +214,7 @@ test("rename and delete (after a confirmation) from a chat's menu; chats survive
   await expect(chatItem("Best times plan")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Best times plan", level: 2 })).toBeVisible();
 
-  // Kept in this browser: the list, names and messages come back after a reload (no mode tags).
+  // Saved on the server: the list, names and messages come back after a reload (no mode tags).
   await page.reload();
   await expect(chatItem("Best times plan")).toBeVisible();
   await expect(chatItem("How do I compare with my competitors?")).toBeVisible();
@@ -212,7 +229,7 @@ test("rename and delete (after a confirmation) from a chat's menu; chats survive
   await page.getByRole("menuitem", { name: "Delete" }).click();
   const confirm = page.getByRole("dialog").last();
   await expect(confirm.getByText("Delete this chat?")).toBeVisible();
-  await expect(confirm.getByText("“Best times plan” will be removed from this device.", { exact: false })).toBeVisible();
+  await expect(confirm.getByText("“Best times plan” will be deleted on every device that uses this account.", { exact: false })).toBeVisible();
   await confirm.getByRole("button", { name: "Cancel" }).click();
   await expect(chatItem("Best times plan")).toHaveCount(1);
   // Delete: gone, back on the start screen (it was open), still gone after a reload.

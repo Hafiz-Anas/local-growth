@@ -314,6 +314,8 @@ model Business {
   createdAt       DateTime @default(now())
   /// Set whenever this business's FeaturePermission rows change; live sessions refresh their feature list.
   permissionsUpdatedAt DateTime @default(now())
+  /// Demo businesses get the AI tab's sample chats once (stored as `sample` conversations); set when they were added.
+  aiChatsSeededAt DateTime?
 
   // Onboarding profile (config/onboarding.ts) ---------------------------------
   /// roastery | cafe | restaurant | bakery | sweets | retail | beauty | services | other
@@ -1276,14 +1278,20 @@ model ActivityLog {
 
 // ─── AI assistant ────────────────────────────────────────────────────────────
 
-/// A chat with the AI assistant. History belongs to the business (any of its users can continue it).
+/// A chat in the AI tab (components/ai-chat; once the old AI assistant's). History belongs to the business
+/// (any of its users can continue it); `userId` is kept so private chats can come later.
 model AssistantConversation {
   id         String   @id @default(cuid())
   businessId String
   /// Who started it. Kept nullable so the chat survives user deletion.
   userId     String?
-  /// The first question, shortened.
+  /// The first question, shortened (the English title; `titleAr` when it differs).
   title      String
+  titleAr    String?
+  /// The chat's id in the browser (the AI tab makes it); routes address chats by it, always with the businessId.
+  clientKey  String?
+  /// One of the demo's sample chats (lib/server/ai-chats.ts); never for a real business.
+  sample     Boolean  @default(false)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
@@ -1291,23 +1299,31 @@ model AssistantConversation {
   user     User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
   messages AssistantMessage[]
 
+  @@unique([businessId, clientKey])
   @@index([businessId, updatedAt])
 }
 
-/// One question or answer. Only answered turns are stored: when the AI is unavailable
-/// neither the question nor an answer is saved, so the history never holds a fake reply.
+/// One message of an AI tab chat. `payload` is the message as the chat draws it (AiMsg). `content` is the
+/// text the AI is given as history: the owner's question, or an answer the server wrote itself (POST
+/// /api/ai-chat, numbers checked); messages the browser adds (post cards, sample answers) keep it empty.
 model AssistantMessage {
-  id             String        @id @default(cuid())
+  id             String         @id @default(cuid())
   conversationId String
   role           AssistantRole
-  mode           AssistantMode
+  /// The old assistant's mode; null for AI tab chats.
+  mode           AssistantMode?
   content        String
   /// "en" | "ar": the language the user wrote in (the answer uses it too).
   language       String
-  createdAt      DateTime      @default(now())
+  /// The message as the AI tab draws it (AiMsg, mock-data/gallery/ai-studio.ts).
+  payload        Json?
+  /// The message's id in the browser.
+  clientId       String?
+  createdAt      DateTime       @default(now())
 
   conversation AssistantConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
+  @@unique([conversationId, clientId])
   @@index([conversationId, createdAt])
 }
 

@@ -65,7 +65,8 @@ function Conversation({ engine, onAttach }: { engine: AiEngine; onAttach: (mode:
   const messages = chat?.messages ?? [];
   // Admin preview is read-only: nothing can be sent, so no new chats are made or saved.
   const { isPreview } = useActiveClient();
-  const busy = isPreview || engine.typing || messages.some((m) => m.role === "ai" && "ready" in m && !m.ready);
+  // A saved chat whose messages are still loading (or couldn't be loaded) takes no new messages.
+  const busy = isPreview || engine.typing || !!chat?.load || messages.some((m) => m.role === "ai" && "ready" in m && !m.ready);
   const scroller = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
@@ -120,7 +121,9 @@ function Conversation({ engine, onAttach }: { engine: AiEngine; onAttach: (mode:
         }}
       >
         <div ref={content} className="mx-auto w-full max-w-[760px] px-4 pt-2 pb-6">
-          {messages.length === 0 ? (
+          {chat?.load ? (
+            <ChatLoading failed={chat.load === "failed"} onRetry={() => useStore.getState().loadChat(chat.id)} />
+          ) : messages.length === 0 ? (
             <StartScreen prompts={prompts} onPrompt={runPrompt} readOnly={isPreview} />
           ) : (
             <div className="space-y-6 lg:pt-4">
@@ -168,6 +171,30 @@ function Conversation({ engine, onAttach }: { engine: AiEngine; onAttach: (mode:
           <Composer busy={busy} readOnly={isPreview} onSend={engine.send} onAttach={() => onAttach("attach")} />
         </div>
       </div>
+    </div>
+  );
+}
+
+/** A saved chat's messages loading (message-shaped placeholders), or "Couldn't open this chat" with Try again. */
+function ChatLoading({ failed, onRetry }: { failed: boolean; onRetry: () => void }) {
+  const { t } = useT();
+  if (failed)
+    return (
+      <div role="alert" className="flex flex-col items-center gap-3 pt-[12vh] text-center">
+        <p className="text-[14px] text-ge-muted-foreground">{t("chatLoadFailed")}</p>
+        <button type="button" onClick={onRetry} className="rounded-lg bg-ge-brand px-4 py-1.5 text-[14px] font-semibold text-white hover:opacity-90">
+          {t("tryAgain")}
+        </button>
+      </div>
+    );
+  return (
+    <div data-testid="chat-loading" aria-busy="true" aria-label={t("chatLoading")} className="space-y-6 lg:pt-4">
+      {[0, 1, 2].map((i) => (
+        <div key={i} className="space-y-6">
+          <div className="ms-auto h-9 w-2/5 animate-pulse rounded-2xl bg-ge-muted" />
+          <div className="h-16 w-3/4 animate-pulse rounded-2xl bg-ge-muted" />
+        </div>
+      ))}
     </div>
   );
 }

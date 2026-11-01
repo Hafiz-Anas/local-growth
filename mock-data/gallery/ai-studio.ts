@@ -69,7 +69,8 @@ export interface Step {
 export type AiMsg =
   | { id: string; role: "user"; text: L; photoIds?: string[]; refThumb?: string; reference?: CompetitorPostRef }
   | { id: string; role: "ai"; kind: "answer"; answerId: string }
-  | { id: string; role: "ai"; kind: "text"; text: L }
+  /** `sample`: a demo business's answer, from the app's sample data (marked "Sample"). */
+  | { id: string; role: "ai"; kind: "text"; text: L; sample?: boolean }
   | { id: string; role: "ai"; kind: "post"; text?: L; steps: Step[]; ready: boolean; post: PostDraft }
   | { id: string; role: "ai"; kind: "directions"; text?: L; steps: Step[]; ready: boolean; options: PostDraft[]; chosen?: number; features?: Feature[] }
   | { id: string; role: "ai"; kind: "pickInspiration"; chosen?: string }
@@ -80,6 +81,8 @@ export interface AiChat {
   title: L;
   at: string; // ISO, last activity
   messages: AiMsg[];
+  /** Saved chats (GET /api/ai-chats) come without their messages: "pending" until opened, "failed" if they couldn't be read. */
+  load?: "pending" | "loading" | "failed";
 }
 
 export interface StudioContext {

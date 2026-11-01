@@ -445,11 +445,60 @@ export const activityQuery = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(25),
 });
 
-/** POST /api/ai-chat — a question typed in the AI tab that none of its sample answers matches. */
+/** Ids the AI tab makes for its chats and messages. */
+const chatKey = z.string().min(1).max(64).regex(/^[\w-]+$/);
+/** POST /api/ai-chat — a question asked in the AI tab, in a saved chat (`chatId`: its history is read from the database). */
 export const aiChatSchema = z.object({
   /** Sent by tabs from before chats lost their modes; ignored. */
   mode: z.enum(AI_CHAT_MODES).optional(),
   question: text(AI_CHAT_MAX_QUESTION),
+  /** The chat the question was saved in; without it (older tabs) there's no history and nothing is saved. */
+  chatId: chatKey.optional(),
+  /** The id the answer gets in the chat. */
+  answerId: chatKey.optional(),
+});
+
+/** A chat message as the AI tab draws it (AiMsg); any other fields are kept as they are, up to 30 kB. */
+export const aiChatMessageSchema = z
+  .looseObject({
+    id: chatKey,
+    role: z.enum(["user", "ai"]),
+    kind: z.string().max(40).optional(),
+    text: z.object({ en: z.string().max(4000), ar: z.string().max(4000) }).optional(),
+  })
+  .refine((m) => JSON.stringify(m).length <= 30_000, "Message too large.");
+
+const aiChatTitle = z.object({ en: z.string().trim().min(1).max(120), ar: z.string().trim().min(1).max(120) });
+
+/** POST /api/ai-chats — a new chat with its first messages. */
+export const aiChatCreateSchema = z.object({
+  id: chatKey,
+  title: aiChatTitle,
+  messages: z.array(aiChatMessageSchema).max(20),
+});
+
+/** POST /api/ai-chats/:id/messages */
+export const aiChatMessagesSchema = z.object({ messages: z.array(aiChatMessageSchema).min(1).max(20) });
+
+/** PATCH /api/ai-chats/:id/messages/:messageId — the message's new state. */
+export const aiChatMessageUpdateSchema = z.object({ message: aiChatMessageSchema });
+
+/** PATCH /api/ai-chats/:id */
+export const aiChatRenameSchema = z.object({ title: text(120) });
+
+/** POST /api/ai-chats/import — this browser's old chats, once; `sample`: a demo business's sample chats. */
+export const aiChatImportSchema = z.object({
+  sample: z.boolean().optional(),
+  chats: z
+    .array(
+      z.object({
+        id: chatKey,
+        title: aiChatTitle,
+        at: z.iso.datetime({ offset: true }),
+        messages: z.array(aiChatMessageSchema).max(200),
+      }),
+    )
+    .max(50),
 });
 
 /** POST /api/ai-chat/similar-post — a competitor's post (looked up for the business) and the owner's photo the new post uses. */

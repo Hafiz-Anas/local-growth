@@ -17,7 +17,7 @@ import type { Client } from "@/types";
  * AI chat store, and reloads it when a change is refused. Demo businesses also get the closest of the three
  * sample accounts (home cooking, café, bakery) — its photos marked "Sample" — shown with the business's own
  * @handle and picture; the AI chat's sample answers use that account for every business. The language
- * follows the app. Also loads the business's saved inspiration and AI chats, both kept in this browser.
+ * follows the app. Also loads the business's saved inspiration (kept in this browser) and its AI chats (saved on the server).
  */
 export function mockAccountFor(client: Pick<Client, "handle" | "businessName" | "category">): AccountId {
   const text = `${client.handle} ${client.businessName} ${client.category}`.toLowerCase();

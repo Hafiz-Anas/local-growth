@@ -8,12 +8,13 @@ import { seedChats, type AiChat, type AiMsg } from "@/mock-data/gallery/ai-studi
 import { insights as mockInsights } from "@/mock-data/gallery/insights";
 import { initialPhotos } from "@/mock-data/gallery/photos";
 import type { Account, AccountId, Competitor, CustomAlbum, L, Lang, Photo } from "@/mock-data/gallery/types";
-import type { CaptionVersionDto, GalleryDraftDto, GalleryDto, GalleryPhotoDto } from "@/types/api";
+import type { AiChatSummaryDto, CaptionVersionDto, GalleryDraftDto, GalleryDto, GalleryPhotoDto } from "@/types/api";
 import { galleryApi } from "./api";
+import { chatsApi } from "./chats-api";
 import { MAX_SAVED_INSPIRATION, inspirationStorageKey, parseSavedInspiration, type CompetitorPostRef, type SavedInspiration } from "./competitor-posts";
 import { hashtagsIn } from "./drafts";
 import { apiId, hydrateGallery, screenId } from "./hydrate";
-import { MAX_SAVED_CHATS, chatsStorageKey, parseSavedChats, shiftChats } from "./saved-chats";
+import { chatsStorageKey, parseSavedChats, readChatMessages, shiftChats } from "./saved-chats";
 
 /*
  * The Gallery and AI chat state, copied from the design proposal (lib/store.ts there) without its
@@ -22,8 +23,10 @@ import { MAX_SAVED_CHATS, chatsStorageKey, parseSavedChats, shiftChats } from ".
  * (setGallery), and every change (favourites, albums, removing, drafts) shows at once here and is sent
  * to the API — when the API refuses, the error is shown and the Gallery is loaded again. In admin preview
  * nothing changes (readOnly). Demo businesses also see the sample photos (marked "Sample").
- * Competitor posts saved as inspiration and the AI chats are kept in this browser's localStorage, one
- * list per business.
+ * Competitor posts saved as inspiration are kept in this browser's localStorage, one list per business. The AI
+ * chats are saved in the database (AI2, lib/gallery/chats-api.ts): the list loads without messages and a chat's
+ * messages load when it's opened; every change is sent at once, in order per chat. Chats an older version kept
+ * in localStorage are imported once and then deleted there; demo businesses get the sample chats once.
  */
 
 /** This business's saved inspiration from localStorage; empty when storage is blocked or unreadable. */
@@ -44,8 +47,8 @@ function writeSaved(businessId: string | null, list: SavedInspiration[]) {
   }
 }
 
-/** This business's AI chats from localStorage; null when nothing was stored yet (or storage is blocked). */
-function readChats(businessId: string): AiChat[] | null {
+/** The AI chats an older version kept in this browser; null when there are none (or storage is blocked). */
+function readLocalChats(businessId: string): AiChat[] | null {
   try {
     const raw = window.localStorage.getItem(chatsStorageKey(businessId));
     return raw === null ? null : parseSavedChats(raw);
@@ -54,14 +57,20 @@ function readChats(businessId: string): AiChat[] | null {
   }
 }
 
-function writeChats(businessId: string | null, list: AiChat[]) {
-  if (!businessId) return;
+/** Once they're imported, the old local chats are deleted: the server's are the only ones. */
+function forgetLocalChats(businessId: string) {
   try {
-    window.localStorage.setItem(chatsStorageKey(businessId), JSON.stringify(list.slice(0, MAX_SAVED_CHATS)));
+    window.localStorage.removeItem(chatsStorageKey(businessId));
   } catch {
-    // Private window / storage full: the chats still work until the next page load.
+    // Storage blocked: nothing to delete.
   }
 }
+
+/** Each chat's API calls, in order (a chat is created before messages are added to it). */
+const chatQueues = new Map<string, Promise<void>>();
+/** Chats made here that the server may not have yet, and chats deleted here: a list loaded meanwhile is corrected. */
+const unsavedChats = new Set<string>();
+const deletedChats = new Set<string>();
 
 export type SheetState =
   | { type: "schedule"; photoIds: string[]; caption?: L; suggested?: string }
@@ -114,7 +123,7 @@ interface State extends DemoData {
   viewer: { ids: string[]; index: number; competitor?: CompetitorPostRef[] } | null;
   /** Open AI chat; null shows the start screen (a new, empty chat). */
   activeChatId: string | null;
-  /** The business whose AI chats are loaded (GallerySync sets it); they're saved in localStorage. */
+  /** The business whose AI chats are loaded (GallerySync sets it); they're saved on the server. */
   chatsOwner: string | null;
   /** What's in the AI chat input: text, attached photos and a competitor post to use as a reference. */
   composer: { text: string; photoIds: string[]; reference?: CompetitorPostRef };
@@ -177,15 +186,28 @@ interface State extends DemoData {
   toggleInspiration: (post: CompetitorPostRef) => boolean;
   /** Loads the business's saved inspiration from this browser. */
   loadInspiration: (businessId: string) => void;
-  /** Loads the business's AI chats from this browser; a demo business's first visit gets the sample chats. */
+  /**
+   * Loads the business's AI chats from the server (in admin preview its read-only copy), first importing chats an
+   * older version kept in this browser; a demo business's first visit adds the sample chats.
+   */
   loadChats: (businessId: string, demo: boolean) => void;
+  /** Loads the chat list again (after a change the server refused). */
+  reloadChats: () => void;
   newChat: () => void;
+  /** Opens a chat, loading its messages when they aren't here yet. */
   openChat: (id: string) => void;
+  /** Loads a saved chat's messages (again, after a failure). */
+  loadChat: (id: string) => void;
   renameChat: (id: string, title: string) => void;
   deleteChat: (id: string) => void;
-  /** Adds messages to the open chat, starting a new chat if none is open. Returns the chat id. */
-  pushAi: (msgs: AiMsg[], opts?: { title?: L; chatId?: string }) => string;
+  /**
+   * Adds messages to the open chat, starting a new chat if none is open, and saves them (`saved`: the server
+   * already did — an AI answer from POST /api/ai-chat). Returns the chat id.
+   */
+  pushAi: (msgs: AiMsg[], opts?: { title?: L; chatId?: string; saved?: boolean }) => string;
   updateAiMsg: (msgId: string, patch: Partial<AiMsg>) => void;
+  /** Resolves once everything sent for the chat so far has reached the server (its question is saved before the AI is asked). */
+  flushChat: (id: string) => Promise<void>;
 }
 
 function freshData(): DemoData {
@@ -197,7 +219,7 @@ function freshData(): DemoData {
     photos: per(() => []),
     albums: per(() => []),
     competitors: per((id) => structuredClone(mockCompetitors[id])),
-    // Filled by loadChats (saved in this browser, else the sample chats).
+    // Filled by loadChats (from the server).
     chats: per(() => []),
     lastAnalysis: per(() => undefined),
   };
@@ -208,11 +230,36 @@ const nextId = (prefix: string) => `${prefix}-${Date.now().toString(36)}-${uid++
 
 export const useStore = create<State>()((set, get) => {
   const acc = () => get().activeAccountId;
-  /** Updates the active account's chats and saves them in this browser. */
+  /** Updates the active account's chats (on screen; the API calls are sent by the actions). */
   const setChats = (f: (list: AiChat[]) => AiChat[], extra?: Partial<State>) => {
     set((s) => ({ ...extra, chats: { ...s.chats, [acc()]: f(s.chats[acc()] ?? []) } }));
-    writeChats(get().chatsOwner, get().chats[acc()] ?? []);
   };
+  const mapChat = (id: string, f: (chat: AiChat) => AiChat) => setChats((list) => list.map((c) => (c.id === id ? f(c) : c)));
+  /** Sends a chat's change after the ones before it; a refused one is reported. Nothing is sent in admin preview. */
+  const queueChat = (chatId: string, call: () => Promise<unknown>) => {
+    if (get().readOnly) return;
+    const next = (chatQueues.get(chatId) ?? Promise.resolve()).then(call).then(
+      () => undefined,
+      (error) => get().sync?.report(error),
+    );
+    chatQueues.set(chatId, next);
+  };
+  /** The admin preview reads the business's chats through the preview routes. */
+  const previewOf = () => (get().readOnly ? (get().chatsOwner ?? undefined) : undefined);
+  /** The server's chat list on screen: chats already open keep their messages; chats being saved or deleted here stay as they are. */
+  const showChats = (list: AiChatSummaryDto[]) =>
+    set((s) => {
+      const mine = s.chats[acc()] ?? [];
+      const fromServer: AiChat[] = list
+        .filter((c) => !deletedChats.has(c.id))
+        .map((c) => {
+          const open = mine.find((m) => m.id === c.id && !m.load);
+          return open ? { ...open, title: c.title } : { id: c.id, title: c.title, at: c.at, messages: [], load: "pending" };
+        });
+      const unsaved = mine.filter((m) => unsavedChats.has(m.id) && !list.some((c) => c.id === m.id));
+      const chats = [...unsaved, ...fromServer].sort((a, b) => b.at.localeCompare(a.at));
+      return { chats: { ...s.chats, [acc()]: chats }, activeChatId: chats.some((c) => c.id === s.activeChatId) ? s.activeChatId : null };
+    });
   const mapPhotos = (ids: string[], f: (p: Photo) => Photo) =>
     set((s) => ({ photos: { ...s.photos, [acc()]: s.photos[acc()].map((p) => (ids.includes(p.id) ? f(p) : p)) } }));
   /** False (with the preview notice) when changes are off. */
@@ -417,30 +464,83 @@ export const useStore = create<State>()((set, get) => {
     },
     loadChats: (businessId, demo) => {
       if (get().chatsOwner === businessId) return;
-      const id = acc();
-      let list = readChats(businessId);
-      // Real businesses never get the sample chats (they show sample photos); ones saved earlier are dropped.
-      if (!demo && list) list = list.filter((c) => !c.id.startsWith("seed-"));
-      if (list === null && !demo) list = [];
-      if (list === null) {
-        const seeds = seedChats({ account: get().accounts.find((a) => a.id === id)!, photos: initialPhotos[id], insights: mockInsights[id], competitors: mockCompetitors[id] });
-        list = shiftChats(seeds, NOW, new Date());
-      }
+      const account = acc();
       // Chats are loaded once the Gallery says whether this is a demo business; a chat started before
-      // that (a quick tap on the start screen) stays open and is kept.
-      const started = get().chatsOwner === null ? (get().chats[id] ?? []) : [];
-      const merged = [...started, ...list.filter((c) => !started.some((s) => s.id === c.id))];
-      if (started.length || readChats(businessId) === null) writeChats(businessId, merged);
-      set((s) => ({ chatsOwner: businessId, activeChatId: started.length ? s.activeChatId : null, chats: { ...s.chats, [id]: merged } }));
+      // that (a quick tap on the start screen) is already being saved, stays open and is kept.
+      set({ chatsOwner: businessId });
+      void (async () => {
+        try {
+          const preview = previewOf();
+          let list = await chatsApi.list(preview);
+          if (!preview) {
+            const local = readLocalChats(businessId);
+            const seeds = (local ?? []).filter((c) => c.id.startsWith("seed-"));
+            const own = (local ?? []).filter((c) => !c.id.startsWith("seed-"));
+            let imported = own.length ? await chatsApi.import(own) : 0;
+            // Real businesses never get the sample chats (they're dropped from an old local list too). A demo
+            // business that had a local list keeps the sample chats it still had there; else it gets them fresh.
+            if (demo && list.sampleDue) {
+              const sample =
+                local !== null
+                  ? seeds
+                  : shiftChats(seedChats({ account: get().accounts.find((a) => a.id === account)!, photos: initialPhotos[account], insights: mockInsights[account], competitors: mockCompetitors[account] }), NOW, new Date());
+              imported += await chatsApi.import(sample, true);
+            }
+            if (local !== null) forgetLocalChats(businessId);
+            if (imported) list = await chatsApi.list();
+          }
+          if (get().chatsOwner === businessId) showChats(list.chats);
+        } catch (error) {
+          get().sync?.report(error);
+        }
+      })();
+    },
+    reloadChats: () => {
+      const owner = get().chatsOwner;
+      if (!owner) return;
+      chatsApi.list(previewOf()).then(
+        (list) => get().chatsOwner === owner && showChats(list.chats),
+        () => undefined,
+      );
     },
     newChat: () => set({ activeChatId: null, composer: { text: "", photoIds: [] } }),
-    openChat: (id) => set({ activeChatId: id, composer: { text: "", photoIds: [] } }),
-    renameChat: (id, title) => setChats((list) => list.map((c) => (c.id === id ? { ...c, title: { en: title, ar: title } } : c))),
-    deleteChat: (id) =>
+    openChat: (id) => {
+      set({ activeChatId: id, composer: { text: "", photoIds: [] } });
+      const load = (get().chats[acc()] ?? []).find((c) => c.id === id)?.load;
+      if (load === "pending" || load === "failed") get().loadChat(id);
+    },
+    loadChat: (id) => {
+      mapChat(id, (c) => ({ ...c, load: "loading" }));
+      chatsApi.get(id, previewOf()).then(
+        (dto) => mapChat(id, (c) => ({ ...c, title: dto.title, messages: readChatMessages(dto.messages), load: undefined })),
+        () => mapChat(id, (c) => (c.load === "loading" ? { ...c, load: "failed" } : c)),
+      );
+    },
+    renameChat: (id, title) => {
+      if (!canChange()) return;
+      mapChat(id, (c) => ({ ...c, title: { en: title, ar: title } }));
+      queueChat(id, () =>
+        chatsApi.rename(id, title).catch((error) => {
+          get().reloadChats();
+          throw error;
+        }),
+      );
+    },
+    deleteChat: (id) => {
+      if (!canChange()) return;
+      deletedChats.add(id);
       setChats(
         (list) => list.filter((c) => c.id !== id),
         get().activeChatId === id ? { activeChatId: null, composer: { text: "", photoIds: [] } } : undefined,
-      ),
+      );
+      queueChat(id, () =>
+        chatsApi.remove(id).catch((error) => {
+          deletedChats.delete(id);
+          get().reloadChats();
+          throw error;
+        }),
+      );
+    },
     pushAi: (msgs, opts) => {
       const s = get();
       const list = s.chats[acc()] ?? [];
@@ -454,12 +554,23 @@ export const useStore = create<State>()((set, get) => {
         : { id: nextId("chat"), title: opts?.title ?? { en: "New chat", ar: "محادثة جديدة" }, at, messages: msgs };
       // Most recent chat first, like ChatGPT. Late answers for a chat that's no longer open don't switch to it.
       setChats(() => [chat, ...list.filter((c) => c.id !== chat.id)], { activeChatId: opts?.chatId ? s.activeChatId : chat.id });
+      if (!opts?.saved) {
+        if (existing) queueChat(chat.id, () => chatsApi.append(chat.id, msgs));
+        else if (!s.readOnly) {
+          unsavedChats.add(chat.id);
+          queueChat(chat.id, () => chatsApi.create(chat).finally(() => unsavedChats.delete(chat.id)));
+        }
+      }
       return chat.id;
     },
-    updateAiMsg: (msgId, patch) =>
-      setChats((list) =>
-        list.map((c) => (c.messages.some((m) => m.id === msgId) ? { ...c, messages: c.messages.map((m) => (m.id === msgId ? ({ ...m, ...patch } as AiMsg) : m)) } : c)),
-      ),
+    updateAiMsg: (msgId, patch) => {
+      const chat = (get().chats[acc()] ?? []).find((c) => c.messages.some((m) => m.id === msgId));
+      if (!chat) return;
+      const msg = { ...chat.messages.find((m) => m.id === msgId)!, ...patch } as AiMsg;
+      mapChat(chat.id, (c) => ({ ...c, messages: c.messages.map((m) => (m.id === msgId ? msg : m)) }));
+      queueChat(chat.id, () => chatsApi.update(chat.id, msg));
+    },
+    flushChat: (id) => chatQueues.get(id) ?? Promise.resolve(),
   };
 });
 

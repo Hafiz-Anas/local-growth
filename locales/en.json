@@ -2659,7 +2659,7 @@
     "chatRenamed": "Chat renamed",
     "deleteChat": "Delete",
     "deleteChatTitle": "Delete this chat?",
-    "deleteChatBody": "“{title}” will be removed from this device. This can't be undone.",
+    "deleteChatBody": "“{title}” will be deleted on every device that uses this account. This can't be undone.",
     "chatDeleted": "Chat deleted",
     "previewReadOnly": "Preview is read-only",
     "uploadDrop": "Or drop photos here",
@@ -2685,6 +2685,9 @@
     "uploadFirst": "Upload a few photos to your Gallery first, then I'll turn them into posts.",
     "captionFallback": "The AI isn't available right now, so here's a simple caption to start from. Edit it before posting.",
     "postReadyOwn": "Here's a post for your photo. Edit anything, then save it as a draft:",
-    "noAnswerOwn": "I can't answer that from your data yet. Try asking about a photo or a post."
+    "noAnswerOwn": "I can't answer that from your data yet. Try asking about a photo or a post.",
+    "chatLoading": "Loading this chat…",
+    "chatLoadFailed": "Couldn't open this chat. Check your connection and try again.",
+    "tryAgain": "Try again"
   }
 }

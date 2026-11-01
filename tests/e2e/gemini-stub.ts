@@ -30,7 +30,10 @@ import { createServer } from "node:http";
  * - photo captions (schema with "caption_en" and no "hook_en", sent with the photos) get "Stub caption (<tone>) for your
  *   photo." with the number of images in `state.captionImages`; a request containing "[invent]" gets a caption with
  *   an invented price (which the app must reject and replace with its neutral template);
- * - chat requests get an answer echoing the question (Arabic for an Arabic question);
+ * - chat requests get an answer echoing the question (Arabic for an Arabic question), quoting the average likes from the
+ *   business facts when they have them and naming the first earlier question when the chat has history (follow-ups);
+ *   a question containing "[invent]" gets an answer whose numbers are mostly invented (the app must not show it) and
+ *   "[partial]" one with a real number and one invented sentence (the app must drop that sentence);
  * - a question containing "[down]", or `state.fail`, gets a 503.
  */
 
@@ -225,7 +228,12 @@ export async function startGeminiStub(port = STUB_PORT) {
         } else text = "Thanks for your message! 🤍 We'll get back to you shortly.";
       } else {
         const arabic = /[؀-ۿ]/.test(question);
-        text = arabic ? `إجابة تجريبية (${turns.length}): ${question}` : `**Stub answer** (${turns.length} turns) to: ${question}`;
+        const likes = system.match(/Averages per post: (\d+) likes/)?.[1];
+        const earlier = turns.length > 1 ? turns[0].text : null;
+        if (question.includes("[invent]")) text = "Your reach grew 987654% last week. You gained 55555 followers. Keep posting.";
+        else if (question.includes("[partial]")) text = `Your posts average ${likes ?? "no"} likes. Saves went up 987654%. Keep posting Reels.`;
+        else if (arabic) text = `إجابة تجريبية: ${question}${likes ? ` متوسط الإعجابات ${likes}.` : ""}`;
+        else text = `**Stub answer** to: ${question}${likes ? ` Your posts average ${likes} likes.` : ""}${earlier ? ` Following up on: "${earlier}".` : ""}`;
       }
       res.end(JSON.stringify({ candidates: [{ finishReason: "STOP", content: { role: "model", parts: [{ text }] } }] }));
     });

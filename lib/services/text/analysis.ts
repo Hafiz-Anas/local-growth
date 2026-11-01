@@ -50,7 +50,7 @@ export function statsLines(label: string, s: AccountStats | null, followers: num
     followers !== null ? `Followers: ${followers}` : null,
     `Posts analysed: ${s.posts} over ${s.spanDays} days (${s.postsPerWeek} per week)`,
     `Content mix: ${s.mix.map((m) => `${FORMAT_LABEL[m.format]} ${m.sharePct}% (${m.posts} posts, ${m.avgInteractions} likes+comments on average)`).join("; ")}`,
-    `Average per post: ${s.avgLikes} likes, ${s.avgComments} comments, ${s.avgInteractions} likes+comments${s.engagementPct !== null ? `; engagement ${s.engagementPct}% of followers` : ""}${s.avgReach !== null ? `; reach ${s.avgReach} (${s.reachPosts} posts)` : ""}`,
+    `Average per post: ${s.avgLikes} likes, ${s.avgComments} comments, ${s.avgInteractions} likes+comments${s.engagementPct !== null ? `; average engagement per post ${s.engagementPct}% of followers` : ""}${s.avgReach !== null ? `; reach ${s.avgReach} (${s.reachPosts} posts)` : ""}`,
     `Posting days: ${s.byWeekday.map((d) => `${DAY_LABEL[d.key]} ${d.posts} posts (${d.avgInteractions} avg)`).join("; ")}`,
     `Posting times (business timezone): ${s.byDayPart.map((d) => `${PART_LABEL[d.key]} ${d.posts} posts (${d.avgInteractions} avg)`).join("; ")}`,
     `Hashtags: ${s.hashtagsPerPost} per post on average${s.hashtags.length ? `; most used: ${s.hashtags.map((h) => `${h.tag} (${h.count})`).join(", ")}` : ""}`,
