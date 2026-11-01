@@ -1,7 +1,17 @@
 import "server-only";
 import { after } from "next/server";
 import { db } from "@/lib/db";
+import type { Prisma } from "@/lib/generated/prisma/client";
 import { isFeatureEnabled, permissionsFromRows } from "@/lib/permissions";
+import {
+  PROCESSING_RECHECK_MS,
+  PUBLISH_LEASE_MS,
+  afterFailure,
+  isMissed,
+  nextStep,
+  onContainerStatus,
+  type PublishReason,
+} from "@/lib/publishing/job";
 import { toInstagramJpeg } from "@/lib/services/images/instagram-fit";
 import {
   InstagramNotConnectedError,
@@ -9,91 +19,72 @@ import {
   InstagramPublishError,
   InstagramRateLimitedError,
   getInstagramService,
+  type InstagramAccount,
 } from "@/lib/services/instagram";
-import { isPublicHttpsUrl } from "@/lib/services/meta/publish";
+import { CAROUSEL_MAX, captionProblem, isPublicHttpsUrl } from "@/lib/services/meta/publish";
 import { getStorageService } from "@/lib/services/storage";
 import type { FeatureKey } from "@/types";
 import { logActivity } from "./activity";
+import { samplePhotoPath } from "./gallery";
 import { ApiError, notFound } from "./http";
+import { fetchImage } from "./image-fetch";
 import { getInstagramAccount } from "./instagram-account";
 import { syncInstagram } from "./instagram-sync";
 import { logIntegration } from "./integration-log";
 import { coolingDown } from "./meta-client";
 import { notify } from "./notifications";
 
+export type { PublishReason } from "@/lib/publishing/job";
+
 /**
- * Publishing a post to Instagram — single image + caption. Every trigger goes
- * through here:
- *   "Publish now" on a draft or a queued post  → publishDraftNow / publishScheduledNow
- *   the publish cron (app/api/cron/publish)    → publishDuePosts
+ * Publishing to Instagram (BE3): a durable job per post, worked through by the publish cron.
  *
- * A post is claimed first (ScheduledPost SCHEDULED → PUBLISHING, atomically), so
- * two triggers can never publish the same post. Meta connections get a JPEG copy
- * of the image that fits Instagram's rules (lib/services/images/instagram-fit.ts),
- * stored publicly for Meta to download and deleted afterwards. Mock connections
- * publish through the mock unchanged.
+ *   approve   approveDraft (Gallery / AI chat "Schedule" or "Post now"), publishDraftNow (old Post Generator)
+ *             → the photos are frozen as Instagram-ready JPEGs in our storage, the job (ScheduledPost) records
+ *               the Instagram account it's for, the draft is Queued. "Post now" starts the job straight after
+ *               the request (after()); the cron picks it up if that dies, so the browser can be closed.
+ *   deliver   runJob, from the cron (publishDuePosts, every minute) or "Post now": one job at a time under a
+ *             lease, step by step — carousel children → container → status → media_publish → Posted — saving
+ *             every id Instagram returns before the next step, so the next run resumes where this one stopped.
+ *   protect   media_publish is the only call that can make a post. publishCallAt is saved before it is sent;
+ *             from then on the job checks the container first: PUBLISHED → Posted (the media id is looked up),
+ *             FINISHED → not live, safe to publish, anything else → never published. A post is never sent twice.
+ *   recover   limited retries with backoff, waiting (not failing) for a reconnect or the daily limit for up to
+ *             6 hours, then Failed with a reason the owner sees, and Reschedule / Cancel (reschedulePost, cancelPost).
  *
- * Failures never throw out of here: they become a reason code (PublishReason),
- * shown to the user in their language, written to the integration log, and —
- * when final — stored on the ScheduledPost (failureReason) and on the draft
- * (publishError), which goes back to the drafts list so it can be fixed.
- * Token errors (190) already flip the connection to NEEDS_RECONNECT and missing
- * permissions are recorded, both by the Graph client (lib/server/meta-client.ts).
+ * The rules (what's retried, held, final, what a container status means) are pure in lib/publishing/job.ts.
+ * Old Post Generator jobs (no frozen photos) get theirs converted when publishing starts.
  */
 
-export type PublishReason =
-  | "no_image"
-  | "caption_too_long"
-  | "too_many_hashtags"
-  | "image_unreadable"
-  | "image_not_public"
-  | "image_unreachable"
-  | "media_rejected"
-  | "processing_timeout"
-  | "daily_limit"
-  | "uncertain"
-  | "not_connected"
-  | "permission"
-  | "rate_limited"
-  | "feature_disabled"
-  | "missed_window"
-  | "interrupted"
-  | "failed";
+/** Any of these gives access to publishing (the Gallery / AI tab, or the old queue). */
+export const PUBLISH_FEATURES = ["gallery.publishing", "postGenerator.addToQueue", "experiment.scheduleQueue"] as const satisfies readonly FeatureKey[];
 
-export type PublishOutcome = { ok: true; scheduledPostId: string; mediaId: string } | { ok: false; scheduledPostId: string; reason: PublishReason; final: boolean };
+/** Frozen copies live under this storage prefix (public: Meta downloads them). */
+const PUBLISH_PREFIX = "ig-publish";
+/** How long one run may keep working on a job (polls included) before handing it to the next run. */
+const STEP_BUDGET_MS = 45_000;
+/** "Publish now" from the old screens waits for the result inside the request, up to this long. */
+const INLINE_BUDGET_MS = 90_000;
+/** Quick re-checks of a processing container inside one run before handing it to the next run. */
+const INLINE_POLLS = 4;
+const POLL_INTERVAL_MS = 3_000;
 
-type Trigger = "manual" | "scheduled";
+export type PublishOutcome =
+  | { ok: true; jobId: string; mediaId: string | null }
+  | { ok: false; jobId: string; reason: PublishReason; final: boolean }
+  | { ok: false; jobId: string; pending: true };
 
-/** Either feature gives access to the posting queue, so either allows publishing it. */
-export const PUBLISH_FEATURES = ["postGenerator.addToQueue", "experiment.scheduleQueue"] as const satisfies readonly FeatureKey[];
-
-const CAPTION_MAX = 2200;
-const HASHTAGS_MAX = 30;
-/** A PUBLISHING row older than this was interrupted (the function died mid-way). */
-const STALE_PUBLISHING_MS = 10 * 60 * 1000;
-/** Scheduled posts more than this late (cron down) aren't published at a surprising time. */
-const MAX_LATE_MS = 6 * 60 * 60 * 1000;
-const RENDITION_PREFIX = "ig-publish";
-
-const CLAIMED_SELECT = {
-  id: true,
-  businessId: true,
-  draftId: true,
-  mediaUrl: true,
-  draft: { select: { caption: true, imageUrl: true } },
-} as const;
-
-type ClaimedPost = { id: string; businessId: string; draftId: string; mediaUrl: string | null; draft: { caption: string; imageUrl: string | null } };
-
-/** Problems we can spot before calling Instagram. */
-export function preflight(caption: string, imageUrl: string | null): PublishReason | null {
-  if (!imageUrl) return "no_image";
-  if (caption.length > CAPTION_MAX) return "caption_too_long";
-  if ((caption.match(/(^|\s)#[^\s#]+/gu) ?? []).length > HASHTAGS_MAX) return "too_many_hashtags";
-  return null;
+/** A problem with the post itself, found before or while preparing it. */
+class PublishProblem extends Error {
+  constructor(
+    readonly reason: PublishReason,
+    readonly detail = "",
+  ) {
+    super(reason);
+  }
 }
 
-/** API error for a failed "Publish now" (routes throw it; the UI shows the localized reason). */
+/** API error for a refused approval or a failed "Publish now" (the UI shows the localized reason). */
 export function publishApiError(reason: PublishReason): ApiError {
   if (reason === "not_connected") return new ApiError(409, "instagram_not_connected", "Connect Instagram again to publish.");
   if (reason === "permission") return new ApiError(403, "instagram_permission", "Instagram didn't grant permission to publish.", [{ path: "permission", message: "instagram_content_publish" }]);
@@ -101,11 +92,220 @@ export function publishApiError(reason: PublishReason): ApiError {
   return new ApiError(422, "publish_failed", `Publishing failed (${reason}).`, [{ path: "reason", message: reason }]);
 }
 
-// ── Triggers ────────────────────────────────────────────────────────────────
+// ── Approve ─────────────────────────────────────────────────────────────────
 
-/** "Publish now" on a draft: publishes it at once (a queued draft's scheduled post is used). */
+interface MediaSource {
+  /** Our stored file, a bundled sample image, or null for an Instagram post (asked for a current link). */
+  url: string | null;
+  igMediaId: string | null;
+}
+
+/**
+ * Instagram-ready JPEG copies of the photos, in order, in our (public) storage: the cover in its own shape
+ * clamped to 4:5–1.91:1, a carousel's other photos cropped to the cover's shape. Instagram posts are
+ * downloaded now (their links expire). Mock connections keep a photo's own link when it can't be read
+ * (nothing is downloaded by the mock). Throws PublishProblem; nothing is left behind on failure.
+ */
+async function freezeMedia(account: InstagramAccount, sources: MediaSource[]): Promise<{ urls: string[]; keys: string[] }> {
+  const storage = getStorageService();
+  const ig = getInstagramService();
+  const urls: string[] = [];
+  const keys: string[] = [];
+  let ratio: number | undefined;
+  try {
+    for (const source of sources) {
+      const link = source.igMediaId ? await ig.getMediaImageUrl(account, source.igMediaId).catch(() => null) : source.url;
+      const original = await fetchImage(link);
+      let jpeg: Awaited<ReturnType<typeof toInstagramJpeg>> | null = null;
+      if (original) jpeg = await toInstagramJpeg(original, { ratio }).catch(() => null);
+      if (!jpeg) {
+        if (account.provider === "mock" && link) {
+          urls.push(link);
+          keys.push("");
+          continue;
+        }
+        throw new PublishProblem("image_unreadable");
+      }
+      ratio ??= jpeg.width / jpeg.height;
+      const saved = await storage.save({ data: jpeg.data, contentType: "image/jpeg", prefix: PUBLISH_PREFIX, extension: "jpg" });
+      urls.push(saved.url);
+      keys.push(saved.key);
+      // Meta downloads the image itself: it has to be public (STORAGE_PROVIDER=vercel-blob).
+      if (account.provider === "meta" && !isPublicHttpsUrl(saved.url)) throw new PublishProblem("image_not_public");
+    }
+    return { urls, keys };
+  } catch (error) {
+    await deleteMedia(keys);
+    throw error instanceof PublishProblem ? error : new PublishProblem("image_unreadable", (error as Error)?.message);
+  }
+}
+
+async function deleteMedia(keys: string[]) {
+  const storage = getStorageService();
+  for (const key of keys) if (key) await storage.delete(key).catch((e) => console.error("[publish] couldn't delete a publish copy", (e as Error).message));
+}
+
+/** Refuses up front what would fail anyway: no connection, or the publishing permission missing. */
+async function assertCanPublishTo(businessId: string, account: InstagramAccount) {
+  if (!account.connected) throw publishApiError("not_connected");
+  if (account.provider === "meta") {
+    const conn = await db.instagramConnection.findUnique({ where: { businessId }, select: { missingPermissions: true } });
+    if (conn?.missingPermissions.includes("instagram_content_publish")) throw publishApiError("permission");
+  }
+}
+
+/** The language a Gallery / AI chat post goes out in: the chosen one, else English for English-only accounts, else Arabic when there is one. */
+async function postLanguage(businessId: string, draft: { captionEn: string | null; captionAr: string | null }, chosen?: "en" | "ar"): Promise<"en" | "ar"> {
+  if (chosen) return chosen;
+  const { languages } = await db.business.findUniqueOrThrow({ where: { id: businessId }, select: { languages: true } });
+  if (languages.length === 1 && languages[0] === "en") return "en";
+  return draft.captionAr?.trim() ? "ar" : "en";
+}
+
+const captionIn = (draft: { captionEn: string | null; captionAr: string | null; caption: string }, language: "en" | "ar") =>
+  (language === "en" ? draft.captionEn || draft.captionAr : draft.captionAr || draft.captionEn) || draft.caption;
+
+/**
+ * Approves a Gallery / AI chat draft for publishing: at `at`, or now (null). The job records the photos (frozen),
+ * the Instagram account and who approved it; the caption can still be edited until publishing starts.
+ * Returns the job's id. Refusals are API errors (not connected, permission, caption/photo problems, already queued).
+ */
+export async function approveDraft(businessId: string, userId: string, draftId: string, input: { at: Date | null; language?: "en" | "ar" }): Promise<string> {
+  const draft = await db.postDraft.findFirst({
+    where: { id: draftId, businessId, origin: { in: ["AI_CHAT", "GALLERY"] } },
+    select: {
+      status: true,
+      caption: true,
+      captionEn: true,
+      captionAr: true,
+      photos: { orderBy: { position: "asc" }, select: { photo: { select: { url: true, igMediaId: true, sampleKey: true } } } },
+    },
+  });
+  if (!draft) throw notFound("Draft");
+  if (draft.status === "QUEUED") throw new ApiError(409, "already_scheduled", "This post is already scheduled.");
+  if (draft.status !== "DRAFT") throw new ApiError(409, "conflict", "This post is already published.");
+
+  const language = await postLanguage(businessId, draft, input.language);
+  const caption = captionIn(draft, language);
+  const problem = captionProblem(caption);
+  if (problem) throw publishApiError(problem);
+  if (!draft.photos.length) throw publishApiError("no_image");
+  if (draft.photos.length > CAROUSEL_MAX) throw publishApiError("too_many_photos");
+
+  const account = await getInstagramAccount(businessId);
+  await assertCanPublishTo(businessId, account);
+
+  let media: { urls: string[]; keys: string[] };
+  try {
+    media = await freezeMedia(
+      account,
+      draft.photos.map(({ photo }) => ({ url: photo.sampleKey ? samplePhotoPath(photo.sampleKey) : photo.url, igMediaId: photo.igMediaId })),
+    );
+  } catch (error) {
+    throw error instanceof PublishProblem ? publishApiError(error.reason) : error;
+  }
+
+  const now = new Date();
+  try {
+    const job = await db.$transaction(async (tx) => {
+      const claimed = await tx.postDraft.updateMany({ where: { id: draftId, status: "DRAFT" }, data: { status: "QUEUED", publishError: null, caption, language } });
+      if (claimed.count !== 1) throw new ApiError(409, "already_scheduled", "This post is already scheduled.");
+      const created = await tx.scheduledPost.create({
+        data: {
+          businessId,
+          draftId,
+          scheduledFor: input.at ?? now,
+          format: media.urls.length > 1 ? "CAROUSEL" : "IMAGE",
+          mediaUrl: media.urls[0],
+          mediaUrls: media.urls,
+          mediaKeys: media.keys,
+          igUserId: account.igUserId,
+          approvedBy: userId,
+          approvedAt: now,
+        },
+        select: { id: true },
+      });
+      await logActivity(
+        { businessId, userId, action: "post.approved", details: { draftId, scheduledPostId: created.id, scheduledFor: (input.at ?? now).toISOString(), photos: media.urls.length, now: !input.at } },
+        tx,
+      );
+      return created;
+    });
+    if (!input.at) startSoon(job.id);
+    return job.id;
+  } catch (error) {
+    await deleteMedia(media.keys);
+    throw error;
+  }
+}
+
+/** Runs a job right after the response ("Post now"); the cron continues it if this dies. */
+function startSoon(jobId: string) {
+  after(() => runJob(jobId, { trigger: "now" }).then(() => undefined, (e) => console.error("[publish] post now failed to run", (e as Error)?.message)));
+}
+
+/**
+ * Moves an upcoming post to `at` (null: now), or tries a failed one again. A failed job that had containers
+ * checks them first (verifyFirst): if Instagram did publish it, it becomes Posted instead of going out twice.
+ */
+export async function reschedulePost(businessId: string, userId: string, jobId: string, at: Date | null): Promise<void> {
+  const job = await db.scheduledPost.findFirst({ where: { id: jobId, businessId }, select: { status: true, draftId: true, containerId: true, publishCallAt: true } });
+  if (!job) throw notFound("Scheduled post");
+  const scheduledFor = at ?? new Date();
+  const reset = { scheduledFor, attempts: 0, nextAttemptAt: null, waitingReason: null, leaseUntil: null } satisfies Prisma.ScheduledPostUpdateManyMutationInput;
+
+  if (job.status === "SCHEDULED") {
+    const { count } = await db.scheduledPost.updateMany({ where: { id: jobId, status: "SCHEDULED" }, data: reset });
+    if (count !== 1) throw new ApiError(409, "publish_started", "Publishing has already started.");
+  } else if (job.status === "FAILED") {
+    await db.$transaction(async (tx) => {
+      const active = await tx.scheduledPost.count({ where: { draftId: job.draftId, status: { in: ["SCHEDULED", "PUBLISHING"] } } });
+      if (active) throw new ApiError(409, "already_scheduled", "This post is already scheduled.");
+      const { count } = await tx.scheduledPost.updateMany({
+        where: { id: jobId, status: "FAILED" },
+        data: { ...reset, status: "SCHEDULED", failureReason: null, caption: null, verifyFirst: Boolean(job.containerId || job.publishCallAt) },
+      });
+      if (count !== 1) throw new ApiError(409, "conflict", "This post changed meanwhile. Reload and try again.");
+      await tx.postDraft.update({ where: { id: job.draftId }, data: { status: "QUEUED", publishError: null } });
+    });
+  } else {
+    throw new ApiError(409, job.status === "PUBLISHING" ? "publish_started" : "conflict", "Only scheduled or failed posts can be rescheduled.");
+  }
+  await logActivity({ businessId, userId, action: "post.rescheduled", details: { scheduledPostId: jobId, scheduledFor: scheduledFor.toISOString(), now: !at, retry: job.status === "FAILED" } });
+  if (!at) startSoon(jobId);
+}
+
+/** Cancels an upcoming post (or dismisses a failed one): its draft goes back to the drafts. Not once publishing started. */
+export async function cancelPost(businessId: string, userId: string, jobId: string): Promise<void> {
+  const job = await db.scheduledPost.findFirst({ where: { id: jobId, businessId }, select: { status: true, draftId: true, mediaKeys: true } });
+  if (!job) throw notFound("Scheduled post");
+  if (job.status === "PUBLISHING") throw new ApiError(409, "publish_started", "Publishing has already started; it can't be cancelled now.");
+  if (job.status !== "SCHEDULED" && job.status !== "FAILED") throw new ApiError(409, "conflict", "Only upcoming or failed posts can be cancelled.");
+  await db.$transaction(async (tx) => {
+    const { count } = await tx.scheduledPost.updateMany({ where: { id: jobId, status: job.status }, data: { status: "CANCELLED", cancelledBy: userId, cancelledAt: new Date(), leaseUntil: null } });
+    if (count !== 1) throw new ApiError(409, "publish_started", "Publishing has already started; it can't be cancelled now.");
+    const stillActive = await tx.scheduledPost.count({ where: { draftId: job.draftId, status: { in: ["SCHEDULED", "PUBLISHING"] } } });
+    if (!stillActive) await tx.postDraft.updateMany({ where: { id: job.draftId, status: "QUEUED" }, data: { status: "DRAFT" } });
+    await logActivity({ businessId, userId, action: "post.cancelled", details: { scheduledPostId: jobId } }, tx);
+  });
+  await deleteMedia(job.mediaKeys);
+}
+
+/**
+ * Inside a transaction that edits a draft: locks its jobs and refuses once publishing has started (the caption
+ * is locked from then on). A job claimed by the cron waits for this transaction, so it sends the saved caption.
+ */
+export async function assertDraftEditable(tx: Prisma.TransactionClient, draftId: string): Promise<void> {
+  const rows = await tx.$queryRaw<Array<{ status: string }>>`SELECT status::text AS status FROM "ScheduledPost" WHERE "draftId" = ${draftId} FOR UPDATE`;
+  if (rows.some((r) => r.status === "PUBLISHING")) throw new ApiError(409, "publish_started", "Publishing has started; the post can't be changed now.");
+  if (rows.some((r) => r.status === "PUBLISHED")) throw new ApiError(409, "conflict", "This post is already on Instagram.");
+}
+
+// ── Old Post Generator / queue triggers (wait for the result inside the request) ──
+
+/** "Publish now" on an old Post Generator draft: a job at once, run inside the request. */
 export async function publishDraftNow(businessId: string, draftId: string, userId: string): Promise<PublishOutcome> {
-  const draft = await db.postDraft.findFirst({ where: { id: draftId, businessId }, select: { id: true, status: true, imageUrl: true } });
+  const draft = await db.postDraft.findFirst({ where: { id: draftId, businessId }, select: { id: true, status: true, imageUrl: true, caption: true } });
   if (!draft) throw notFound("Draft");
   if (draft.status === "QUEUED") {
     const queued = await db.scheduledPost.findFirst({ where: { draftId, businessId, status: "SCHEDULED" }, select: { id: true }, orderBy: { scheduledFor: "asc" } });
@@ -113,31 +313,33 @@ export async function publishDraftNow(businessId: string, draftId: string, userI
     return publishScheduledNow(businessId, queued.id, userId);
   }
   if (draft.status !== "DRAFT") throw new ApiError(409, "conflict", "This draft is already published or rejected.");
+  const problem = !draft.imageUrl ? "no_image" : captionProblem(draft.caption);
+  if (problem) throw publishApiError(problem);
+  const account = await getInstagramAccount(businessId);
+  await assertCanPublishTo(businessId, account);
 
-  const post = await db.$transaction(async (tx) => {
+  const job = await db.$transaction(async (tx) => {
     const claimed = await tx.postDraft.updateMany({ where: { id: draftId, status: "DRAFT" }, data: { status: "QUEUED", publishError: null } });
     if (claimed.count !== 1) throw new ApiError(409, "conflict", "This draft is already being published.");
-    const now = new Date();
-    return tx.scheduledPost.create({
-      data: { businessId, draftId, scheduledFor: now, status: "PUBLISHING", publishStartedAt: now, mediaUrl: draft.imageUrl },
-      select: CLAIMED_SELECT,
-    });
+    return tx.scheduledPost.create({ data: { businessId, draftId, scheduledFor: new Date(), mediaUrl: draft.imageUrl, igUserId: account.igUserId, approvedBy: userId, approvedAt: new Date() }, select: { id: true } });
   });
-  return run(post, { trigger: "manual", userId, fromQueue: false });
+  return (await runJob(job.id, { trigger: "manual", userId, budgetMs: INLINE_BUDGET_MS })) ?? { ok: false, jobId: job.id, pending: true };
 }
 
-/** "Publish now" on a queued post. On failure it stays in the queue at its time. */
-export async function publishScheduledNow(businessId: string, scheduledPostId: string, userId: string): Promise<PublishOutcome> {
-  const post = await claim({ id: scheduledPostId, businessId });
-  if (!post) {
-    if (!(await db.scheduledPost.count({ where: { id: scheduledPostId, businessId } }))) throw notFound("Scheduled post");
+/** "Publish now" on a queued post: due now, run inside the request. On failure it follows the normal rules. */
+export async function publishScheduledNow(businessId: string, jobId: string, userId: string): Promise<PublishOutcome> {
+  const { count } = await db.scheduledPost.updateMany({ where: { id: jobId, businessId, status: "SCHEDULED" }, data: { scheduledFor: new Date(), nextAttemptAt: null, waitingReason: null } });
+  if (count !== 1) {
+    if (!(await db.scheduledPost.count({ where: { id: jobId, businessId } }))) throw notFound("Scheduled post");
     throw new ApiError(409, "conflict", "Only upcoming posts can be published.");
   }
-  return run(post, { trigger: "manual", userId, fromQueue: true });
+  // Null: the cron took it a moment ago; it shows as Publishing.
+  return (await runJob(jobId, { trigger: "manual", userId, budgetMs: INLINE_BUDGET_MS })) ?? { ok: false, jobId, pending: true };
 }
 
+// ── Deliver ─────────────────────────────────────────────────────────────────
+
 export interface PublishRunSummary {
-  recovered: number;
   due: number;
   published: number;
   failed: number;
@@ -145,47 +347,191 @@ export interface PublishRunSummary {
   skipped: number;
 }
 
+/** Jobs a run may take: due and not waiting, and not held by a live worker. */
+function runnableWhere(now: Date): Prisma.ScheduledPostWhereInput {
+  return {
+    AND: [
+      { OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: now } }] },
+      { OR: [{ status: "SCHEDULED", scheduledFor: { lte: now } }, { status: "PUBLISHING", OR: [{ leaseUntil: null }, { leaseUntil: { lt: now } }] }] },
+    ],
+  };
+}
+
 /**
- * The publish cron: publishes posts whose time has come, oldest first, until
- * `budgetMs` is used up (the rest wait for the next run). Businesses Meta asked
- * to slow down are skipped this run.
+ * The publish cron (every minute): continues every runnable job, oldest first, until `budgetMs` is used up.
+ * Businesses Meta asked to slow down wait for a later run.
  */
-export async function publishDuePosts({ budgetMs = 240_000, limit = 25 } = {}): Promise<PublishRunSummary> {
+export async function publishDuePosts({ budgetMs = 240_000, limit = 50 } = {}): Promise<PublishRunSummary> {
   const started = Date.now();
-  const summary: PublishRunSummary = { recovered: await recoverInterrupted(), due: 0, published: 0, failed: 0, retryLater: 0, skipped: 0 };
-
-  const due = await db.scheduledPost.findMany({
-    where: { status: "SCHEDULED", scheduledFor: { lte: new Date() } },
-    select: { id: true, businessId: true, scheduledFor: true },
-    orderBy: { scheduledFor: "asc" },
-    take: limit,
-  });
-  summary.due = due.length;
-  const allowed = new Map<string, boolean>();
-
+  const due = await db.scheduledPost.findMany({ where: runnableWhere(new Date()), select: { id: true, businessId: true }, orderBy: { scheduledFor: "asc" }, take: limit });
+  const summary: PublishRunSummary = { due: due.length, published: 0, failed: 0, retryLater: 0, skipped: 0 };
   for (const item of due) {
     if (Date.now() - started > budgetMs) break;
-    if (!allowed.has(item.businessId)) allowed.set(item.businessId, await canPublish(item.businessId));
-    const late = Date.now() - item.scheduledFor.getTime() > MAX_LATE_MS;
-    if (allowed.get(item.businessId) && !late && coolingDown(item.businessId)) {
+    if (coolingDown(item.businessId)) {
       summary.skipped += 1;
       continue;
     }
-    const post = await claim({ id: item.id, businessId: item.businessId });
-    if (!post) continue; // taken by "Publish now" meanwhile
-    const outcome = !allowed.get(item.businessId)
-      ? await fail(post, "feature_disabled", { trigger: "scheduled", fromQueue: true })
-      : late
-        ? await fail(post, "missed_window", { trigger: "scheduled", fromQueue: true })
-        : await run(post, { trigger: "scheduled", fromQueue: true });
+    const outcome = await runJob(item.id, { trigger: "scheduled", budgetMs: Math.min(STEP_BUDGET_MS, budgetMs - (Date.now() - started)) });
+    if (!outcome) continue; // taken by another run or "Post now" meanwhile
     if (outcome.ok) summary.published += 1;
-    else if (outcome.final) summary.failed += 1;
-    else summary.retryLater += 1;
+    else if ("pending" in outcome || !outcome.final) summary.retryLater += 1;
+    else summary.failed += 1;
   }
   return summary;
 }
 
-// ── Internals ───────────────────────────────────────────────────────────────
+const JOB_SELECT = {
+  id: true,
+  businessId: true,
+  draftId: true,
+  status: true,
+  scheduledFor: true,
+  format: true,
+  mediaUrl: true,
+  mediaUrls: true,
+  mediaKeys: true,
+  igUserId: true,
+  caption: true,
+  containerId: true,
+  childContainerIds: true,
+  publishCallAt: true,
+  verifyFirst: true,
+  attempts: true,
+  publishStartedAt: true,
+  draft: { select: { caption: true, imageUrl: true } },
+} satisfies Prisma.ScheduledPostSelect;
+
+type Job = Prisma.ScheduledPostGetPayload<{ select: typeof JOB_SELECT }>;
+
+type Trigger = "scheduled" | "now" | "manual";
+
+interface RunContext {
+  trigger: Trigger;
+  userId?: string;
+  budgetMs?: number;
+}
+
+/** Takes the job for this worker (lease); null when it isn't runnable or another worker has it. */
+async function claim(id: string): Promise<Job | null> {
+  const now = new Date();
+  const { count } = await db.scheduledPost.updateMany({
+    where: { id, ...runnableWhere(now) },
+    data: { status: "PUBLISHING", leaseUntil: new Date(now.getTime() + PUBLISH_LEASE_MS), nextAttemptAt: null },
+  });
+  if (count !== 1) return null;
+  return db.scheduledPost.findUnique({ where: { id }, select: JOB_SELECT });
+}
+
+/**
+ * Works on one job until it's Posted, Failed, waiting, or this run's budget is used. Null when the job
+ * wasn't runnable (not due, cancelled, or held by another worker).
+ */
+export async function runJob(jobId: string, ctx: RunContext): Promise<PublishOutcome | null> {
+  const claimed = await claim(jobId);
+  if (!claimed) return null;
+  let job: Job = claimed;
+  const started = Date.now();
+  const budget = ctx.budgetMs ?? STEP_BUDGET_MS;
+  const ig = getInstagramService();
+  let provider: "meta" | "mock" = "mock";
+
+  /** Saves progress (Instagram's ids) at once, before the next call. */
+  const save = async (data: Prisma.ScheduledPostUpdateInput) => {
+    job = await db.scheduledPost.update({ where: { id: job.id }, data, select: JOB_SELECT });
+  };
+
+  try {
+    const now = new Date();
+    const publishCalled = Boolean(job.publishCallAt);
+    const account = await getInstagramAccount(job.businessId);
+    provider = account.provider;
+    if (!publishCalled && !(await canPublish(job.businessId))) return await final(job, "feature_disabled", ctx, { provider });
+    // Disconnected: held up to 6 hours late, then failed as not connected (reconnecting is the owner's fix).
+    if (!account.connected) return await failure(job, "not_connected", ctx, { provider });
+    if (isMissed({ scheduledFor: job.scheduledFor, attempts: job.attempts, publishCalled }, now) && !job.containerId) return await final(job, "missed_window", ctx, { provider });
+    if (job.igUserId && account.igUserId && job.igUserId !== account.igUserId) return await final(job, "account_changed", ctx, { provider });
+
+    // The caption as it is when publishing starts; the draft can't be edited from here on.
+    if (job.caption === null) await save({ caption: job.draft.caption, publishStartedAt: job.publishStartedAt ?? now });
+    const caption = job.caption!;
+    if (!publishCalled && !job.containerId) {
+      const problem = captionProblem(caption);
+      if (problem) return await final(job, problem, ctx, { provider });
+    }
+
+    // Old Post Generator jobs: their image is converted now.
+    if (!job.mediaUrls.length) {
+      const source = job.mediaUrl ?? job.draft.imageUrl;
+      if (!source) return await final(job, "no_image", ctx, { provider });
+      const media = await freezeMedia(account, [{ url: source, igMediaId: null }]);
+      await save({ mediaUrls: media.urls, mediaKeys: media.keys, format: "IMAGE" });
+    }
+
+    let polls = 0;
+    while (Date.now() - started < budget) {
+      const step = nextStep({
+        format: job.format,
+        photos: job.mediaUrls.length,
+        childContainerIds: job.childContainerIds,
+        containerId: job.containerId,
+        publishCalled: Boolean(job.publishCallAt),
+        verifyFirst: job.verifyFirst,
+      });
+
+      if (step === "create_child") {
+        const id = await ig.createPostContainer(account, { imageUrl: job.mediaUrls[job.childContainerIds.length], carouselItem: true });
+        await save({ childContainerIds: { push: id } });
+        continue;
+      }
+
+      if (step === "create_container") {
+        // The daily publishing limit, checked before the post's container (the step that leads to a post).
+        const limit = await ig.getPublishingLimit(account);
+        if (limit && limit.used >= limit.total) return await failure(job, "daily_limit", ctx, { provider });
+        const id =
+          job.format === "CAROUSEL"
+            ? await ig.createCarouselContainer(account, { childIds: job.childContainerIds, caption })
+            : await ig.createPostContainer(account, { imageUrl: job.mediaUrls[0], caption });
+        await save({ containerId: id, publishStartedAt: new Date(), verifyFirst: false });
+        continue;
+      }
+
+      // step === "check": what the container says decides everything (the duplicate protection).
+      const status = await ig.getContainerStatus(account, job.containerId!);
+      const decision = onContainerStatus(status.code, { fresh: !job.verifyFirst, processingSince: job.publishStartedAt, now: new Date() });
+
+      if (decision.kind === "posted") return await posted(job, account, caption, null, ctx);
+      if (decision.kind === "fail") return await final(job, decision.reason, ctx, { provider, detail: status.detail });
+      if (decision.kind === "restart") {
+        // Never published (expired, or an old container of a rescheduled job): new containers are safe.
+        await save({ containerId: null, childContainerIds: [], publishCallAt: null, verifyFirst: false });
+        continue;
+      }
+      if (decision.kind === "wait") {
+        if (polls++ < INLINE_POLLS && Date.now() - started + POLL_INTERVAL_MS < budget) {
+          await sleep(POLL_INTERVAL_MS);
+          continue;
+        }
+        await release(job, new Date(Date.now() + PROCESSING_RECHECK_MS), "processing");
+        return { ok: false, jobId: job.id, pending: true };
+      }
+
+      // decision.kind === "publish": saved before the call, so a crash or an unclear answer is checked, not repeated.
+      await save({ publishCallAt: new Date() });
+      const mediaId = await ig.publishContainer(account, job.containerId!);
+      return await posted(job, account, caption, mediaId, ctx);
+    }
+    await release(job, null, null);
+    return { ok: false, jobId: job.id, pending: true };
+  } catch (error) {
+    const reason = reasonOf(error);
+    if (error instanceof PublishProblem && reason === "image_unreadable") return final(job, reason, ctx, { provider, detail: error.detail });
+    if (reason === "failed") console.error("[publish] unexpected error", (error as Error)?.message);
+    return failure(job, reason, ctx, { provider, detail: error instanceof InstagramPublishError ? error.detail : (error as Error)?.message });
+  }
+}
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function canPublish(businessId: string): Promise<boolean> {
   const rows = await db.featurePermission.findMany({ where: { businessId }, select: { featureKey: true, enabled: true } });
@@ -193,75 +539,13 @@ async function canPublish(businessId: string): Promise<boolean> {
   return PUBLISH_FEATURES.some((key) => isFeatureEnabled(permissions, key));
 }
 
-async function claim(where: { id: string; businessId: string }): Promise<ClaimedPost | null> {
-  const claimed = await db.scheduledPost.updateMany({ where: { ...where, status: "SCHEDULED" }, data: { status: "PUBLISHING", publishStartedAt: new Date() } });
-  if (claimed.count !== 1) return null;
-  return db.scheduledPost.findUnique({ where: { id: where.id }, select: CLAIMED_SELECT });
-}
-
-/** PUBLISHING rows left behind by a crashed run. We can't know whether Instagram got them. */
-async function recoverInterrupted(): Promise<number> {
-  const stale = await db.scheduledPost.findMany({
-    where: { status: "PUBLISHING", publishStartedAt: { lt: new Date(Date.now() - STALE_PUBLISHING_MS) } },
-    select: CLAIMED_SELECT,
-  });
-  for (const post of stale) await fail(post, "interrupted", { trigger: "scheduled", fromQueue: false });
-  return stale.length;
-}
-
-interface RunContext {
-  trigger: Trigger;
-  userId?: string;
-  /** The post was in the queue before this attempt (manual failures put it back). */
-  fromQueue: boolean;
-}
-
-async function run(post: ClaimedPost, ctx: RunContext): Promise<PublishOutcome> {
-  const storage = getStorageService();
-  let renditionKey: string | null = null;
-  let provider: "meta" | "mock" = "mock";
-  try {
-    const caption = post.draft.caption;
-    const imageUrl = post.mediaUrl ?? post.draft.imageUrl;
-    const problem = preflight(caption, imageUrl);
-    if (problem) return await fail(post, problem, ctx);
-
-    const account = await getInstagramAccount(post.businessId);
-    provider = account.provider;
-    if (!account.connected) return await fail(post, "not_connected", ctx, { provider });
-
-    let mediaUrl = imageUrl;
-    if (account.provider === "meta") {
-      // Meta downloads the image itself: it has to be public, and a JPEG in Instagram's shape.
-      if (!isPublicHttpsUrl(imageUrl)) return await fail(post, "image_not_public", ctx, { provider });
-      const key = storage.keyFromUrl(imageUrl!);
-      const original = key ? await storage.read(key) : null;
-      if (!original) return await fail(post, "image_unreadable", ctx, { provider });
-      let jpeg: Awaited<ReturnType<typeof toInstagramJpeg>>;
-      try {
-        jpeg = await toInstagramJpeg(original);
-      } catch {
-        return await fail(post, "image_unreadable", ctx, { provider });
-      }
-      const saved = await storage.save({ data: jpeg.data, contentType: "image/jpeg", prefix: RENDITION_PREFIX, extension: "jpg" });
-      renditionKey = saved.key;
-      mediaUrl = saved.url;
-    }
-
-    const { mediaId } = await getInstagramService().publishPost(account, { caption, mediaUrl });
-    await succeed(post, mediaId, provider, ctx);
-    return { ok: true, scheduledPostId: post.id, mediaId };
-  } catch (error) {
-    const reason = reasonOf(error);
-    if (reason === "failed") console.error("[publish] unexpected error", (error as Error)?.message);
-    return fail(post, reason, ctx, { provider, detail: error instanceof InstagramPublishError ? error.detail : (error as Error)?.message });
-  } finally {
-    // Meta has fetched the image by now (the container finished, or the attempt is over).
-    if (renditionKey) await storage.delete(renditionKey).catch((e) => console.error("[publish] couldn't delete the publish copy", (e as Error).message));
-  }
+/** Hands the job back for a later run (still processing, or this run's time is up). */
+async function release(job: Job, nextAttemptAt: Date | null, waitingReason: string | null) {
+  await db.scheduledPost.update({ where: { id: job.id }, data: { leaseUntil: null, nextAttemptAt, waitingReason } });
 }
 
 function reasonOf(error: unknown): PublishReason {
+  if (error instanceof PublishProblem) return error.reason;
   if (error instanceof InstagramPublishError) return error.reason;
   if (error instanceof InstagramNotConnectedError) return "not_connected";
   if (error instanceof InstagramPermissionError) return "permission";
@@ -269,78 +553,142 @@ function reasonOf(error: unknown): PublishReason {
   return "failed";
 }
 
-async function succeed(post: ClaimedPost, mediaId: string, provider: "meta" | "mock", ctx: RunContext) {
+/** The job is on Instagram: record the media id (looked up when the answer was unclear) and its link. */
+async function posted(job: Job, account: InstagramAccount, caption: string, mediaId: string | null, ctx: RunContext): Promise<PublishOutcome> {
+  const ig = getInstagramService();
+  let id = mediaId;
+  let permalink: string | null = null;
+  if (!id) {
+    const found = await ig.findPublishedMedia(account, { caption, since: job.publishCallAt ?? job.publishStartedAt ?? job.scheduledFor }).catch(() => null);
+    id = found?.mediaId ?? null;
+    permalink = found?.permalink ?? null;
+  }
+  if (id && !permalink) permalink = await ig.getPermalink(account, id);
+
   await db.$transaction(async (tx) => {
-    await tx.scheduledPost.update({ where: { id: post.id }, data: { status: "PUBLISHED", publishedMediaId: mediaId, publishedAt: new Date(), failureReason: null } });
-    await tx.postDraft.update({ where: { id: post.draftId }, data: { status: "PUBLISHED", publishError: null } });
-    await logActivity({ businessId: post.businessId, userId: ctx.userId ?? null, action: "post.published", details: { draftId: post.draftId, scheduledPostId: post.id, trigger: ctx.trigger } }, tx);
+    await tx.scheduledPost.update({
+      where: { id: job.id },
+      data: { status: "PUBLISHED", publishedMediaId: id, permalink, publishedAt: new Date(), failureReason: null, waitingReason: null, leaseUntil: null, nextAttemptAt: null },
+    });
+    await tx.postDraft.update({ where: { id: job.draftId }, data: { status: "PUBLISHED", publishError: null } });
+    await logActivity({ businessId: job.businessId, userId: ctx.userId ?? null, action: "post.published", details: { draftId: job.draftId, scheduledPostId: job.id, mediaId: id, trigger: ctx.trigger, photos: job.mediaUrls.length } }, tx);
   });
   await logIntegration({
-    businessId: post.businessId,
-    provider,
+    businessId: job.businessId,
+    provider: account.provider,
     level: "info",
     call: "publish post",
-    message: `Post published to Instagram (${ctx.trigger === "manual" ? "Publish now" : "scheduled"}).`,
-    details: { scheduledPostId: post.id, draftId: post.draftId, mediaId, trigger: ctx.trigger },
+    message: `Post published to Instagram (${ctx.trigger === "scheduled" ? "scheduled" : "Post now"}${job.format === "CAROUSEL" ? `, carousel of ${job.mediaUrls.length}` : ""}).${id ? "" : " Its media id wasn't found yet; the next sync shows the post."}`,
+    details: { scheduledPostId: job.id, draftId: job.draftId, mediaId: id, containerId: job.containerId, trigger: ctx.trigger },
   });
-  if (ctx.trigger === "scheduled") await notify({ businessId: post.businessId, type: "post_published" });
-  // Pull the new post (and the profile's post count) into the app soon.
-  if (provider === "meta" && !coolingDown(post.businessId)) {
-    after(() => syncInstagram(post.businessId, { scope: "full", reason: "auto" }).catch((e) => console.error("[publish] sync after publishing failed", (e as Error).message)));
+  if (ctx.trigger !== "manual") await notify({ businessId: job.businessId, type: "post_published" });
+  // Meta has the images; the copies aren't needed any more.
+  await deleteMedia(job.mediaKeys);
+  if (account.provider === "meta" && !coolingDown(job.businessId)) {
+    after(() => syncInstagram(job.businessId, { scope: "full", reason: "auto" }).catch((e) => console.error("[publish] sync after publishing failed", (e as Error).message)));
   }
+  return { ok: true, jobId: job.id, mediaId: id };
 }
 
 /** English summary for the integration log (the UI shows its own localized text). */
 const LOG_TEXT: Record<PublishReason, string> = {
   no_image: "The post has no image; Instagram requires one.",
-  caption_too_long: `The caption is longer than ${CAPTION_MAX} characters.`,
-  too_many_hashtags: `The caption has more than ${HASHTAGS_MAX} hashtags.`,
-  image_unreadable: "The post's image couldn't be read or converted to JPEG.",
+  too_many_photos: `A carousel can have at most ${CAROUSEL_MAX} photos.`,
+  caption_too_long: "The caption is longer than 2,200 characters.",
+  too_many_hashtags: "The caption has more than 30 hashtags.",
+  too_many_mentions: "The caption has more than 20 @mentions.",
+  image_unreadable: "A photo couldn't be read or converted to JPEG.",
   image_not_public: "The image isn't at a public HTTPS URL (STORAGE_PROVIDER must be vercel-blob).",
   image_unreachable: "Meta couldn't download the image.",
   media_rejected: "Instagram rejected the image or caption.",
   processing_timeout: "Instagram didn't finish processing the image in time.",
   daily_limit: "The account reached Instagram's limit of published posts for 24 hours.",
-  uncertain: "The publish call got no answer; the post may or may not be on Instagram.",
+  uncertain: "The publish call got no answer; the container is checked before anything is sent again.",
+  network: "No answer from Instagram; will retry.",
   not_connected: "Instagram isn't connected (or the token expired / was revoked).",
+  account_changed: "A different Instagram account is connected now than when the post was approved.",
   permission: "The instagram_content_publish permission wasn't granted.",
   rate_limited: "Meta rate limit; will retry later.",
   feature_disabled: "Publishing features are turned off for this business.",
   missed_window: "The scheduled time passed more than 6 hours ago; not published late.",
-  interrupted: "A publish attempt was interrupted; check Instagram before retrying.",
+  interrupted: "A publish attempt was interrupted; Instagram is checked before retrying.",
   failed: "Publishing failed unexpectedly.",
 };
 
-/** Retried by the next cron run instead of failing the scheduled post. */
-const RETRY_LATER: ReadonlySet<PublishReason> = new Set(["rate_limited", "processing_timeout"]);
+/** A step failed: retry later, wait (reconnect / daily limit), or fail for good — lib/publishing/job.ts decides. */
+async function failure(job: Job, reason: PublishReason, ctx: RunContext, extra: { provider?: "meta" | "mock"; detail?: string } = {}): Promise<PublishOutcome> {
+  const decision = afterFailure({ scheduledFor: job.scheduledFor, attempts: job.attempts, publishCalled: Boolean(job.publishCallAt) }, reason, new Date());
+  if (decision.kind === "fail") return final(job, decision.reason, ctx, extra);
+  // Nothing sent to Instagram yet: back to Scheduled (it can still be cancelled or moved). Otherwise it stays Publishing.
+  const started = Boolean(job.containerId || job.childContainerIds.length || job.publishCallAt);
+  await db.scheduledPost.update({
+    where: { id: job.id },
+    data: {
+      status: started ? "PUBLISHING" : "SCHEDULED",
+      leaseUntil: null,
+      nextAttemptAt: decision.at,
+      waitingReason: decision.waiting,
+      ...(decision.kind === "retry" && { attempts: decision.attempts }),
+    },
+  });
+  await logIntegration({
+    businessId: job.businessId,
+    provider: extra.provider ?? "meta",
+    level: "warning",
+    call: "publish post",
+    errorCode: reason,
+    message: `${LOG_TEXT[reason]}${extra.detail ? ` ${extra.detail}` : ""} Next try ${decision.at.toISOString()}.`,
+    details: { scheduledPostId: job.id, draftId: job.draftId, trigger: ctx.trigger, reason, outcome: decision.kind, attempts: decision.kind === "retry" ? decision.attempts : job.attempts },
+  });
+  return { ok: false, jobId: job.id, reason, final: false };
+}
 
-async function fail(post: ClaimedPost, reason: PublishReason, ctx: RunContext, extra: { provider?: "meta" | "mock"; detail?: string } = {}): Promise<PublishOutcome> {
-  // A queued post whose "Publish now" failed keeps its slot; so does a scheduled one hitting a temporary limit.
-  const backToQueue = ctx.fromQueue && (ctx.trigger === "manual" || RETRY_LATER.has(reason)) && reason !== "uncertain" && reason !== "interrupted";
+/** Failed for good: the owner sees the reason with Reschedule / Cancel; the draft is back among the drafts. */
+async function final(job: Job, reason: PublishReason, ctx: RunContext, extra: { provider?: "meta" | "mock"; detail?: string } = {}): Promise<PublishOutcome> {
   try {
-    if (backToQueue) {
-      await db.scheduledPost.update({ where: { id: post.id }, data: { status: "SCHEDULED", publishStartedAt: null } });
-    } else {
-      await db.$transaction(async (tx) => {
-        await tx.scheduledPost.update({ where: { id: post.id }, data: { status: "FAILED", failureReason: reason } });
-        const stillQueued = await tx.scheduledPost.count({ where: { draftId: post.draftId, status: { in: ["SCHEDULED", "PUBLISHING"] } } });
-        await tx.postDraft.update({ where: { id: post.draftId }, data: { publishError: reason, ...(stillQueued === 0 && { status: "DRAFT" }) } });
-        await logActivity({ businessId: post.businessId, userId: ctx.userId ?? null, action: "post.publish_failed", details: { draftId: post.draftId, scheduledPostId: post.id, reason, trigger: ctx.trigger } }, tx);
-      });
-    }
+    await db.$transaction(async (tx) => {
+      await tx.scheduledPost.update({ where: { id: job.id }, data: { status: "FAILED", failureReason: reason, waitingReason: null, leaseUntil: null, nextAttemptAt: null } });
+      const stillActive = await tx.scheduledPost.count({ where: { draftId: job.draftId, status: { in: ["SCHEDULED", "PUBLISHING"] } } });
+      await tx.postDraft.update({ where: { id: job.draftId }, data: { publishError: reason, ...(stillActive === 0 && { status: "DRAFT" }) } });
+      await logActivity({ businessId: job.businessId, userId: ctx.userId ?? null, action: "post.publish_failed", details: { draftId: job.draftId, scheduledPostId: job.id, reason, trigger: ctx.trigger } }, tx);
+    });
   } catch (error) {
     console.error("[publish] couldn't record the failure", (error as Error).message);
   }
-  // A scheduled post that won't be retried: tell the owner (a manual "Publish now" shows its result on screen).
-  if (ctx.trigger === "scheduled" && !backToQueue) await notify({ businessId: post.businessId, type: "post_failed", params: { reason } });
+  // The owner isn't watching a scheduled or "Post now" job: tell them. An inline "Publish now" shows its result on screen.
+  if (ctx.trigger !== "manual") await notify({ businessId: job.businessId, type: "post_failed", params: { reason } });
   await logIntegration({
-    businessId: post.businessId,
+    businessId: job.businessId,
     provider: extra.provider ?? "meta",
-    level: RETRY_LATER.has(reason) || reason === "no_image" ? "warning" : "error",
+    level: reason === "no_image" ? "warning" : "error",
     call: "publish post",
     errorCode: reason,
     message: extra.detail ? `${LOG_TEXT[reason]} ${extra.detail}` : LOG_TEXT[reason],
-    details: { scheduledPostId: post.id, draftId: post.draftId, trigger: ctx.trigger, reason, outcome: backToQueue ? "kept_in_queue" : "failed" },
+    details: { scheduledPostId: job.id, draftId: job.draftId, trigger: ctx.trigger, reason, outcome: "failed", containerId: job.containerId },
   });
-  return { ok: false, scheduledPostId: post.id, reason, final: !backToQueue };
+  return { ok: false, jobId: job.id, reason, final: true };
+}
+
+/** Instagram is connected again: posts that were waiting for it go out at the next run instead of their next check. */
+export async function resumeHeldPosts(businessId: string): Promise<number> {
+  const { count } = await db.scheduledPost.updateMany({
+    where: { businessId, waitingReason: "not_connected", status: { in: ["SCHEDULED", "PUBLISHING"] } },
+    data: { nextAttemptAt: null },
+  });
+  return count;
+}
+
+/** The daily cron: frozen copies of cancelled / failed jobs older than 30 days (posted ones are deleted at once). */
+export async function purgePublishMedia(now = new Date()): Promise<{ deleted: number }> {
+  const before = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const rows = await db.scheduledPost.findMany({
+    where: { status: { in: ["CANCELLED", "FAILED"] }, updatedAt: { lt: before }, mediaKeys: { isEmpty: false } },
+    select: { id: true, mediaKeys: true },
+    take: 200,
+  });
+  for (const row of rows) {
+    await deleteMedia(row.mediaKeys);
+    await db.scheduledPost.update({ where: { id: row.id }, data: { mediaKeys: [] } });
+  }
+  return { deleted: rows.length };
 }

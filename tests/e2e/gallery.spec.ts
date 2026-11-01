@@ -7,7 +7,8 @@ import { expect, test, type Browser, type Locator, type Page } from "@playwright
  * what the owner does (favourites, albums, removing, drafts, uploads) is saved on the server. Library grouped
  * by date, badges, albums (demo category albums + collections), the viewer (plain photo vs. ready post), photo
  * actions, select mode, real uploads, and "Create post with AI" through Approve / Save to gallery (real drafts;
- * publishing isn't connected yet). Counts are compared before/after, so the spec also runs on an unseeded DB.
+ * scheduling a sample post makes a real job, cancelled again; tests/e2e/publishing.spec.ts covers publishing).
+ * Counts are compared before/after, so the spec also runs on an unseeded DB.
  * A real business (no samples, empty state, drafts after a reload, other businesses' data): gallery-real.spec.ts.
  */
 
@@ -153,21 +154,34 @@ test("a published post opens as an Instagram post with its caption and hashtags;
   await expect(viewer()).toHaveCount(0);
 });
 
-test("a scheduled post's Reschedule and Post now say publishing is coming next (no pretend success)", async () => {
-  await main().locator('button[aria-label]:has(span[title="Ready post · Scheduled"])').first().click();
+test("a sample ready post: Post now asks first; Schedule makes a real job (shown as Scheduled) that can be cancelled", async () => {
+  await main().locator('button[aria-label]:has(span[title^="Ready post · Scheduled"])').first().click();
   await viewer().getByRole("button", { name: "Open post" }).click();
-  const sheet = page.getByRole("dialog", { name: "Ready post" }).last();
+  let sheet = page.getByRole("dialog", { name: "Ready post" }).last();
+  // Post now asks before it goes live; cancelling changes nothing.
   await sheet.getByRole("button", { name: "Post now" }).click();
-  await expect(toast("Publishing is coming next. Your post is saved as a draft.")).toBeVisible();
-  await sheet.getByRole("button", { name: "Reschedule" }).click();
+  const confirm = page.getByRole("dialog", { name: "Post to Instagram now?" });
+  await expect(confirm).toBeVisible();
+  await confirm.getByRole("button", { name: "Cancel" }).click();
+  await expect(toast(/^Posting to Instagram now/)).toHaveCount(0);
+
+  await viewer().first().getByRole("button", { name: "Open post" }).click();
+  sheet = page.getByRole("dialog", { name: "Ready post" }).last();
+  await sheet.getByRole("button", { name: "Schedule", exact: true }).click();
   const schedule = page.getByRole("dialog", { name: "Schedule" });
-  await expect(schedule.getByTestId("schedule-note")).toHaveText("Scheduling isn't connected yet. We'll keep the time you pick with your draft.");
+  await expect(schedule.getByTestId("schedule-note")).toContainText("even with the app closed");
   await expect(schedule.getByText("Best time to post")).toBeVisible();
-  await expect(schedule.getByRole("radio")).toHaveCount(5);
-  await schedule.getByRole("button", { name: "Save time" }).click();
-  // A sample post has no saved draft yet, so the message is the general one (twice: Post now, then Save time).
-  await expect(toast(/^Publishing is coming next/)).toHaveCount(2);
-  await expect(toast(/^Scheduled for/)).toHaveCount(0);
+  // The sample's suggested times that are still ahead (past ones are left out), plus a time of your own.
+  expect(await schedule.getByRole("radio").count()).toBeGreaterThanOrEqual(2);
+  await schedule.getByRole("button", { name: "Schedule post" }).click();
+  await expect(toast(/^Scheduled for/)).toBeVisible();
+
+  // It's a real job now: the post shows Scheduled, and Cancel puts it back to a draft.
+  await viewer().first().getByRole("button", { name: "Open post" }).click();
+  sheet = page.getByRole("dialog", { name: "Ready post" }).last();
+  await expect(sheet.getByTestId("post-status")).toHaveAttribute("data-state", "scheduled");
+  await sheet.getByRole("button", { name: "Cancel" }).click();
+  await expect(toast("Schedule cancelled. The post is back in your drafts.")).toBeVisible();
   await closeAll();
 });
 
@@ -265,7 +279,7 @@ test("Upload: two real photos from this device join Uploads (and stay after a re
   await main().getByRole("tab", { name: "Library" }).click();
 });
 
-test("Create post with AI: recognises the photo; the post matches its item; Approve saves it as a draft (publishing comes next)", async () => {
+test("Create post with AI: recognises the photo; the post matches its item; Approve saves it as a draft and opens the schedule", async () => {
   await openAlbums();
   const drafts = await albumCount("Drafts");
   const scheduled = await albumCount("Scheduled");
@@ -286,7 +300,8 @@ test("Create post with AI: recognises the photo; the post matches its item; Appr
   // The caption is about this photo's item.
   await expect(card.getByText(new RegExp(dish.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i")).first()).toBeVisible();
   await card.getByRole("button", { name: "Approve and schedule" }).click();
-  await expect(toast("Publishing is coming next. Your post is saved as a draft.")).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Schedule" }).getByRole("button", { name: "Schedule post" })).toBeVisible();
+  await closeAll();
   await expect(card.getByRole("status")).toContainText("Saved");
   await expect(card.getByRole("status")).not.toContainText("Scheduled for");
 

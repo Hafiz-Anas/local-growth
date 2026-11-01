@@ -11,6 +11,15 @@ import { useStore } from "@/lib/gallery/store";
 import { notify } from "@/store/ui-store";
 import type { AccountId } from "@/mock-data/gallery/types";
 import type { Client } from "@/types";
+import type { GalleryDto } from "@/types/api";
+
+/** While a post is publishing, waiting or due within 2 minutes, the Gallery reloads every 10 s to show how it went. */
+export function publishingRefreshMs(data: GalleryDto | undefined, now = Date.now()): number | false {
+  const busy = data?.drafts.some(
+    (d) => d.post && (d.post.state === "publishing" || d.post.state === "waiting" || (d.post.state === "scheduled" && Date.parse(d.post.scheduledFor) - now < 120_000)),
+  );
+  return busy ? 10_000 : false;
+}
 
 /**
  * Loads the business's Gallery (GET /api/gallery; in admin preview the read-only copy) into the Gallery and
@@ -30,7 +39,11 @@ export function mockAccountFor(client: Pick<Client, "handle" | "businessName" | 
 /** The Gallery query (one cache entry: GallerySync loads it into the store, screens read its loading / error state). */
 export function useGalleryQuery() {
   const { client, isPreview } = useActiveClient();
-  return useQuery({ queryKey: [...qk.gallery, isPreview ? client.id : "own"], queryFn: () => galleryApi.get(isPreview ? client.id : undefined) });
+  return useQuery({
+    queryKey: [...qk.gallery, isPreview ? client.id : "own"],
+    queryFn: () => galleryApi.get(isPreview ? client.id : undefined),
+    refetchInterval: (query) => publishingRefreshMs(query.state.data),
+  });
 }
 
 export function GallerySync() {

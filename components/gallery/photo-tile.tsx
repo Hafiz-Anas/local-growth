@@ -54,7 +54,8 @@ export const SourceBadge = memo(function SourceBadge({ photo, labeled, className
 export const PostBadge = memo(function PostBadge({ photo, className }: { photo: Photo; className?: string }) {
   const { t } = useT();
   if (!isPost(photo)) return null;
-  const status = photo.status === "published" ? t("published") : photo.status === "scheduled" ? t("scheduled") : t("savedPost");
+  const failed = photo.publish?.state === "failed";
+  const status = photo.status === "published" ? t("published") : failed ? t("failedStatus") : photo.status === "scheduled" ? t("scheduled") : t("savedPost");
   const label = `${t("readyPost")} · ${status}`;
   return (
     <span
@@ -62,6 +63,7 @@ export const PostBadge = memo(function PostBadge({ photo, className }: { photo: 
       className={cn(
         "grid size-[22px] place-items-center rounded-full bg-black/45 text-white backdrop-blur-sm",
         photo.status === "scheduled" && "bg-ge-brand/90",
+        failed && "bg-ge-destructive/90",
         className,
       )}
     >
@@ -93,6 +95,7 @@ export const PhotoTile = memo(function PhotoTile({
       onClick={() => (selecting ? onToggle(photo.id) : onOpen(photo.id))}
       aria-pressed={selecting ? selected : undefined}
       aria-label={l(photo.dish)}
+      data-photo-id={photo.id}
       className="group relative aspect-square overflow-hidden bg-ge-muted outline-offset-[-2px] focus-visible:rounded-none focus-visible:outline-[3px]"
     >
       {/* The selected shrink sits on a wrapper so it never fights the image's own AI look. */}

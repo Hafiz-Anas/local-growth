@@ -20,5 +20,5 @@ export const SMART_ALBUMS: SmartAlbum[] = [
   { id: "favorites", key: "favorites", icon: Heart, filter: (p) => p.favorite },
 ];
 
-/** The collections a business sees: Scheduled only for demo businesses (their samples) until publishing is connected. */
-export const smartAlbums = (demo: boolean) => (demo ? SMART_ALBUMS : SMART_ALBUMS.filter((a) => a.id !== "scheduled"));
+/** The collections a business sees: Scheduled when it can publish (gallery.publishing), or a demo business (its samples). */
+export const smartAlbums = (demo: boolean, publishing: boolean) => (demo || publishing ? SMART_ALBUMS : SMART_ALBUMS.filter((a) => a.id !== "scheduled"));

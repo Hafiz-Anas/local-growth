@@ -13,7 +13,7 @@ import { galleryApi } from "./api";
 import { chatsApi } from "./chats-api";
 import { MAX_SAVED_INSPIRATION, inspirationStorageKey, parseSavedInspiration, type CompetitorPostRef, type SavedInspiration } from "./competitor-posts";
 import { hashtagsIn } from "./drafts";
-import { apiId, hydrateGallery, screenId } from "./hydrate";
+import { apiId, hydrateGallery, screenId, withDraft } from "./hydrate";
 import { chatsStorageKey, parseSavedChats, readChatMessages, shiftChats } from "./saved-chats";
 
 /*
@@ -74,6 +74,8 @@ const deletedChats = new Set<string>();
 
 export type SheetState =
   | { type: "schedule"; photoIds: string[]; caption?: L; suggested?: string }
+  /** "Post now" asks first: it goes live on Instagram. `jobId`: a scheduled or failed post goes now instead. */
+  | { type: "postNow"; draftId: string; jobId?: string }
   | { type: "album"; photoIds: string[]; fromAlbumId?: string }
   | { type: "albumName"; albumId?: string; photoIds?: string[] }
   | { type: "post"; photoId: string }
@@ -158,6 +160,8 @@ interface State extends DemoData {
   setSyncHooks: (hooks: GallerySyncHooks, readOnly: boolean) => void;
   /** The Gallery from GET /api/gallery, for the active sample account (demo) or the business's own. */
   setGallery: (dto: GalleryDto) => void;
+  /** The language posts go out in unless the owner picks the other one. */
+  postLanguage: Lang;
 
   toggleFavorite: (ids: string[], value?: boolean) => void;
   deletePhotos: (ids: string[]) => Photo[];
@@ -180,6 +184,12 @@ interface State extends DemoData {
   updateDraft: (draftId: string, patch: { caption?: L; hashtags?: string[]; suggestedFor?: string | null; regenerated?: boolean }) => Promise<boolean>;
   /** Edits the caption of a photo's draft (Gallery → Open post → Edit); resolves once it's saved (false if not). */
   updateCaption: (ids: string[], caption: L) => Promise<boolean>;
+  /** Approves a saved draft for publishing at `at` (ISO), or now (null). Resolves once the server has the job. */
+  approvePost: (draftId: string, at: string | null, language?: Lang) => Promise<boolean>;
+  /** Moves a scheduled post, or tries a failed one again (null: now). */
+  reschedulePost: (jobId: string, at: string | null) => Promise<boolean>;
+  /** Cancels a scheduled post (or dismisses a failed one); it is a draft again. */
+  cancelPost: (jobId: string) => Promise<boolean>;
 
   setComposer: (composer: Partial<State["composer"]>) => void;
   /** Saves the post as inspiration, or removes it when it's already saved. Returns whether it's saved now. */
@@ -282,23 +292,7 @@ export const useStore = create<State>()((set, get) => {
   };
   /** Category albums (demo only) come from the sample data and aren't stored. */
   const isCategoryAlbum = (albumId: string | undefined) => !!albumId && !!get().albums[acc()].find((a) => a.id === albumId)?.category;
-  const applyDraft = (draft: GalleryDraftDto) => {
-    const ids = draft.photoIds.map(screenId);
-    mapPhotos(ids, (p) =>
-      p.status === "published"
-        ? p
-        : {
-            ...p,
-            status: "draft",
-            draftId: draft.id,
-            caption: { en: draft.captionEn || draft.captionAr, ar: draft.captionAr || draft.captionEn },
-            hashtags: draft.hashtags,
-            suggestedFor: draft.suggestedFor ?? undefined,
-            captionVersions: draft.versions,
-            aiPost: draft.origin === "ai_chat" || p.aiPost,
-          },
-    );
-  };
+  const applyDraft = (draft: GalleryDraftDto) => mapPhotos(draft.photoIds.map(screenId), (p) => withDraft(p, draft));
 
   return {
     ...freshData(),
@@ -315,13 +309,14 @@ export const useStore = create<State>()((set, get) => {
     setSelecting: (selecting) => set({ selecting }),
     switchTick: 0,
     galleryLoaded: false,
+    postLanguage: "ar",
     demo: false,
     readOnly: false,
     sync: null,
     setSyncHooks: (sync, readOnly) => set({ sync, readOnly }),
     setGallery: (dto) => {
       const { photos, albums } = hydrateGallery(dto, acc());
-      set((s) => ({ galleryLoaded: true, demo: dto.demo, photos: { ...s.photos, [acc()]: photos }, albums: { ...s.albums, [acc()]: albums } }));
+      set((s) => ({ galleryLoaded: true, demo: dto.demo, postLanguage: dto.postLanguage, photos: { ...s.photos, [acc()]: photos }, albums: { ...s.albums, [acc()]: albums } }));
     },
 
     setLang: (lang) => set({ lang }),
@@ -405,7 +400,7 @@ export const useStore = create<State>()((set, get) => {
     },
     addUploaded: (uploaded) => {
       if (!uploaded.length) return;
-      const { photos } = hydrateGallery({ demo: false, photos: uploaded, albums: [], drafts: [], hidden: [] }, acc());
+      const { photos } = hydrateGallery({ demo: false, photos: uploaded, albums: [], drafts: [], hidden: [], postLanguage: get().postLanguage }, acc());
       set((s) => ({ photos: { ...s.photos, [acc()]: [...photos, ...s.photos[acc()].filter((p) => !photos.some((u) => u.id === p.id))] } }));
     },
     addAiImage: (item) => {
@@ -448,6 +443,27 @@ export const useStore = create<State>()((set, get) => {
       if (!draftId || !canChange()) return false;
       mapPhotos(ids, (p) => ({ ...p, caption }));
       return get().updateDraft(draftId, { caption, hashtags: hashtagsIn(caption.en, caption.ar) });
+    },
+    approvePost: async (draftId, at, language) => {
+      if (!canChange()) return false;
+      const draft = await send(galleryApi.schedule(draftId, at ? { scheduledFor: at, language } : { now: true, language }));
+      if (!draft) return false;
+      applyDraft(draft);
+      // "Post now" runs on the server straight away: the Gallery reloads while it's publishing (GallerySync).
+      get().sync?.refetch();
+      return true;
+    },
+    reschedulePost: async (jobId, at) => {
+      if (!canChange()) return false;
+      const done = await send(galleryApi.reschedule(jobId, at ? { scheduledFor: at } : { now: true }));
+      get().sync?.refetch();
+      return Boolean(done);
+    },
+    cancelPost: async (jobId) => {
+      if (!canChange()) return false;
+      const done = await send(galleryApi.cancel(jobId));
+      get().sync?.refetch();
+      return Boolean(done);
     },
 
     setComposer: (patch) => set((s) => ({ composer: { ...s.composer, ...patch } })),

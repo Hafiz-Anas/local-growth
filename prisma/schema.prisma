@@ -1063,11 +1063,53 @@ model ScheduledPost {
   /// Reason code when status is FAILED (see lib/server/publishing.ts).
   failureReason    String?
 
+  // ── The publishing job (BE3, lib/server/publishing.ts). A row is a durable job the publish cron works through
+  // step by step: containers → status → publish → Posted, never sending the same post twice.
+  /// Single photo or carousel (2–20 photos).
+  format            PublishFormat @default(IMAGE)
+  /// The photos frozen at approval as Instagram-ready JPEGs in our storage, in order (URLs + storage keys).
+  /// Empty for older Post Generator jobs: they use mediaUrl / the draft's image, converted when publishing starts.
+  mediaUrls         String[]      @default([])
+  mediaKeys         String[]      @default([])
+  /// The Instagram account it was approved for; a different connected account fails the job ("account_changed").
+  igUserId          String?
+  /// The caption as sent, copied from the draft when publishing starts (the draft is locked from then on).
+  caption           String?
+  /// Instagram's container ids, saved the moment Instagram returns them: the duplicate protection.
+  containerId       String?
+  childContainerIds String[]      @default([])
+  /// Set just before media_publish is sent: from then on the job checks the container before doing anything else.
+  publishCallAt     DateTime?
+  /// Rescheduled after an unclear result: check the old container first, then start again only if it wasn't published.
+  verifyFirst       Boolean       @default(false)
+  /// Failed steps so far (limited retries, see PUBLISH_MAX_ATTEMPTS).
+  attempts          Int           @default(0)
+  /// The next step runs no earlier than this (backoff, waiting for processing or a reconnect).
+  nextAttemptAt     DateTime?
+  /// A worker holds the job until then; an expired lease means the worker died and the next run continues.
+  leaseUntil        DateTime?
+  /// Why a due post hasn't gone out yet: not_connected, rate_limited, daily_limit, processing (shown as "Waiting").
+  waitingReason     String?
+  permalink         String?
+  approvedBy        String?
+  approvedAt        DateTime?
+  cancelledBy       String?
+  cancelledAt       DateTime?
+  updatedAt         DateTime      @default(now()) @updatedAt
+
   business Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
   draft    PostDraft @relation(fields: [draftId], references: [id], onDelete: Cascade)
 
   @@index([businessId, status, scheduledFor])
   @@index([status, scheduledFor])
+  @@index([status, nextAttemptAt])
+  @@index([draftId, status])
+}
+
+/// What a publishing job posts.
+enum PublishFormat {
+  IMAGE
+  CAROUSEL
 }
 
 model PostingExperiment {

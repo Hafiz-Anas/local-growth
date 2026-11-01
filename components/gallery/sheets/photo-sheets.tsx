@@ -1,17 +1,19 @@
 "use client";
 
-import { BarChart3, CalendarClock, Check, FolderPlus, ImageUp, Images, PencilLine, Send, Sparkles } from "lucide-react";
+import { BarChart3, CalendarClock, Check, FolderPlus, ImageUp, Images, Loader2, PencilLine, Send, Sparkles, X } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { BarChart } from "@/components/gallery/charts";
 import { Btn, Delta, Segmented } from "@/components/gallery/kit";
 import { PhotoImage } from "@/components/gallery/photo-image";
-import { PostStatus } from "@/components/gallery/photo-viewer";
+import { PostStatus, PublishNote } from "@/components/gallery/publish-status";
+import { useFeature } from "@/components/providers/active-client-provider";
 import { PostPreview } from "@/components/gallery/post-preview";
 import { Sheet } from "@/components/gallery/sheet";
+import { hashtagsIn } from "@/lib/gallery/drafts";
 import { compact, dayKey, num, time, when } from "@/lib/gallery/format";
 import { useInsights, useT } from "@/lib/gallery/hooks";
-import { useAlbums, usePhotos, useStore } from "@/lib/gallery/store";
+import { useAccount, useAlbums, usePhotos, useStore } from "@/lib/gallery/store";
 import { alternativeTimes, suggestedTime } from "@/lib/gallery/suggest";
 import { suggestPostTime } from "@/lib/gallery/suggest-time";
 import { uploadGalleryPhotos, type UploadProblem } from "@/lib/gallery/upload-client";
@@ -29,21 +31,40 @@ export function ScheduleSheet() {
   const insights = useInsights();
   const demo = useStore((s) => s.demo);
   // Real businesses: the draft's suggested time (from their own posts), else tomorrow evening — never the sample insights.
-  const suggested = data?.suggested ?? (demo ? suggestedTime(insights) : suggestPostTime(new Date(), "Asia/Kuwait", null).toISOString());
-  const options = demo ? [suggested, ...alternativeTimes(insights).filter((x) => x !== suggested)].slice(0, 4) : [suggested];
+  // Only times still ahead can be scheduled (a draft's old suggestion and a demo's sample times may be past):
+  // anything within 5 minutes or earlier is left out, and tomorrow evening's time stands in when nothing is left.
+  const nowMs = new Date().getTime();
+  const ahead = (iso: string | undefined) => (iso && Date.parse(iso) > nowMs + 5 * 60_000 ? iso : undefined);
+  const suggested = ahead(data?.suggested) ?? (demo ? ahead(suggestedTime(insights)) : undefined) ?? suggestPostTime(new Date(), "Asia/Kuwait", null).toISOString();
+  const options = demo ? [suggested, ...alternativeTimes(insights).filter((x) => x !== suggested && ahead(x))].slice(0, 4) : [suggested];
   const [choice, setChoice] = useState<string>("0");
   const [customDate, setCustomDate] = useState(dayKey(options[0]));
   const [customTime, setCustomTime] = useState("20:30");
   const chosen = data?.photoIds.map((id) => photos.find((p) => p.id === id)).filter((p) => p !== undefined) ?? [];
 
   const at = choice === "custom" ? new Date(`${customDate}T${customTime}:00+03:00`).toISOString() : options[Number(choice)];
+  const postLanguage = useStore((s) => s.postLanguage);
+  const [language, setLanguage] = useState<Lang>(postLanguage);
+  const [busy, setBusy] = useState(false);
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) setLanguage(postLanguage);
+  }
+  // The post being scheduled, and its job when it already has one (scheduled, waiting or failed: this moves it).
+  const target = chosen.find((p) => p.draftId);
+  const job = target?.publish && !target.publish.locked && target.publish.state !== "posted" ? target.publish : undefined;
+  const bilingual = Boolean(target?.caption?.en.trim() && target.caption.ar.trim() && target.caption.en !== target.caption.ar);
 
-  // Publishing isn't connected yet: the time is kept with the post's draft, and the sheet says so.
+  // Real publishing (BE3): approving makes a job the server publishes at that time, with the app closed.
   const confirm = async () => {
-    if (!data) return;
-    const draftId = chosen.find((p) => p.draftId)?.draftId;
-    if (draftId && !(await useStore.getState().updateDraft(draftId, { suggestedFor: at }))) return;
-    toast.info(draftId ? t("publishingNextTime") : t("publishingNext"));
+    if (!data || !target?.draftId || busy) return;
+    setBusy(true);
+    const s = useStore.getState();
+    const done = job ? await s.reschedulePost(job.jobId, at) : await s.approvePost(target.draftId, at, language);
+    setBusy(false);
+    if (!done) return;
+    toast.success(t(job ? "rescheduledToast" : "scheduledToast", { when: when(at, lang) }));
     close();
     setChoice("0");
   };
@@ -54,8 +75,8 @@ export function ScheduleSheet() {
       onClose={close}
       title={t("schedule")}
       footer={
-        <Btn size="lg" className="w-full" icon={<CalendarClock />} onClick={confirm}>
-          {t("saveTime")}
+        <Btn size="lg" className="w-full" icon={busy ? <Loader2 className="animate-spin" /> : <CalendarClock />} onClick={confirm} disabled={busy || !target?.draftId}>
+          {job ? t("reschedule") : t("schedulePost")}
         </Btn>
       }
     >
@@ -63,6 +84,21 @@ export function ScheduleSheet() {
         <p className="rounded-xl bg-ge-muted px-3 py-2.5 text-[13px] text-ge-muted-foreground" data-testid="schedule-note">
           {t("scheduleNote")}
         </p>
+        {!job && bilingual && (
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-[13px] font-semibold text-ge-muted-foreground">{t("postIn")}</span>
+            <Segmented
+              label={t("postIn")}
+              value={language}
+              onChange={setLanguage}
+              options={[
+                { value: "en", label: "English" },
+                { value: "ar", label: "العربية" },
+              ]}
+              className="w-44 shrink-0 [&_button]:h-8"
+            />
+          </div>
+        )}
         {chosen.length > 0 && (
           <div className="no-scrollbar flex gap-1.5 overflow-x-auto">
             {chosen.map((p) => (
@@ -132,6 +168,44 @@ function Radio({ checked, onSelect, children }: { checked: boolean; onSelect: ()
       </span>
       {children}
     </div>
+  );
+}
+
+/* ---------- Post now: asks first (it goes live on Instagram) ---------- */
+
+export function PostNowSheet() {
+  const { open, data, close } = useSheet("postNow");
+  const { t } = useT();
+  const account = useAccount();
+  const [busy, setBusy] = useState(false);
+  const confirm = async () => {
+    if (!data || busy) return;
+    setBusy(true);
+    const s = useStore.getState();
+    const done = data.jobId ? await s.reschedulePost(data.jobId, null) : await s.approvePost(data.draftId, null, s.postLanguage);
+    setBusy(false);
+    if (!done) return;
+    toast.success(t("postingNowToast"));
+    close();
+  };
+  return (
+    <Sheet
+      open={open}
+      onClose={close}
+      title={t("postNowTitle")}
+      footer={
+        <div className="flex gap-2">
+          <Btn size="lg" variant="secondary" className="flex-1" onClick={close}>
+            {t("cancel")}
+          </Btn>
+          <Btn size="lg" className="flex-1" icon={busy ? <Loader2 className="animate-spin" /> : <Send />} onClick={confirm} disabled={busy}>
+            {t("postNow")}
+          </Btn>
+        </div>
+      }
+    >
+      <p className="px-4 pb-4 text-[14px] text-ge-muted-foreground">{t("postNowBody", { handle: account.handle })}</p>
+    </Sheet>
   );
 }
 
@@ -469,11 +543,27 @@ export function PostSheet() {
     setEditing(false);
     toast.success(t("captionSaved"));
   };
-  const schedule = () => photo && s().openSheet({ type: "schedule", photoIds: [photo.id], caption, suggested: photo.suggestedFor });
-  // Publishing isn't connected yet: say so plainly; the post stays a draft.
-  const postNow = () => toast.info(t("publishingNext"));
-  // Posted Instagram posts are shown as they are on Instagram; only drafts are edited here.
-  const editable = !!photo?.draftId;
+  const job = photo?.publish && photo.publish.state !== "posted" ? photo.publish : undefined;
+  // A ready post without a saved draft yet (a demo's sample post) is saved as one first: publishing needs a draft.
+  const draftFor = async () =>
+    photo?.draftId ?? (photo && caption ? await s().saveDraft({ photoIds: [photo.id], caption, hashtags: photo.hashtags ?? hashtagsIn(caption.en, caption.ar), origin: "gallery" }) : null);
+  const schedule = async () => {
+    if (photo && (await draftFor())) s().openSheet({ type: "schedule", photoIds: [photo.id], caption, suggested: job?.scheduledFor ?? photo.suggestedFor });
+  };
+  // Real publishing (BE3): asks first, then the server posts it (a scheduled or failed one goes now instead).
+  const postNow = async () => {
+    const draftId = await draftFor();
+    if (draftId) s().openSheet({ type: "postNow", draftId, jobId: job?.jobId });
+  };
+  const cancelSchedule = async () => {
+    if (!job || !(await s().cancelPost(job.jobId))) return;
+    toast.success(t("scheduleCancelled"));
+  };
+  // Posted Instagram posts are shown as they are on Instagram; only drafts are edited here, and not once publishing started.
+  const editable = !!photo?.draftId && !job?.locked;
+  const publishing = !!job?.locked;
+  // Publishing turned off for the business: only Edit is left (removed, never grayed out).
+  const canPublish = useFeature("gallery.publishing");
 
   const footer = !photo ? null : editing ? (
     <div className="grid grid-cols-2 gap-2">
@@ -495,17 +585,38 @@ export function PostSheet() {
         </a>
       )}
     </div>
+  ) : !canPublish ? (
+    editable ? (
+      <Btn size="lg" variant="outline" className="w-full" icon={<PencilLine />} onClick={startEdit}>
+        {t("edit")}
+      </Btn>
+    ) : null
+  ) : publishing ? (
+    <Btn size="lg" className="w-full" icon={<Loader2 className="animate-spin" />} disabled>
+      {t("publishingStatus")}
+    </Btn>
   ) : (
     <div className="grid grid-cols-3 gap-2">
       <Btn size="lg" className="col-span-3" icon={<CalendarClock />} onClick={schedule}>
-        {photo.status === "scheduled" ? t("reschedule") : t("schedule")}
+        {job ? t("reschedule") : t("schedule")}
       </Btn>
-      <Btn size="lg" variant="secondary" className={editable ? "col-span-2" : "col-span-3"} icon={<Send />} onClick={postNow}>
-        {t("postNow")}
+      <Btn
+        size="lg"
+        variant="secondary"
+        className={editable && job ? "col-span-1" : editable || job ? "col-span-2" : "col-span-3"}
+        icon={<Send />}
+        onClick={postNow}
+      >
+        {job?.state === "failed" ? t("tryAgain") : t("postNow")}
       </Btn>
       {editable && (
         <Btn size="lg" variant="outline" icon={<PencilLine />} onClick={startEdit}>
           {t("edit")}
+        </Btn>
+      )}
+      {job && (
+        <Btn size="lg" variant="outline" icon={<X />} onClick={cancelSchedule} title={t("cancelSchedule")}>
+          {t("cancel")}
         </Btn>
       )}
     </div>
@@ -551,6 +662,7 @@ export function PostSheet() {
               <Sparkles className="size-3.5 text-ge-brand" /> {t("scheduledFor", { when: when(photo.scheduledFor, lang) })} • {t("kuwaitTime")}
             </p>
           )}
+          {!editing && <PublishNote publish={photo.publish} className="mx-4" />}
         </div>
       )}
     </Sheet>

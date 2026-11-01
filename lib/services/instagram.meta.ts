@@ -25,7 +25,18 @@ import {
 import { businessDiscovery, fetchMediaCounts, fetchMediaImageUrl, fetchPostInsights, postCommentReply } from "./meta/api";
 import { MetaApiError, isMetaError } from "./meta/errors";
 import { MetaMessagingError, fetchMessagingProfile, sendPrivateReply, sendTextMessage } from "./meta/messaging";
-import { MetaPublishError, isPublicHttpsUrl, publishImage } from "./meta/publish";
+import {
+  MetaPublishError,
+  createCarouselContainer,
+  createImageContainer,
+  fetchPermalink,
+  fetchPublishingLimit,
+  fetchRecentMedia,
+  getContainerStatus,
+  isPublicHttpsUrl,
+  matchPublishedMedia,
+  publishContainer,
+} from "./meta/publish";
 import { accountMetric, engagementMetric, followerGrowthMetric, followerSeries, heatmapOf, opportunityOf, windowResults, type SyncedPost } from "./meta/insights";
 import { displayUrl, mapDiscoveryOutcome, type AccountInsights, type DiscoveredProfile, type StoredProfile } from "./meta/mappers";
 
@@ -49,6 +60,17 @@ const ICONS: MediaIcon[] = ["sparkles", "gift", "cup", "bag", "gem", "cake"];
 function requireConnection(account: InstagramAccount): { igUserId: string; token: string } {
   if (!account.connected || !account.igUserId || !account.accessToken) throw new InstagramNotConnectedError();
   return { igUserId: account.igUserId, token: account.accessToken };
+}
+
+/** A publishing step: publish-specific failures → InstagramPublishError, the rest as translate() maps them. */
+async function publishStep<T>(call: () => Promise<T>): Promise<T> {
+  try {
+    return await call();
+  } catch (error) {
+    if (error instanceof MetaPublishError) throw new InstagramPublishError(error.reason, error.detail);
+    if (isMetaError(error, "transient")) throw new InstagramPublishError("network", error.message);
+    translate(error);
+  }
 }
 
 /** Graph failures → the service's errors the routes already understand. */
@@ -277,16 +299,50 @@ export class MetaInstagramService implements InstagramService {
     }
   }
 
-  async publishPost(account: InstagramAccount, post: { caption: string; mediaUrl: string | null }) {
+  // ── Publishing steps (lib/services/meta/publish.ts; lib/server/publishing.ts drives them) ──
+
+  async createPostContainer(account: InstagramAccount, item: { imageUrl: string; caption?: string; carouselItem?: boolean }) {
     const { igUserId, token } = requireConnection(account);
     // Meta downloads the image itself, so it must be public HTTPS (Vercel Blob, not local uploads).
-    if (!isPublicHttpsUrl(post.mediaUrl)) throw new InstagramPublishError("image_not_public");
+    if (!isPublicHttpsUrl(item.imageUrl)) throw new InstagramPublishError("image_not_public");
+    return publishStep(() => createImageContainer(graphFor(account.businessId), igUserId, token, item));
+  }
+
+  async createCarouselContainer(account: InstagramAccount, post: { childIds: string[]; caption: string }) {
+    const { igUserId, token } = requireConnection(account);
+    return publishStep(() => createCarouselContainer(graphFor(account.businessId), igUserId, token, post));
+  }
+
+  async getContainerStatus(account: InstagramAccount, containerId: string) {
+    const { token } = requireConnection(account);
+    return publishStep(() => getContainerStatus(graphFor(account.businessId), containerId, token));
+  }
+
+  async publishContainer(account: InstagramAccount, containerId: string) {
+    const { igUserId, token } = requireConnection(account);
+    return publishStep(() => publishContainer(graphFor(account.businessId), igUserId, token, containerId));
+  }
+
+  async findPublishedMedia(account: InstagramAccount, post: { caption: string; since: Date }) {
+    const { igUserId, token } = requireConnection(account);
+    const media = await publishStep(() => fetchRecentMedia(graphFor(account.businessId), igUserId, token, 10));
+    const found = matchPublishedMedia(media, post.caption, post.since);
+    return found && { mediaId: found.id, permalink: found.permalink };
+  }
+
+  async getPermalink(account: InstagramAccount, mediaId: string) {
+    if (!account.connected || !account.accessToken) return null;
+    return fetchPermalink(graphFor(account.businessId), mediaId, account.accessToken).catch(() => null);
+  }
+
+  async getPublishingLimit(account: InstagramAccount) {
+    const { igUserId, token } = requireConnection(account);
     try {
-      const { mediaId } = await publishImage(graphFor(account.businessId), igUserId, token, { imageUrl: post.mediaUrl, caption: post.caption });
-      return { mediaId };
+      return await fetchPublishingLimit(graphFor(account.businessId), igUserId, token);
     } catch (error) {
-      if (error instanceof MetaPublishError) throw new InstagramPublishError(error.reason, error.detail);
-      translate(error);
+      // Token and permission problems matter (the job waits or fails on them); anything else just skips the check.
+      if (isMetaError(error, "token_invalid") || isMetaError(error, "permission")) translate(error);
+      return null;
     }
   }
 

@@ -9,6 +9,7 @@ import { getConnectionDto, getInstagramAccount } from "@/lib/server/instagram-ac
 import { adoptInstagramName, recordError } from "@/lib/server/onboarding";
 import { disconnectMeta } from "@/lib/server/meta-connect";
 import { getInstagramService } from "@/lib/services/instagram";
+import { resumeHeldPosts } from "@/lib/server/publishing";
 import { connectFlow } from "@/lib/services/meta/config";
 import { handleSchema } from "@/lib/validation/api";
 
@@ -91,6 +92,8 @@ export const POST = handler(async (request) => {
     await adoptInstagramName(businessId, handle, profile?.name);
   }
   await logActivity({ businessId, userId: session.userId, action: "instagram.connected", details: { username: account.username } });
+  // Posts held for the reconnect go out at the next publish run.
+  await resumeHeldPosts(businessId);
   return ok(await getConnectionDto(businessId));
 });
 

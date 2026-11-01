@@ -4,7 +4,7 @@ import type { CompetitorValidation, InstagramProfileDto, MediaDto } from "@/type
 import { MetaInstagramService } from "./instagram.meta";
 import { MockInstagramService } from "./instagram.mock";
 import type { MessagingFailureReason } from "./meta/messaging";
-import type { PublishFailureReason } from "./meta/publish";
+import type { ContainerStatusCode, PublishFailureReason } from "./meta/publish";
 
 /**
  * Instagram data and actions. Routes depend on this interface only.
@@ -157,13 +157,22 @@ export interface InstagramService {
   replyToMessage(account: InstagramAccount, recipientId: string, text: string): Promise<{ id: string }>;
   /** Username and picture of the person behind an Instagram-scoped id, or null when unknown. */
   getMessagingProfile(account: InstagramAccount, recipientId: string): Promise<{ username: string | null; avatarUrl: string | null } | null>;
-  /**
-   * Publishes one image with its caption. The real implementation needs `mediaUrl`
-   * to be a public HTTPS JPEG (lib/server/publishing.ts prepares one) and throws
-   * InstagramPublishError, InstagramNotConnectedError, InstagramPermissionError
-   * or InstagramRateLimitedError.
-   */
-  publishPost(account: InstagramAccount, post: { caption: string; mediaUrl: string | null }): Promise<{ mediaId: string }>;
+  // ── Publishing, one step per call (lib/server/publishing.ts saves the ids between steps). Each throws
+  // InstagramPublishError, InstagramNotConnectedError, InstagramPermissionError or InstagramRateLimitedError.
+  /** A photo container: a single-photo post with its caption, or a carousel child. The real one needs a public HTTPS JPEG. */
+  createPostContainer(account: InstagramAccount, item: { imageUrl: string; caption?: string; carouselItem?: boolean }): Promise<string>;
+  /** The carousel container over its children, in order, with the caption. */
+  createCarouselContainer(account: InstagramAccount, post: { childIds: string[]; caption: string }): Promise<string>;
+  /** A container's status; safe to repeat. PUBLISHED means the post is on Instagram. */
+  getContainerStatus(account: InstagramAccount, containerId: string): Promise<{ code: ContainerStatusCode; detail: string }>;
+  /** Publishes a FINISHED container. "uncertain" when no answer came: check the container before sending it again. */
+  publishContainer(account: InstagramAccount, containerId: string): Promise<string>;
+  /** The post a published container became, among the newest posts (same caption, posted since). Null when not found. */
+  findPublishedMedia(account: InstagramAccount, post: { caption: string; since: Date }): Promise<{ mediaId: string; permalink: string | null } | null>;
+  /** A post's link on Instagram (null when unknown). Never throws. */
+  getPermalink(account: InstagramAccount, mediaId: string): Promise<string | null>;
+  /** API-published posts in the last 24 h and the limit; null when unknown (the call never blocks publishing). */
+  getPublishingLimit(account: InstagramAccount): Promise<{ used: number; total: number } | null>;
   /** Public profile of another account; null when it doesn't exist. */
   getCompetitorProfile(account: InstagramAccount, handle: string): Promise<CompetitorProfile | null>;
   /**
@@ -200,7 +209,7 @@ export class InstagramPermissionError extends Error {
 }
 
 /**
- * Thrown by `publishPost` when Instagram won't publish this post. `image_not_public`:
+ * Thrown by the publishing steps when Instagram won't publish this post. `image_not_public`:
  * the image URL isn't public HTTPS (e.g. STORAGE_PROVIDER=local), so Meta can't fetch it.
  */
 export class InstagramPublishError extends Error {
@@ -272,8 +281,26 @@ class RoutingInstagramService implements InstagramService {
   getMessagingProfile(account: InstagramAccount, recipientId: string) {
     return this.for(account).getMessagingProfile(account, recipientId);
   }
-  publishPost(account: InstagramAccount, post: { caption: string; mediaUrl: string | null }) {
-    return this.for(account).publishPost(account, post);
+  createPostContainer(account: InstagramAccount, item: { imageUrl: string; caption?: string; carouselItem?: boolean }) {
+    return this.for(account).createPostContainer(account, item);
+  }
+  createCarouselContainer(account: InstagramAccount, post: { childIds: string[]; caption: string }) {
+    return this.for(account).createCarouselContainer(account, post);
+  }
+  getContainerStatus(account: InstagramAccount, containerId: string) {
+    return this.for(account).getContainerStatus(account, containerId);
+  }
+  publishContainer(account: InstagramAccount, containerId: string) {
+    return this.for(account).publishContainer(account, containerId);
+  }
+  findPublishedMedia(account: InstagramAccount, post: { caption: string; since: Date }) {
+    return this.for(account).findPublishedMedia(account, post);
+  }
+  getPermalink(account: InstagramAccount, mediaId: string) {
+    return this.for(account).getPermalink(account, mediaId);
+  }
+  getPublishingLimit(account: InstagramAccount) {
+    return this.for(account).getPublishingLimit(account);
   }
   getCompetitorProfile(account: InstagramAccount, handle: string) {
     return this.for(account).getCompetitorProfile(account, handle);

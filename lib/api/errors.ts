@@ -38,6 +38,8 @@ const KNOWN = new Set([
   "login_active",
   "network_error",
   "internal_error",
+  "already_scheduled",
+  "publish_started",
 ]);
 
 /**

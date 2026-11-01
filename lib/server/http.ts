@@ -29,6 +29,10 @@ export type ApiErrorCode =
   | "email_unavailable"
   /** details: [{ path: "reason", message: PublishReason }] (lib/server/publishing.ts) */
   | "publish_failed"
+  /** The post is already scheduled (reschedule it instead). */
+  | "already_scheduled"
+  /** Publishing has started: the post can't be cancelled, moved or edited any more. */
+  | "publish_started"
   /** A DM reply after Instagram's 24-hour window (lib/server/instagram-dm.ts). */
   | "dm_window_closed"
   /** details: [{ path: "reason", message: "recipient_unavailable" | "message_rejected" | "too_long" }] */

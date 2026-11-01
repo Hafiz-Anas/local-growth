@@ -6,16 +6,17 @@ import { catalogFor, listScheduled } from "@/lib/server/data";
 import { SCHEDULED_SELECT, toScheduled } from "@/lib/server/dto";
 import { requireAnyFeature } from "@/lib/server/guards";
 import { ApiError, handler, ok, readJson, readQuery } from "@/lib/server/http";
+import { PUBLISH_FEATURES } from "@/lib/server/publishing";
 import { createScheduledSchema, scheduledStatusQuery } from "@/lib/validation/api";
 
-/** The posting queue is reachable from the experiment's queue or the generator's "Add to queue". */
-const QUEUE_FEATURES = ["experiment.scheduleQueue", "postGenerator.addToQueue"] as const;
+/** The posting queue: Gallery / AI publishing, the experiment's queue or the generator's "Add to queue". */
+const QUEUE_FEATURES = PUBLISH_FEATURES;
 
-/** GET /api/scheduled-posts?status=scheduled|published|cancelled|failed — default: upcoming. */
+/** GET /api/scheduled-posts?status=active|scheduled|publishing|published|cancelled|failed — default: active (upcoming, publishing, recently failed). */
 export const GET = handler(async (request) => {
   const { businessId } = await requireAnyFeature(...QUEUE_FEATURES);
   const { status } = readQuery(request, scheduledStatusQuery);
-  return ok(await listScheduled(businessId, (status?.toUpperCase() ?? "SCHEDULED") as ScheduledPostStatus));
+  return ok(await listScheduled(businessId, (status?.toUpperCase() ?? "ACTIVE") as ScheduledPostStatus | "ACTIVE"));
 });
 
 /** POST /api/scheduled-posts  { draftId, scheduledFor, mediaUrl? } — schedule a draft. */

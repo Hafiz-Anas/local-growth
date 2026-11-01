@@ -5,7 +5,8 @@ import { formatOf } from "@/lib/analysis/posts";
 import { parseVersions } from "@/lib/gallery/drafts";
 import { igPhotoId, parsePhotoRef, samplePhotoId } from "@/lib/gallery/refs";
 import { GALLERY_MAX_ALBUMS, GALLERY_REMOVE_GRACE_MS } from "@/lib/gallery/uploads";
-import type { GalleryAlbumDto, GalleryDraftDto, GalleryDto, GalleryPhotoDto } from "@/types/api";
+import { publishStateOf } from "@/lib/publishing/job";
+import type { GalleryAlbumDto, GalleryDraftDto, GalleryDto, GalleryPhotoDto, GalleryPostDto } from "@/types/api";
 import { ApiError, notFound } from "./http";
 
 /**
@@ -44,13 +45,37 @@ export const GALLERY_DRAFT_SELECT = {
   suggestedFor: true,
   captionVersions: true,
   updatedAt: true,
+  language: true,
   photos: { orderBy: { position: "asc" }, select: { photo: { select: { id: true, igMediaId: true, sampleKey: true } } } },
+  // Its publishing job: the newest one that wasn't cancelled.
+  scheduledPosts: {
+    where: { status: { not: "CANCELLED" } },
+    orderBy: { approvedAt: { sort: "desc", nulls: "last" } },
+    take: 1,
+    select: { id: true, status: true, scheduledFor: true, publishedAt: true, failureReason: true, waitingReason: true, permalink: true, publishedMediaId: true },
+  },
 } satisfies Prisma.PostDraftSelect;
 
 type DraftRow = Prisma.PostDraftGetPayload<{ select: typeof GALLERY_DRAFT_SELECT }>;
 
-/** Drafts the Gallery shows (not the old Post Generator's). */
+/** Gallery / AI chat drafts not approved yet (the old Post Generator's are never touched here): deleted only in this state. */
 export const GALLERY_DRAFT_WHERE = { origin: { in: ["AI_CHAT", "GALLERY"] }, status: "DRAFT" } satisfies Prisma.PostDraftWhereInput;
+/** What the Gallery lists: drafts, scheduled ones and posted ones (their photos show the post's status). */
+export const GALLERY_POSTS_WHERE = { origin: { in: ["AI_CHAT", "GALLERY"] }, status: { in: ["DRAFT", "QUEUED", "PUBLISHED"] } } satisfies Prisma.PostDraftWhereInput;
+
+function toPostDto(job: DraftRow["scheduledPosts"][number] | undefined): GalleryPostDto | null {
+  if (!job) return null;
+  return {
+    id: job.id,
+    state: publishStateOf(job, new Date()),
+    scheduledFor: job.scheduledFor.toISOString(),
+    publishedAt: job.publishedAt?.toISOString() ?? null,
+    reason: job.status === "FAILED" ? job.failureReason : job.waitingReason,
+    permalink: job.permalink,
+    mediaId: job.publishedMediaId,
+    locked: job.status === "PUBLISHING" || job.status === "PUBLISHED",
+  };
+}
 
 const OWN_SOURCES: GalleryPhotoSource[] = ["UPLOADED", "AI_GENERATED"];
 
@@ -75,6 +100,8 @@ export function toDraftDto(row: DraftRow): GalleryDraftDto {
     versions: parseVersions(row.captionVersions),
     origin: row.origin === "GALLERY" ? "gallery" : "ai_chat",
     updatedAt: row.updatedAt.toISOString(),
+    language: row.language === "en" ? "en" : "ar",
+    post: toPostDto(row.scheduledPosts[0]),
   };
 }
 
@@ -83,10 +110,10 @@ const num = (value: unknown) => (typeof value === "number" && Number.isFinite(va
 /** Everything the Gallery shows for the business (GET /api/gallery and the admin preview). */
 export async function getGallery(businessId: string): Promise<GalleryDto> {
   const demo = await isDemoBusiness(businessId);
-  const [rows, albums, drafts, media] = await Promise.all([
+  const [rows, albums, drafts, media, business] = await Promise.all([
     db.galleryPhoto.findMany({ where: { businessId, status: "READY" }, orderBy: { createdAt: "desc" }, select: PHOTO_SELECT }),
     db.galleryAlbum.findMany({ where: { businessId }, orderBy: [{ position: "asc" }, { createdAt: "asc" }], select: { id: true, name: true } }),
-    db.postDraft.findMany({ where: { businessId, ...GALLERY_DRAFT_WHERE }, orderBy: { updatedAt: "desc" }, take: 300, select: GALLERY_DRAFT_SELECT }),
+    db.postDraft.findMany({ where: { businessId, ...GALLERY_POSTS_WHERE }, orderBy: { updatedAt: "desc" }, take: 300, select: GALLERY_DRAFT_SELECT }),
     // Demo businesses' "Instagram" posts are the sample published photos; their mock media are placeholders.
     demo
       ? Promise.resolve([])
@@ -96,12 +123,36 @@ export async function getGallery(businessId: string): Promise<GalleryDto> {
           take: 300,
           select: { igMediaId: true, caption: true, mediaType: true, mediaProductType: true, mediaUrl: true, thumbnailUrl: true, permalink: true, postedAt: true, likeCount: true, commentsCount: true, insights: true },
         }),
+    db.business.findUniqueOrThrow({ where: { id: businessId }, select: { languages: true } }),
   ]);
 
   const draftDtos = drafts.map(toDraftDto);
   // The newest draft each photo is in (drafts are newest first).
   const draftOf = new Map<string, string>();
   for (const d of draftDtos) for (const id of d.photoIds) if (!draftOf.has(id)) draftOf.set(id, d.id);
+  // Posts published from here: the synced Instagram post is shown on the draft's cover photo (with its numbers), not twice.
+  const coverOfMedia = new Map<string, string>();
+  for (const d of draftDtos) if (d.post?.mediaId && d.photoIds[0] && draftOf.get(d.photoIds[0]) === d.id) coverOfMedia.set(d.post.mediaId, d.photoIds[0]);
+  const instagramOf = (m: (typeof media)[number]): NonNullable<GalleryPhotoDto["instagram"]> => {
+    const format = formatOf(m.mediaType, m.mediaProductType);
+    const insights = (m.insights ?? {}) as Record<string, unknown>;
+    return {
+      caption: m.caption,
+      postedAt: m.postedAt.toISOString(),
+      permalink: m.permalink,
+      format: format === "video" ? "reel" : format,
+      likes: m.likeCount,
+      comments: m.commentsCount,
+      reach: num(insights.reach),
+      saves: num(insights.saved),
+      shares: num(insights.shares),
+    };
+  };
+  const postedOn = new Map<string, NonNullable<GalleryPhotoDto["instagram"]>>();
+  for (const m of media) {
+    const cover = coverOfMedia.get(m.igMediaId);
+    if (cover) postedOn.set(cover, instagramOf(m));
+  }
 
   const base = (row: PhotoRow | undefined, id: string) => ({
     id,
@@ -134,16 +185,16 @@ export async function getGallery(businessId: string): Promise<GalleryDto> {
       thumbUrl: row.thumbUrl,
       title: row.title,
       createdAt: row.createdAt.toISOString(),
+      ...(postedOn.has(id) && { instagram: postedOn.get(id) }),
     });
   }
   // Removed Instagram posts are in `hidden` (their rows were skipped above).
   const hiddenIg = new Set(rows.filter((r) => r.igMediaId && r.removedAt).map((r) => r.igMediaId!));
   for (const m of media) {
-    if (hiddenIg.has(m.igMediaId)) continue;
+    if (hiddenIg.has(m.igMediaId) || coverOfMedia.has(m.igMediaId)) continue;
     const format = formatOf(m.mediaType, m.mediaProductType);
     const url = format === "reel" || format === "video" ? (m.thumbnailUrl ?? m.mediaUrl) : (m.mediaUrl ?? m.thumbnailUrl);
     if (!url) continue;
-    const insights = (m.insights ?? {}) as Record<string, unknown>;
     const id = igPhotoId(m.igMediaId);
     photos.push({
       ...base(refByIg.get(m.igMediaId), id),
@@ -153,22 +204,20 @@ export async function getGallery(businessId: string): Promise<GalleryDto> {
       thumbUrl: url,
       title: null,
       createdAt: m.postedAt.toISOString(),
-      instagram: {
-        caption: m.caption,
-        postedAt: m.postedAt.toISOString(),
-        permalink: m.permalink,
-        format: format === "video" ? "reel" : format,
-        likes: m.likeCount,
-        comments: m.commentsCount,
-        reach: num(insights.reach),
-        saves: num(insights.saved),
-        shares: num(insights.shares),
-      },
+      instagram: instagramOf(m),
     });
   }
   photos.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
-  return { demo, photos, albums: albums satisfies GalleryAlbumDto[], drafts: draftDtos, hidden };
+  const postLanguage: "en" | "ar" = business.languages.length === 1 && business.languages[0] === "en" ? "en" : "ar";
+  return { demo, photos, albums: albums satisfies GalleryAlbumDto[], drafts: draftDtos, hidden, postLanguage };
+}
+
+/** A demo sample photo's bundled image ("mathanet-07" or "mathanet-07~2" → /photos/mathanet/07.jpg). */
+export function samplePhotoPath(sampleKey: string): string {
+  const photoKey = sampleKey.split("~")[0];
+  const cut = photoKey.lastIndexOf("-");
+  return `/photos/${photoKey.slice(0, cut)}/${photoKey.slice(cut + 1)}.jpg`;
 }
 
 export interface ResolvedPhoto {
@@ -242,8 +291,7 @@ export async function resolvePhotos(
           select: { id: true },
         })
       : null;
-    const [account, file] = [photoKey.slice(0, photoKey.lastIndexOf("-")), photoKey.slice(photoKey.lastIndexOf("-") + 1)];
-    out.push({ rowId: row?.id ?? "", dtoId: id, source, url: `/photos/${account}/${file}.jpg`, igMediaId: null, title: null });
+    out.push({ rowId: row?.id ?? "", dtoId: id, source, url: samplePhotoPath(photoKey), igMediaId: null, title: null });
   }
   return out;
 }

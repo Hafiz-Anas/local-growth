@@ -2,7 +2,7 @@
 
 import { Dialog } from "@base-ui/react/dialog";
 import { AnimatePresence, motion, type PanInfo } from "framer-motion";
-import { Bookmark, CalendarClock, ChevronLeft, ChevronRight, CircleCheck, EyeOff, FolderPlus, Heart, MessageCircle, PencilLine, Sparkles, SquareArrowOutUpRight, Trash2, TrendingUp, X } from "lucide-react";
+import { Bookmark, ChevronLeft, ChevronRight, EyeOff, FolderPlus, Heart, MessageCircle, Sparkles, SquareArrowOutUpRight, Trash2, TrendingUp, X } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { useOpenAi } from "@/components/ai-chat/use-open-ai";
@@ -10,7 +10,7 @@ import { Avatar } from "@/components/gallery/kit";
 import { useFeature } from "@/components/providers/active-client-provider";
 import { MediaPlaceholder } from "@/components/shared/media";
 import type { CompetitorPostRef } from "@/lib/gallery/competitor-posts";
-import { compact, date, num, time, when } from "@/lib/gallery/format";
+import { compact, date, num, time } from "@/lib/gallery/format";
 import { useIsDesktop, useT } from "@/lib/gallery/hooks";
 import { useAccount, usePhotos, useStore } from "@/lib/gallery/store";
 import { cn } from "@/lib/gallery/utils";
@@ -20,6 +20,10 @@ import { PhotoImage, isPost } from "./photo-image";
 import { SourceBadge } from "./photo-tile";
 import { CaptionText } from "./post-preview";
 import { usePhotoActions } from "./use-photo-actions";
+
+import { PostStatus } from "./publish-status";
+
+export { PostStatus };
 
 /**
  * Photo viewer. A plain photo opens full screen like the Photos app; a ready post opens like an Instagram post,
@@ -409,27 +413,6 @@ function CompetitorActions({ item }: { item: CompetitorPostRef }) {
       {ai && <Action icon={<Sparkles />} label={t("createSimilar")} onClick={() => openAi(undefined, item)} post />}
       {canSave && <Action icon={<Bookmark className={cn(saved && "fill-current")} />} label={saved ? t("savedInspiration") : t("saveInspiration")} pressed={saved} onClick={toggle} post />}
     </div>
-  );
-}
-
-export function PostStatus({ photo }: { photo: Photo }) {
-  const { t, lang } = useT();
-  const s =
-    photo.status === "published"
-      ? { icon: <CircleCheck />, text: photo.publishedAt ? t("publishedOn", { when: when(photo.publishedAt, lang) }) : t("published") }
-      : photo.status === "scheduled"
-        ? { icon: <CalendarClock />, text: photo.scheduledFor ? when(photo.scheduledFor, lang) : t("scheduled") }
-        : { icon: <PencilLine />, text: t("savedPost") };
-  return (
-    <span
-      className={cn(
-        "inline-flex max-w-[60%] items-center gap-1 truncate rounded-full px-2.5 py-1 text-[12px] font-semibold [&_svg]:size-3.5 [&_svg]:shrink-0",
-        photo.status === "scheduled" ? "bg-ge-brand-soft text-ge-brand-ink" : "bg-ge-muted text-ge-muted-foreground",
-      )}
-    >
-      {s.icon}
-      <span className="truncate">{s.text}</span>
-    </span>
   );
 }
 

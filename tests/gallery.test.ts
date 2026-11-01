@@ -147,10 +147,10 @@ describe("Gallery on screen: real businesses never see sample photos (UX5)", () 
     albumIds: ["album1"],
     draftId: "draft1",
   };
-  const draft = { id: "draft1", photoIds: [own.id], captionEn: "Fresh #kunafa", captionAr: "طازجة #كنافة", hashtags: ["#kunafa"], suggestedFor: null, versions: [], origin: "ai_chat" as const, updatedAt: own.createdAt };
+  const draft = { id: "draft1", photoIds: [own.id], captionEn: "Fresh #kunafa", captionAr: "طازجة #كنافة", hashtags: ["#kunafa"], suggestedFor: null, versions: [], origin: "ai_chat" as const, updatedAt: own.createdAt, language: "ar" as const, post: null };
 
   it("a real business gets only its own photos and albums, with drafts on them", () => {
-    const { photos, albums } = hydrateGallery({ demo: false, photos: [own], albums: [{ id: "album1", name: "Sweets" }], drafts: [draft], hidden: [] }, "mathanet");
+    const { photos, albums } = hydrateGallery({ demo: false, photos: [own], albums: [{ id: "album1", name: "Sweets" }], drafts: [draft], hidden: [], postLanguage: "ar" }, "mathanet");
     assert.equal(photos.length, 1);
     assert.equal(photos[0].sample, undefined);
     assert.equal(photos[0].status, "draft");
@@ -160,14 +160,14 @@ describe("Gallery on screen: real businesses never see sample photos (UX5)", () 
   });
 
   it("an empty real Gallery stays empty (the screen shows 'Upload your first photos')", () => {
-    const { photos, albums } = hydrateGallery({ demo: false, photos: [], albums: [], drafts: [], hidden: [] }, "mathanet");
+    const { photos, albums } = hydrateGallery({ demo: false, photos: [], albums: [], drafts: [], hidden: [], postLanguage: "ar" }, "mathanet");
     assert.deepEqual(photos, []);
     assert.deepEqual(albums, []);
   });
 
   it("a demo business also gets the samples, each marked; hidden ones and the owner's changes are kept", () => {
     const state = { ...own, id: "sample:mathanet-07", sample: true, url: null, thumbUrl: null, title: null, favorite: true, albumIds: ["album1"], draftId: null };
-    const { photos, albums } = hydrateGallery({ demo: true, photos: [own, state], albums: [{ id: "album1", name: "Mine" }], drafts: [draft], hidden: ["sample:mathanet-08"] }, "mathanet");
+    const { photos, albums } = hydrateGallery({ demo: true, photos: [own, state], albums: [{ id: "album1", name: "Mine" }], drafts: [draft], hidden: ["sample:mathanet-08"], postLanguage: "ar" }, "mathanet");
     const samples = photos.filter((p) => p.sample);
     assert.ok(samples.length > 10);
     assert.equal(photos.find((p) => p.id === "mathanet-08"), undefined, "hidden");

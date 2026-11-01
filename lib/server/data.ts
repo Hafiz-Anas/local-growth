@@ -122,12 +122,20 @@ export async function listDrafts(businessId: string, status?: DraftStatus): Prom
   return rows.map((row) => toDraft(row, catalog));
 }
 
-export async function listScheduled(businessId: string, status: ScheduledPostStatus = "SCHEDULED"): Promise<ScheduledPostDto[]> {
+/**
+ * The posting queue. "ACTIVE" (the default): what the owner still has to act on or wait for — upcoming,
+ * publishing, and failed in the last 30 days (with Reschedule / Cancel) — oldest first.
+ */
+export async function listScheduled(businessId: string, status: ScheduledPostStatus | "ACTIVE" = "ACTIVE"): Promise<ScheduledPostDto[]> {
   const [timezone, catalog] = await Promise.all([timezoneOf(businessId), catalogFor(businessId)]);
+  const where =
+    status === "ACTIVE"
+      ? { businessId, OR: [{ status: { in: ["SCHEDULED", "PUBLISHING"] as ScheduledPostStatus[] } }, { status: "FAILED" as const, updatedAt: { gt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } }] }
+      : { businessId, status };
   const rows = await db.scheduledPost.findMany({
-    where: { businessId, status },
+    where,
     select: SCHEDULED_SELECT,
-    orderBy: { scheduledFor: status === "SCHEDULED" ? "asc" : "desc" },
+    orderBy: { scheduledFor: status === "SCHEDULED" || status === "ACTIVE" ? "asc" : "desc" },
     take: 100,
   });
   return rows.map((row) => toScheduled(row, timezone, catalog));

@@ -241,7 +241,8 @@ function AlbumsView({ photos, onOpen }: { photos: Photo[]; onOpen: (id: string) 
   const openSheet = useStore((s) => s.openSheet);
   const mine: AlbumCardData[] = custom.map((a) => ({ id: a.id, name: l(a.name), icon: Images, items: photos.filter((p) => p.albums.includes(a.id)) }));
   const demo = useStore((s) => s.demo);
-  const smart: AlbumCardData[] = smartAlbums(demo).map((a) => ({ id: a.id, name: t(a.key), icon: a.icon, items: photos.filter(a.filter) }));
+  const publishing = useFeature("gallery.publishing");
+  const smart: AlbumCardData[] = smartAlbums(demo, publishing).map((a) => ({ id: a.id, name: t(a.key), icon: a.icon, items: photos.filter(a.filter) }));
   const grid = "grid grid-cols-2 gap-x-3 gap-y-4 sm:grid-cols-3 lg:grid-cols-4";
   const card = (a: AlbumCardData) => (
     <button key={a.id} type="button" onClick={() => onOpen(a.id)} className="group min-w-0 rounded-xl text-start">

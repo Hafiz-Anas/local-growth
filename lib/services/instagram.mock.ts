@@ -9,6 +9,9 @@ import { displayNameFromHandle } from "@/lib/display-names";
 import {
   InstagramMessagingError,
   InstagramNotConnectedError,
+  InstagramPermissionError,
+  InstagramPublishError,
+  InstagramRateLimitedError,
   type ApiHealth,
   type BusinessAccountLookup,
   type CompetitorProfile,
@@ -27,6 +30,39 @@ import {
  * pretends to post. Businesses created later get an empty, freshly-connected
  * looking account. Write calls still require a connection, like the real API.
  */
+
+/**
+ * Mock publishing: containers live in memory (on globalThis, so every route bundle of `next dev` shares
+ * them) and publish at once. Test markers in the caption, honoured by the mock only (e2e, tests/e2e/publishing*):
+ *   #e2e_publish_unclear   media_publish posts it but answers "uncertain" (the job must check, not post twice)
+ *   #e2e_processing        the container stays IN_PROGRESS for its first two status checks
+ *   #e2e_container_error   the container ends in ERROR (Instagram rejected the image)
+ *   #e2e_rate_limited      the first container call for this caption is rate limited
+ *   #e2e_no_permission     every call fails with the publishing permission missing
+ * A second media_publish on a published container is refused, like a duplicate would be.
+ */
+interface MockContainer {
+  businessId: string;
+  caption: string;
+  carouselItem: boolean;
+  checks: number;
+  mediaId: string | null;
+  publishedAt: number | null;
+  createdAt: number;
+}
+const mockPublishing = ((globalThis as { __lgeMockPublishing?: { containers: Map<string, MockContainer>; rateLimited: Set<string> } }).__lgeMockPublishing ??= {
+  containers: new Map(),
+  rateLimited: new Set(),
+});
+
+function mockPublishGuard(caption: string) {
+  if (caption.includes("#e2e_no_permission")) throw new InstagramPermissionError(["instagram_content_publish"]);
+}
+
+function mockContainer(account: InstagramAccount, containerId: string): MockContainer | null {
+  const c = mockPublishing.containers.get(containerId);
+  return c && c.businessId === account.businessId ? c : null;
+}
 
 /** The moment the mock data was written for; timestamps are shifted to "now". */
 const MOCK_NOW = Date.parse("2026-10-06T12:00:00+03:00");
@@ -179,10 +215,72 @@ export class MockInstagramService implements InstagramService {
     return null;
   }
 
-  async publishPost(account: InstagramAccount, post: { caption: string; mediaUrl: string | null }) {
+  async createPostContainer(account: InstagramAccount, item: { imageUrl: string; caption?: string; carouselItem?: boolean }) {
     requireConnection(account);
-    console.info(`[instagram:mock] @${account.username} published: ${post.caption.slice(0, 80)}`);
-    return { mediaId: `ig_media_${randomUUID()}` };
+    const caption = item.caption ?? "";
+    mockPublishGuard(caption);
+    if (caption.includes("#e2e_rate_limited") && !mockPublishing.rateLimited.has(caption)) {
+      mockPublishing.rateLimited.add(caption);
+      throw new InstagramRateLimitedError(null);
+    }
+    const id = `mock_container_${randomUUID()}`;
+    mockPublishing.containers.set(id, { businessId: account.businessId, caption, carouselItem: !!item.carouselItem, checks: 0, mediaId: null, publishedAt: null, createdAt: Date.now() });
+    return id;
+  }
+
+  async createCarouselContainer(account: InstagramAccount, post: { childIds: string[]; caption: string }) {
+    requireConnection(account);
+    mockPublishGuard(post.caption);
+    if (post.childIds.some((id) => !mockContainer(account, id)?.carouselItem)) throw new InstagramPublishError("media_rejected", "Unknown carousel item.");
+    return this.createPostContainer(account, { imageUrl: "", caption: post.caption });
+  }
+
+  async getContainerStatus(account: InstagramAccount, containerId: string) {
+    requireConnection(account);
+    const c = mockContainer(account, containerId);
+    // Unknown here (the dev server restarted): treat it as expired, which only ever leads to a new container.
+    if (!c) return { code: "EXPIRED" as const, detail: "Unknown container." };
+    mockPublishGuard(c.caption);
+    c.checks += 1;
+    if (c.mediaId) return { code: "PUBLISHED" as const, detail: "" };
+    if (c.caption.includes("#e2e_container_error")) return { code: "ERROR" as const, detail: "Error: The aspect ratio is not supported." };
+    if (c.caption.includes("#e2e_processing") && c.checks <= 2) return { code: "IN_PROGRESS" as const, detail: "" };
+    return { code: "FINISHED" as const, detail: "" };
+  }
+
+  async publishContainer(account: InstagramAccount, containerId: string) {
+    requireConnection(account);
+    const c = mockContainer(account, containerId);
+    if (!c) throw new InstagramPublishError("media_rejected", "Unknown container.");
+    mockPublishGuard(c.caption);
+    if (c.mediaId) throw new InstagramPublishError("media_rejected", "This container was already published.");
+    c.mediaId = `ig_media_${randomUUID()}`;
+    c.publishedAt = Date.now();
+    console.info(`[instagram:mock] @${account.username} published ${c.mediaId}: ${c.caption.slice(0, 80)}`);
+    if (c.caption.includes("#e2e_publish_unclear")) throw new InstagramPublishError("uncertain", "Mock: no answer from media_publish.");
+    return c.mediaId;
+  }
+
+  async findPublishedMedia(account: InstagramAccount, post: { caption: string; since: Date }) {
+    requireConnection(account);
+    for (const c of mockPublishing.containers.values()) {
+      if (c.businessId === account.businessId && c.mediaId && !c.carouselItem && c.caption === post.caption && (c.publishedAt ?? 0) >= post.since.getTime() - 60_000) {
+        return { mediaId: c.mediaId, permalink: `https://www.instagram.com/p/${c.mediaId.slice(-11)}/` };
+      }
+    }
+    return null;
+  }
+
+  async getPermalink(_account: InstagramAccount, mediaId: string) {
+    return `https://www.instagram.com/p/${mediaId.slice(-11)}/`;
+  }
+
+  async getPublishingLimit(account: InstagramAccount) {
+    requireConnection(account);
+    const since = Date.now() - 24 * 60 * 60 * 1000;
+    let used = 0;
+    for (const c of mockPublishing.containers.values()) if (c.businessId === account.businessId && (c.publishedAt ?? 0) > since && !c.carouselItem) used += 1;
+    return { used, total: 50 };
   }
 
   async getCompetitorProfile(_account: InstagramAccount, handle: string): Promise<CompetitorProfile | null> {

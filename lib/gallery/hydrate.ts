@@ -24,12 +24,34 @@ function draftCaption(draft: GalleryDraftDto): L {
   return { en: draft.captionEn || draft.captionAr, ar: draft.captionAr || draft.captionEn };
 }
 
-/** Draft state on a photo: status "draft" with the draft's caption (a posted Instagram photo stays posted). */
-function withDraft(photo: Photo, draft: GalleryDraftDto | undefined): Photo {
-  if (!draft || photo.status === "published") return photo;
+/**
+ * Draft state on a photo, with its publishing job: Scheduled (also while publishing or waiting), Posted, or a
+ * draft (a failed job shows its reason on it). A posted Instagram photo stays as it is on Instagram.
+ */
+export function withDraft(photo: Photo, draft: GalleryDraftDto | undefined): Photo {
+  if (!draft) return photo;
+  const post = draft.post;
+  // Already published (an Instagram post, or a sample): stays so, unless this draft is what posted it.
+  if (photo.status === "published" && (photo.source === "instagram" || post?.state !== "posted")) return photo;
+  const publish = post && post.state !== "cancelled" ? { jobId: post.id, state: post.state, scheduledFor: post.scheduledFor, reason: post.reason, locked: post.locked } : undefined;
+  if (post?.state === "posted") {
+    return {
+      ...photo,
+      status: "published",
+      caption: photo.caption ?? draftCaption(draft),
+      publishedAt: photo.publishedAt ?? post.publishedAt ?? post.scheduledFor,
+      permalink: photo.permalink ?? post.permalink ?? undefined,
+      draftId: draft.id,
+      aiPost: draft.origin === "ai_chat" || photo.aiPost,
+      publish,
+    };
+  }
+  const scheduled = post && (post.state === "scheduled" || post.state === "waiting" || post.state === "publishing");
   return {
     ...photo,
-    status: "draft",
+    status: scheduled ? "scheduled" : "draft",
+    scheduledFor: scheduled ? post.scheduledFor : undefined,
+    publish,
     caption: draftCaption(draft),
     draftId: draft.id,
     hashtags: draft.hashtags,

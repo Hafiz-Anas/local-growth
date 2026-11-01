@@ -16,8 +16,10 @@ let pool: Pool;
 let page: Page;
 let businessId: string;
 let experiment: Record<string, unknown> | undefined;
-// The posts scheduled at the start: the spec cancels them all and schedules them again afterwards.
+// The posts in the queue at the start (upcoming and recently failed, with their status): the spec removes them all
+// and puts each back as it was afterwards.
 let scheduledIds: string[] = [];
+let statuses: Array<{ id: string; status: string; draftStatus: string }> = [];
 
 async function login(p: Page, account: { email: string; password: string }) {
   await p.goto("/login");
@@ -47,15 +49,23 @@ test.afterAll(async () => {
       [id, businessId, startDate, dailyTarget, JSON.stringify(windows), status],
     );
   }
-  if (scheduledIds.length) {
-    await pool.query(`UPDATE "ScheduledPost" SET status = 'SCHEDULED' WHERE id = ANY($1)`, [scheduledIds]);
-    await pool.query(`UPDATE "PostDraft" SET status = 'QUEUED' WHERE id IN (SELECT "draftId" FROM "ScheduledPost" WHERE id = ANY($1))`, [scheduledIds]);
+  for (const row of statuses) {
+    await pool.query(`UPDATE "ScheduledPost" SET status = $2::"ScheduledPostStatus", "cancelledAt" = NULL, "cancelledBy" = NULL WHERE id = $1`, [row.id, row.status]);
+    await pool.query(`UPDATE "PostDraft" SET status = $2::"DraftStatus" WHERE id = (SELECT "draftId" FROM "ScheduledPost" WHERE id = $1)`, [row.id, row.draftStatus]);
   }
   await pool?.end();
 });
 
 test("no experiment: the scheduled posts are listed and one can be cancelled", async () => {
-  scheduledIds = (await pool.query<{ id: string }>(`SELECT id FROM "ScheduledPost" WHERE "businessId" = $1 AND status = 'SCHEDULED'`, [businessId])).rows.map((r) => r.id);
+  // The queue lists upcoming posts and posts that failed in the last 30 days.
+  statuses = (
+    await pool.query<{ id: string; status: string; draftStatus: string }>(
+      `SELECT s.id, s.status::text AS status, d.status::text AS "draftStatus" FROM "ScheduledPost" s JOIN "PostDraft" d ON d.id = s."draftId"
+       WHERE s."businessId" = $1 AND (s.status IN ('SCHEDULED', 'PUBLISHING') OR (s.status = 'FAILED' AND s."updatedAt" > (now() AT TIME ZONE 'UTC') - interval '30 days'))`,
+      [businessId],
+    )
+  ).rows;
+  scheduledIds = statuses.map((r) => r.id);
   expect(scheduledIds.length).toBeGreaterThan(0);
 
   await page.goto("/experiment");

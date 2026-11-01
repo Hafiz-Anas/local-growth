@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { CalendarDays, Check, FlaskConical, Lightbulb, Loader2, Send, Target, Trash2 } from "lucide-react";
+import { CalendarDays, Check, FlaskConical, Lightbulb, Loader2, RotateCcw, Send, Target, Trash2 } from "lucide-react";
 import { useActiveClient, useFeature } from "@/components/providers/active-client-provider";
 import { ChangeIndicator } from "@/components/shared/change-indicator";
 import { MediaPlaceholder } from "@/components/shared/media";
@@ -15,6 +15,7 @@ import { ConfirmDialog } from "@/components/ui/dialog";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn, formatDateTime, formatNumber, formatPct, hourLabel } from "@/lib/utils";
 import { apiFetch } from "@/lib/api/client";
+import { publishReasonText } from "@/lib/api/errors";
 import { qk, useAction, useExperiment, useScheduled } from "@/lib/api/queries";
 import { notify } from "@/store/ui-store";
 import type { PostWindow, ScheduledPostDto, WindowResult } from "@/types";
@@ -184,8 +185,9 @@ function ScheduledQueue({
   const [confirmPublish, setConfirmPublish] = useState<string | null>(null);
 
   const publish = useAction({
-    mutationFn: (id: string) => apiFetch<{ published: boolean; mediaId: string }>(`/api/scheduled-posts/${id}/publish`, { method: "POST" }),
-    onSuccess: () => notify.success(t("publish.published")),
+    mutationFn: (id: string) => apiFetch<{ published: boolean; pending: boolean; mediaId: string | null }>(`/api/scheduled-posts/${id}/publish`, { method: "POST" }),
+    // Still processing at Instagram: the publish cron finishes it; the row shows "Publishing…" meanwhile.
+    onSuccess: (result) => (result.published ? notify.success(t("publish.published")) : notify.info(t("experiment.states.publishing"))),
     // On failure the post stays in the queue at its time; either way, refresh the queue and drafts.
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: qk.scheduled });
@@ -204,6 +206,16 @@ function ScheduledQueue({
     // The cancelled post's draft is back among the drafts.
     onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.drafts }),
   });
+  // A failed post, tried again now: the server checks Instagram first, so it's never posted twice.
+  const retry = useAction({
+    mutationFn: (id: string) => apiFetch<ScheduledPostDto>(`/api/scheduled-posts/${id}`, { method: "PATCH", body: { now: true } }),
+    onSuccess: () => notify.info(t("experiment.states.publishing")),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: qk.scheduled });
+      queryClient.invalidateQueries({ queryKey: qk.gallery });
+    },
+  });
+  const busy = (id: string) => (publish.isPending && publish.variables === id) || (retry.isPending && retry.variables === id);
 
   return (
     <>
@@ -218,8 +230,13 @@ function ScheduledQueue({
         ) : (
           <ul className="divide-y divide-separator rounded-panel border border-border">
             {posts.map((post) => (
-              <li key={post.id} className="flex items-center gap-3 px-4 py-3">
-                <MediaPlaceholder tone={post.tone} icon={post.icon} className="size-11 shrink-0 rounded-button" iconClassName="size-5" />
+              <li key={post.id} className="flex items-start gap-3 px-4 py-3" data-state={post.state}>
+                {post.photos[0] ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- the post's own photo (storage URL), not a static asset
+                  <img src={post.photos[0]} alt="" className="size-11 shrink-0 rounded-button object-cover" />
+                ) : (
+                  <MediaPlaceholder tone={post.tone} icon={post.icon} className="size-11 shrink-0 rounded-button" iconClassName="size-5" />
+                )}
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-body font-semibold">
                     <bdi>{post.caption}</bdi>
@@ -227,25 +244,42 @@ function ScheduledQueue({
                   <p className="truncate text-caption text-muted">
                     {formatDateTime(post.scheduledFor, locale, { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}
                     {" · "}
-                    {post.source === "generator" ? t("experiment.fromGenerator") : t("experiment.manual")}
+                    {post.source === "gallery" ? t("experiment.fromGallery") : post.source === "generator" ? t("experiment.fromGenerator") : t("experiment.manual")}
+                    {post.format === "carousel" && ` · ${t("experiment.photos", { count: post.photos.length })}`}
                   </p>
+                  {post.state !== "scheduled" && (
+                    <p className={cn("mt-1 text-caption", post.state === "failed" ? "text-danger" : "text-muted")} data-testid="queue-reason">
+                      <span className="font-semibold">{t(`experiment.states.${post.state}`)}</span>
+                      {post.state === "failed" && ` — ${publishReasonText(post.reason, t)}`}
+                    </p>
+                  )}
                 </div>
                 <Badge variant={post.window === suggested ? "blue" : "neutral"} className="hidden sm:inline-flex">
                   {t(`windows.${post.window}`)}
                 </Badge>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={() => setConfirmPublish(post.id)}
-                  disabled={publish.isPending}
-                  aria-label={t("publish.now")}
-                  title={t("publish.now")}
-                >
-                  {publish.isPending && publish.variables === post.id ? <Loader2 className="animate-spin" /> : <Send strokeWidth={1.75} />}
-                </Button>
-                <Button variant="ghost" size="icon-sm" onClick={() => remove.mutate(post.id)} disabled={publish.isPending && publish.variables === post.id} aria-label={t("common.remove")}>
-                  <Trash2 strokeWidth={1.75} />
-                </Button>
+                {post.state === "failed" ? (
+                  <Button variant="ghost" size="icon-sm" onClick={() => retry.mutate(post.id)} disabled={busy(post.id)} aria-label={t("experiment.tryAgain")} title={t("experiment.tryAgain")}>
+                    {busy(post.id) ? <Loader2 className="animate-spin" /> : <RotateCcw strokeWidth={1.75} />}
+                  </Button>
+                ) : post.status === "scheduled" ? (
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => setConfirmPublish(post.id)}
+                    disabled={publish.isPending}
+                    aria-label={t("publish.now")}
+                    title={t("publish.now")}
+                  >
+                    {busy(post.id) ? <Loader2 className="animate-spin" /> : <Send strokeWidth={1.75} />}
+                  </Button>
+                ) : (
+                  <Loader2 className="size-5 shrink-0 animate-spin text-muted" aria-label={t("experiment.states.publishing")} />
+                )}
+                {(post.status === "scheduled" || post.state === "failed") && (
+                  <Button variant="ghost" size="icon-sm" onClick={() => remove.mutate(post.id)} disabled={busy(post.id)} aria-label={t("common.remove")}>
+                    <Trash2 strokeWidth={1.75} />
+                  </Button>
+                )}
               </li>
             ))}
           </ul>

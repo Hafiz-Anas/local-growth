@@ -8,10 +8,18 @@ import { filterNav, isFeatureEnabled, permissionsFromRows } from "../lib/permiss
 describe("Gallery and AI chat features", () => {
   it("are modules of their own, ON in every plan; the old assistant's switch is gone", () => {
     assert.ok(!(FEATURE_KEYS as readonly string[]).includes("assistant"));
-    for (const key of ["gallery", "aiChat"] as const) {
-      assert.deepEqual(FEATURE_MODULES.find((m) => m.id === key), { id: key, moduleKey: key, subFeatures: [] });
+    assert.deepEqual(FEATURE_MODULES.find((m) => m.id === "gallery"), { id: "gallery", moduleKey: "gallery", subFeatures: ["gallery.publishing"] });
+    assert.deepEqual(FEATURE_MODULES.find((m) => m.id === "aiChat"), { id: "aiChat", moduleKey: "aiChat", subFeatures: [] });
+    for (const key of ["gallery", "gallery.publishing", "aiChat"] as const) {
       for (const plan of PLAN_IDS) assert.equal(PLAN_PRESETS[plan][key], true, `${plan} ${key}`);
     }
+  });
+
+  it("publishing (gallery.publishing) is ON without a row, can be switched off alone, and goes with the Gallery", () => {
+    assert.equal(isFeatureEnabled(permissionsFromRows([]), "gallery.publishing"), true);
+    assert.equal(isFeatureEnabled(permissionsFromRows([{ featureKey: "gallery.publishing", enabled: false }]), "gallery.publishing"), false);
+    assert.equal(isFeatureEnabled(permissionsFromRows([{ featureKey: "gallery.publishing", enabled: false }]), "gallery"), true);
+    assert.equal(isFeatureEnabled(permissionsFromRows([{ featureKey: "gallery", enabled: false }]), "gallery.publishing"), false);
   });
 
   it("gate the Gallery and centre AI tabs; ON for businesses without a row (no data migration)", () => {

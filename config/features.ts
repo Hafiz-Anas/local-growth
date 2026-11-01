@@ -39,6 +39,7 @@ export const FEATURE_KEYS = [
   "engagement.whatsappPricing",
 
   "gallery",
+  "gallery.publishing",
 
   "aiChat",
 
@@ -97,7 +98,7 @@ export const FEATURE_MODULES: FeatureModuleDef[] = [
   {
     id: "gallery",
     moduleKey: "gallery",
-    subFeatures: [],
+    subFeatures: ["gallery.publishing"],
   },
   {
     id: "aiChat",
@@ -150,4 +151,4 @@ export const FEATURE_MODULES: FeatureModuleDef[] = [
  * Modules added without a data migration (no FeaturePermission rows for existing businesses):
  * until an admin saves a value for a business, a missing row counts as ON.
  */
-export const DEFAULT_ON_WITHOUT_ROW: readonly FeatureKey[] = ["gallery", "aiChat", "competitors.inspiration"];
+export const DEFAULT_ON_WITHOUT_ROW: readonly FeatureKey[] = ["gallery", "gallery.publishing", "aiChat", "competitors.inspiration"];

@@ -368,14 +368,18 @@
       "media_rejected": "Instagram didn't accept this image. Try a different image.",
       "processing_timeout": "Instagram is still processing the image. Try again in a minute.",
       "daily_limit": "This account reached Instagram's daily publishing limit. Try again tomorrow.",
-      "uncertain": "We couldn't confirm whether the post went out. Check Instagram before trying again.",
-      "not_connected": "Instagram isn't connected. Reconnect it in Settings and try again.",
+      "uncertain": "We couldn't confirm whether it went out. Rescheduling checks Instagram first, so it's never posted twice.",
+      "not_connected": "Instagram wasn't connected at the scheduled time. Reconnect it, then reschedule.",
       "permission": "Instagram didn't give permission to publish. Reconnect Instagram and allow publishing.",
       "rate_limited": "Instagram asked us to slow down. Try again in a few minutes.",
       "feature_disabled": "Publishing is turned off for your plan.",
-      "missed_window": "The scheduled time passed while publishing was unavailable, so it wasn't posted late.",
+      "missed_window": "The scheduled time passed more than 6 hours ago while posting wasn't possible, so it wasn't posted late. Reschedule it.",
       "interrupted": "Publishing was interrupted. Check Instagram before trying again.",
-      "failed": "Something went wrong while publishing. Please try again."
+      "failed": "Something went wrong while publishing. Please try again.",
+      "too_many_photos": "A carousel can have at most 20 photos. Remove some and try again.",
+      "too_many_mentions": "Instagram allows up to 20 @mentions. Remove some and try again.",
+      "network": "Instagram didn't answer. Try again in a few minutes.",
+      "account_changed": "A different Instagram account is connected now than when this post was approved. Reschedule it to post on this account."
     }
   },
   "experiment": {
@@ -424,7 +428,18 @@
       "running": "Running",
       "paused": "Paused",
       "completed": "Completed"
-    }
+    },
+    "fromGallery": "From the Gallery",
+    "tryAgain": "Try again",
+    "states": {
+      "scheduled": "Scheduled",
+      "waiting": "Waiting for Instagram",
+      "publishing": "Publishing…",
+      "posted": "Posted",
+      "failed": "Couldn't post",
+      "cancelled": "Cancelled"
+    },
+    "photos": "{count} photos"
   },
   "engagement": {
     "status": {
@@ -1144,7 +1159,8 @@
       "settings_brandVoice": "Brand voice",
       "competitors_analysis": "Competitor analysis",
       "postInsights_shareability": "Most shared (shares ÷ reach)",
-      "competitors_inspiration": "Inspiration (saved competitor posts)"
+      "competitors_inspiration": "Inspiration (saved competitor posts)",
+      "gallery_publishing": "Publishing to Instagram (schedule and post from the Gallery and AI)"
     }
   },
   "roles": {
@@ -1204,7 +1220,9 @@
     "login_active": "That's the account you're using. Log out of it instead.",
     "upload_invalid": "That photo couldn't be added. Use a JPG, PNG or WebP photo up to 10 MB.",
     "storage_unavailable": "Photo uploads aren't available right now. Please try again later.",
-    "album_limit": "You've reached the most albums you can have. Delete one to make another."
+    "album_limit": "You've reached the most albums you can have. Delete one to make another.",
+    "already_scheduled": "This post is already scheduled. Reschedule it instead.",
+    "publish_started": "Publishing has already started, so this post can't be changed now."
   },
   "states": {
     "loadFailed": "Couldn't load this",
@@ -2499,7 +2517,7 @@
     "bestTime": "Best time to post",
     "postNow": "Post now",
     "posted": "Posted",
-    "scheduledToast": "Scheduled for {when}",
+    "scheduledToast": "Scheduled for {when}.",
     "pickTime": "Pick a time",
     "suggested": "Suggested",
     "date": "Date",
@@ -2673,7 +2691,7 @@
     "uploadSkipped": "Only the first {n} photos were uploaded. Add the rest in another go.",
     "publishingNext": "Publishing is coming next. Your post is saved as a draft.",
     "publishingNextTime": "Publishing is coming next. The time is saved with your draft.",
-    "scheduleNote": "Scheduling isn't connected yet. We'll keep the time you pick with your draft.",
+    "scheduleNote": "We post it to Instagram at this time, even with the app closed. You can change or cancel it until it starts publishing.",
     "saveTime": "Save time",
     "hideFromGallery": "Hide from Gallery",
     "hiddenFromGallery": "Hidden from your Gallery. Nothing changed on Instagram.",
@@ -2688,6 +2706,25 @@
     "noAnswerOwn": "I can't answer that from your data yet. Try asking about a photo or a post.",
     "chatLoading": "Loading this chat…",
     "chatLoadFailed": "Couldn't open this chat. Check your connection and try again.",
-    "tryAgain": "Try again"
+    "tryAgain": "Try again",
+    "schedulePost": "Schedule post",
+    "postIn": "Post in",
+    "rescheduledToast": "Moved to {when}.",
+    "postingNowToast": "Posting to Instagram now. You can close the app.",
+    "cancelSchedule": "Cancel schedule",
+    "scheduleCancelled": "Schedule cancelled. The post is back in your drafts.",
+    "publishingStatus": "Publishing to Instagram…",
+    "waitingStatus": "Waiting for Instagram",
+    "failedStatus": "Couldn't post",
+    "reconnectInstagram": "Reconnect Instagram",
+    "lockedNote": "Publishing has started, so this post can't be changed now.",
+    "waitNotConnected": "Reconnect Instagram and it posts right away (we wait up to 6 hours).",
+    "waitRateLimited": "Instagram asked us to slow down. Trying again in a few minutes.",
+    "waitDailyLimit": "This account reached Instagram's daily posting limit. Trying again later.",
+    "waitProcessing": "Instagram is still processing the photo.",
+    "waitNetwork": "No answer from Instagram. Trying again in a few minutes.",
+    "waitUncertain": "Checking with Instagram whether it went out. It won't be posted twice.",
+    "postNowTitle": "Post to Instagram now?",
+    "postNowBody": "It goes live on @{handle} in a moment, even if you close the app. You can delete it on Instagram afterwards, but not from here."
   }
 }

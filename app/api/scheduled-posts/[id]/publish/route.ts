@@ -10,6 +10,8 @@ export const POST = handler(async (_request, context: RouteContext<"/api/schedul
   const { businessId, session } = await requireAnyFeature(...PUBLISH_FEATURES);
   const { id } = await readParams(context, "id");
   const outcome = await publishScheduledNow(businessId, id, session.userId);
-  if (!outcome.ok) throw publishApiError(outcome.reason);
-  return ok({ published: true, mediaId: outcome.mediaId });
+  if (outcome.ok) return ok({ published: true, pending: false, mediaId: outcome.mediaId });
+  // Still processing at Instagram: the cron finishes it (the post shows as Publishing until then).
+  if ("pending" in outcome) return ok({ published: false, pending: true, mediaId: null });
+  throw publishApiError(outcome.reason);
 });

@@ -7,6 +7,8 @@ import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { BarChart } from "@/components/gallery/charts";
 import { PhotoImage } from "@/components/gallery/photo-image";
+import { PublishNote } from "@/components/gallery/publish-status";
+import { useFeature } from "@/components/providers/active-client-provider";
 import { Avatar, Btn, Chip, Segmented, Skel } from "@/components/gallery/kit";
 import { MediaPlaceholder } from "@/components/shared/media";
 import type { CompetitorPostRef } from "@/lib/gallery/competitor-posts";
@@ -200,6 +202,8 @@ function PostCard({ msgId, post, ctx }: { msgId: string; post: PostDraft; ctx: C
   const [toneMenu, setToneMenu] = useState(false);
   const [writing, setWriting] = useState(false);
   const photos = post.photoIds.map((id) => ctx.photos.find((p) => p.id === id)).filter((p) => p !== undefined);
+  // The post's publishing job as the Gallery has it now (scheduled, publishing, posted, failed).
+  const live = useStore((st) => (post.draftId ? st.photos[st.activeAccountId]?.find((p) => p.draftId === post.draftId && p.publish)?.publish : undefined));
   const update = (patch: Partial<PostDraft>) => useStore.getState().updateAiMsg(msgId, { post: { ...post, ...patch } });
   const s = useStore.getState;
 
@@ -255,9 +259,16 @@ function PostCard({ msgId, post, ctx }: { msgId: string; post: PostDraft; ctx: C
     if (post.draftId) void s().updateDraft(post.draftId, { caption: fullCaption(next), hashtags: next.hashtags, regenerated: true });
   };
 
-  // Publishing isn't connected yet: Approve and Post now save the post as a draft and say so — no pretend success.
-  const publishLater = async () => {
-    if (await save({ status: "saved" })) toast.info(t("publishingNext"));
+  // Real publishing (BE3): both save the post as a draft first, then "Approve and schedule" opens the schedule
+  // sheet (the server publishes it at that time, app closed) and "Post now" asks before it goes live.
+  const canPublish = useFeature("gallery.publishing");
+  const approve = async () => {
+    const draftId = await save({ status: "saved" });
+    if (draftId) s().openSheet({ type: "schedule", photoIds: post.photoIds, caption: post.caption, suggested: post.time });
+  };
+  const postNow = async () => {
+    const draftId = await save({ status: "saved" });
+    if (draftId) s().openSheet({ type: "postNow", draftId, jobId: live && live.state !== "posted" && !live.locked ? live.jobId : undefined });
   };
   // Saves the post (photo, caption, hashtags, suggested time) as a draft in the Gallery. Nothing is scheduled.
   const saveToGallery = async () => {
@@ -441,7 +452,25 @@ function PostCard({ msgId, post, ctx }: { msgId: string; post: PostDraft; ctx: C
           </p>
         )}
 
-        {post.status !== "new" ? (
+        {post.status !== "new" && live && live.state !== "failed" ? (
+          <div className="flex items-center gap-2 rounded-xl bg-ge-brand-soft px-3 py-2 text-[13.5px] font-semibold text-ge-brand-ink" role="status" data-testid="card-publish-status">
+            {live.state === "publishing" ? <LoaderCircle className="size-4 shrink-0 animate-spin" /> : <Check className="size-4 shrink-0" strokeWidth={3} />}
+            <span className="min-w-0 flex-1">
+              {live.state === "posted"
+                ? t("postedStatus")
+                : live.state === "publishing"
+                  ? t("publishingStatus")
+                  : live.state === "waiting"
+                    ? t("waitingStatus")
+                    : t("scheduledFor", { when: when(live.scheduledFor, lang) })}
+            </span>
+            {photos.length > 0 && (
+              <button type="button" onClick={openInGallery} className="shrink-0 rounded-full px-2 py-1 text-[13px] underline-offset-2 hover:underline">
+                {t("openInGallery")}
+              </button>
+            )}
+          </div>
+        ) : post.status !== "new" && !live ? (
           <div className="flex items-center gap-2 rounded-xl bg-ge-brand-soft px-3 py-2 text-[13.5px] font-semibold text-ge-brand-ink" role="status">
             <Check className="size-4 shrink-0" strokeWidth={3} />
             <span className="min-w-0 flex-1">
@@ -479,11 +508,14 @@ function PostCard({ msgId, post, ctx }: { msgId: string; post: PostDraft; ctx: C
           </div>
         ) : (
           <div className="space-y-2">
-            <Btn className="w-full" icon={<CalendarClock />} onClick={publishLater} disabled={writing || saving}>
-              {t("approveSchedule")}
-            </Btn>
-            <div className="grid grid-cols-4 gap-1">
-              <CardAction icon={<Send />} label={t("postNow")} onClick={publishLater} disabled={writing || saving} />
+            {live?.state === "failed" && <PublishNote publish={live} />}
+            {canPublish && (
+              <Btn className="w-full" icon={<CalendarClock />} onClick={approve} disabled={writing || saving}>
+                {live?.state === "failed" ? t("reschedule") : t("approveSchedule")}
+              </Btn>
+            )}
+            <div className={cn("grid gap-1", canPublish ? "grid-cols-4" : "grid-cols-3")}>
+              {canPublish && <CardAction icon={<Send />} label={live?.state === "failed" ? t("tryAgain") : t("postNow")} onClick={postNow} disabled={writing || saving} />}
               <CardAction
                 icon={<PencilLine />}
                 label={t("edit")}

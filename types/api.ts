@@ -255,6 +255,10 @@ export interface GalleryDraftDto {
   versions: CaptionVersionDto[];
   origin: "ai_chat" | "gallery";
   updatedAt: string;
+  /** The language it is (or will be) posted in. */
+  language: "en" | "ar";
+  /** Its publishing job, when it was approved (scheduled, posted or failed). */
+  post: GalleryPostDto | null;
 }
 
 export interface GalleryDto {
@@ -265,6 +269,8 @@ export interface GalleryDto {
   drafts: GalleryDraftDto[];
   /** Sample (and Instagram) photo ids the owner removed from the Gallery. */
   hidden: string[];
+  /** The language posts go out in unless the owner picks the other one (Business.languages, see approveDraft). */
+  postLanguage: "en" | "ar";
 }
 
 /** POST /api/gallery/uploads: one permission per file. `blob`: PUT straight to Vercel Blob with `token`; `local`: PUT to `uploadUrl`. */
@@ -342,8 +348,34 @@ export interface ScheduledPostDto {
   publishedMediaId: string | null;
   tone: MediaTone;
   icon: MediaIcon;
-  /** "manual" for posts written by hand, else from the Post Generator. */
-  source: "generator" | "manual";
+  /** "manual" for posts written by hand, "gallery" for Gallery / AI chat posts, else from the Post Generator. */
+  source: "generator" | "manual" | "gallery";
+  /** What the owner sees (lib/publishing/job.ts publishStateOf). */
+  state: PublishStateDto;
+  /** Why it failed (FAILED) or what it is waiting for (a due post not out yet): a PublishReason code. */
+  reason: string | null;
+  /** The photos it posts (frozen copies; empty for an old post not started yet). */
+  photos: string[];
+  format: "photo" | "carousel";
+  permalink: string | null;
+}
+
+/** A publishing job as the owner sees it. "waiting": due, but held (reconnect, rate or daily limit, processing). */
+export type PublishStateDto = "scheduled" | "waiting" | "publishing" | "posted" | "failed" | "cancelled";
+
+/** The publishing job of a Gallery / AI chat draft (its newest one that wasn't cancelled). */
+export interface GalleryPostDto {
+  /** The job (ScheduledPost) id: reschedule / cancel with /api/scheduled-posts/:id. */
+  id: string;
+  state: PublishStateDto;
+  scheduledFor: string;
+  publishedAt: string | null;
+  /** PublishReason: why it failed, or what it is waiting for. */
+  reason: string | null;
+  permalink: string | null;
+  mediaId: string | null;
+  /** Publishing has started (or finished): the caption is locked. */
+  locked: boolean;
 }
 
 // ─── Experiment ──────────────────────────────────────────────────────────────

@@ -32,14 +32,29 @@ export function cropForInstagram(width: number, height: number): CropBox | null 
   return null;
 }
 
+/** The shape a photo is published in: its own ratio, clamped into Instagram's range (a carousel uses its cover's). */
+export function instagramRatio(width: number, height: number): number {
+  return Math.min(IG_MAX_RATIO, Math.max(IG_MIN_RATIO, width / height));
+}
+
+/** Centre crop to exactly `ratio` (width ÷ height), or null when the image already has it (within a pixel). */
+export function cropToRatio(width: number, height: number, ratio: number): CropBox | null {
+  const h = Math.round(width / ratio);
+  if (Math.abs(h - height) <= 1) return null;
+  if (h < height) return { left: 0, top: Math.floor((height - h) / 2), width, height: h };
+  const w = Math.min(width, Math.round(height * ratio));
+  return { left: Math.floor((width - w) / 2), top: 0, width: w, height };
+}
+
 /**
  * A JPEG Instagram accepts: EXIF orientation applied, centre-cropped into the
  * allowed aspect ratios, at most 1440 px wide, transparency flattened onto white,
- * and under 8 MB. Throws when the input isn't a readable image.
+ * and under 8 MB (`ratio`: exactly that shape instead). Throws when the input isn't a readable image.
  */
-export async function toInstagramJpeg(input: Buffer): Promise<{ data: Buffer; width: number; height: number; cropped: boolean }> {
+export async function toInstagramJpeg(input: Buffer, options: { ratio?: number } = {}): Promise<{ data: Buffer; width: number; height: number; cropped: boolean }> {
   const { data: upright, info } = await sharp(input, { failOn: "error" }).rotate().toBuffer({ resolveWithObject: true });
-  const crop = cropForInstagram(info.width, info.height);
+  // A carousel's photos all take the cover's shape (Instagram crops them to the first one's anyway).
+  const crop = options.ratio ? cropToRatio(info.width, info.height, options.ratio) : cropForInstagram(info.width, info.height);
   const base = () => {
     let image = sharp(upright);
     if (crop) image = image.extract(crop);

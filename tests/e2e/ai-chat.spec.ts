@@ -5,7 +5,7 @@ import { expect, test, type Browser, type Page } from "@playwright/test";
  * The AI chat (components/ai-chat) for the demo business: the centre AI tab, the start screen (three shortcut
  * cards that send a question, and suggested questions — chats have no modes and handle any topic), the sample
  * answers (chart, photo link, estimate), gallery photos attached inside the chat, the post card's actions
- * (saved as real drafts; Post now says publishing is coming next), no footer banner (the AI tab is the way in),
+ * (saved as real drafts; Post now asks before it goes live), no footer banner (the AI tab is the way in),
  * typed questions (POST /api/ai-chat; stubbed here so the result doesn't depend on the AI provider),
  * the chat list (New chat, Today / Yesterday / Earlier, Rename, Delete — no mode tags), chats saved on the
  * server across a reload, and the feature switches. A real business's chat: gallery-real.spec.ts and
@@ -160,10 +160,12 @@ test("photos picked from the gallery inside the chat become a post card with eve
   await expect(card.getByText("Edited")).toBeVisible();
   // Regenerate kept the first caption: it can be put back.
   await expect(card.getByTestId("caption-versions")).toContainText("Earlier captions (1)");
-  // Post now isn't connected yet: it saves the post as a draft and says so (no pretend "Posted").
+  // Post now saves the post as a draft and asks before it goes live; cancelling posts nothing.
   await card.getByRole("button", { name: "Post now" }).click();
-  await expect(toast("Publishing is coming next. Your post is saved as a draft.")).toBeVisible();
-  await expect(toast("Posted")).toHaveCount(0);
+  const confirm = page.getByRole("dialog", { name: "Post to Instagram now?" });
+  await expect(confirm).toBeVisible();
+  await confirm.getByRole("button", { name: "Cancel" }).click();
+  await expect(toast(/^Posting to Instagram now/)).toHaveCount(0);
   await expect(card.getByRole("status")).toBeVisible();
 });
 

@@ -23,6 +23,7 @@ import type {
 } from "@/types";
 import { connectionStatusOf } from "./instagram-account";
 import { windowOf } from "@/lib/time";
+import { publishStateOf } from "@/lib/publishing/job";
 
 /**
  * Prisma rows → API DTOs. Every query that feeds these uses an explicit
@@ -139,7 +140,12 @@ export const SCHEDULED_SELECT = {
   scheduledFor: true,
   status: true,
   publishedMediaId: true,
-  draft: { select: { caption: true, category: true, angle: true } },
+  failureReason: true,
+  waitingReason: true,
+  format: true,
+  mediaUrls: true,
+  permalink: true,
+  draft: { select: { caption: true, category: true, angle: true, origin: true, imageUrl: true } },
 } satisfies Prisma.ScheduledPostSelect;
 
 export function toScheduled(
@@ -149,7 +155,7 @@ export function toScheduled(
 ): ScheduledPostDto {
   return {
     ...styleFor(catalog, row.draft.category),
-    source: row.draft.angle === "manual" ? "manual" : "generator",
+    source: row.draft.origin !== "GENERATOR" ? "gallery" : row.draft.angle === "manual" ? "manual" : "generator",
     id: row.id,
     draftId: row.draftId,
     caption: row.draft.caption,
@@ -158,6 +164,11 @@ export function toScheduled(
     window: windowOf(row.scheduledFor, timeZone),
     status: lower(row.status) as ScheduledPostStatus,
     publishedMediaId: row.publishedMediaId,
+    state: publishStateOf(row, new Date()),
+    reason: row.status === "FAILED" ? row.failureReason : row.waitingReason,
+    photos: row.mediaUrls.length ? row.mediaUrls : [row.mediaUrl ?? row.draft.imageUrl].filter((u): u is string => Boolean(u)),
+    format: row.format === "CAROUSEL" ? "carousel" : "photo",
+    permalink: row.permalink,
   };
 }
 

@@ -19,6 +19,7 @@ import { syncInstagram } from "./instagram-sync";
 import { graphFor } from "./meta-client";
 import { sealCredentials } from "./meta-credentials";
 import { adoptInstagramName, recordError } from "./onboarding";
+import { resumeHeldPosts } from "./publishing";
 
 /**
  * Facebook Login for Business → a connected Instagram professional account.
@@ -256,6 +257,8 @@ export async function afterMetaConnected(businessId: string, grant: UserGrant, p
     details: { scopes: grant.info.scopes, missing, tokenExpiresAt: grant.info.expiresAt?.toISOString() ?? null },
   });
   await syncInstagram(businessId, { scope: "basic", reason: "connect" }).catch((e) => console.error("[meta] initial sync failed", (e as Error).message));
+  // Posts held for the reconnect go out at the next publish run.
+  await resumeHeldPosts(businessId).catch(() => 0);
 }
 
 /** Insights, comments and the DM webhook subscription, right after the response. */

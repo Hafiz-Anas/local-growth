@@ -76,6 +76,18 @@ export interface Photo {
   /** A synced Instagram post: its link, and whether Instagram gave no reach/saves/shares for it. */
   permalink?: string;
   metricsPartial?: boolean;
+  /** The draft's publishing job (real publishing, BE3): its state, time and why it failed or is waiting. */
+  publish?: PhotoPublish;
+}
+
+export interface PhotoPublish {
+  jobId: string;
+  state: "scheduled" | "waiting" | "publishing" | "posted" | "failed" | "cancelled";
+  scheduledFor: string;
+  /** A PublishReason code (lib/publishing/job.ts): why it failed, or what it is waiting for. */
+  reason: string | null;
+  /** Publishing has started: the caption can't be edited and the post can't be cancelled. */
+  locked: boolean;
 }
 
 export interface CustomAlbum {

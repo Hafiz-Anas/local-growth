@@ -135,7 +135,7 @@ export const queueDraftSchema = z.object({
   mediaUrl: z.url().max(2000).nullish(),
 });
 
-export const scheduledStatusQuery = z.object({ status: z.enum(["scheduled", "published", "cancelled", "failed"]).optional() });
+export const scheduledStatusQuery = z.object({ status: z.enum(["active", "scheduled", "publishing", "published", "cancelled", "failed"]).optional() });
 
 export const createScheduledSchema = z.object({
   draftId: z.string().min(1).max(64),
@@ -143,7 +143,14 @@ export const createScheduledSchema = z.object({
   mediaUrl: z.url().max(2000).nullish(),
 });
 
-export const rescheduleSchema = z.object({ scheduledFor: isoDate });
+/** Reschedule to a time, or `now: true` to post now (a failed post: try again). */
+export const rescheduleSchema = z.union([z.object({ scheduledFor: isoDate }), z.object({ now: z.literal(true) })]);
+
+/** Approve a Gallery / AI chat draft: at a time, or now; in English or Arabic (default: approveDraft decides). */
+export const approveDraftSchema = z.union([
+  z.object({ scheduledFor: isoDate, language: z.enum(["en", "ar"]).optional() }),
+  z.object({ now: z.literal(true), language: z.enum(["en", "ar"]).optional() }),
+]);
 
 export const applyWindowSchema = z.object({
   /** Defaults to the experiment's suggested window. */

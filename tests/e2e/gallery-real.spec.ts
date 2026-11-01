@@ -11,7 +11,9 @@ import { startGeminiStub } from "./gemini-stub";
  * photos"; real uploads (one and several, a non-photo refused) are stored and come back after a reload and on
  * another device with their favourites and albums; Delete has Undo; synced Instagram posts are only hidden; the AI
  * writes captions from the photo (Gemini stub), Regenerate keeps earlier captions, drafts survive a reload and can
- * be edited again; invented numbers are never shown; Approve / Post now / Schedule say publishing comes next;
+ * be edited again; invented numbers are never shown; Schedule / Approve need a working Instagram connection (this
+ * stand-in Meta one asks to connect and nothing is scheduled) and Post now asks first (tests/e2e/publishing.spec.ts
+ * publishes for real with mock Instagram);
  * another business's photos, albums, drafts and uploads are 404; admin preview is read-only. Rows it adds for
  * "Dalla & Bean" (to try another business's ids) are removed at the end.
  */
@@ -113,8 +115,8 @@ test("a real business sees only its own Gallery: the empty state, no sample phot
 
   await openAlbums();
   for (const name of ["All Photos", "Uploads", "Instagram", "Drafts", "AI Generated", "Favorites"]) await expect(albumCard(name)).toBeVisible();
-  // Nothing is scheduled until publishing is connected; category albums are the demo's samples.
-  await expect(albumCard("Scheduled")).toHaveCount(0);
+  // Publishing is on (gallery.publishing): the Scheduled collection is there, empty; category albums are the demo's samples.
+  expect(await albumCount("Scheduled")).toBe(0);
   await expect(albumCard("Sweets")).toHaveCount(0);
   await main().getByRole("tab", { name: "Library" }).click();
 
@@ -306,20 +308,38 @@ test("the AI writes the caption from the photo; Regenerate keeps earlier caption
   sheet = page.getByRole("dialog", { name: "Ready post" }).last();
   await expect(sheet.getByText("Weekend manakish, fresh from our oven.")).toBeVisible();
 
-  // Publishing isn't connected yet: Post now and Schedule say so; the time is kept with the draft.
-  await sheet.getByRole("button", { name: "Post now" }).click();
-  await expect(toast("Publishing is coming next. Your post is saved as a draft.")).toBeVisible();
-  await sheet.getByRole("button", { name: "Schedule" }).click();
+  // Real publishing: Schedule makes a job only with a working Instagram connection. This stand-in Meta connection
+  // has no token, so it asks to connect Instagram and nothing is scheduled.
+  const scheduledRows = async () => (await pool.query(`SELECT 1 FROM "ScheduledPost" WHERE "businessId" = $1`, [businessId])).rowCount;
+  const before = await scheduledRows();
+  await sheet.getByRole("button", { name: "Schedule", exact: true }).click();
   const schedule = page.getByRole("dialog", { name: "Schedule" });
-  await expect(schedule.getByTestId("schedule-note")).toBeVisible();
+  await expect(schedule.getByTestId("schedule-note")).toContainText("even with the app closed");
   // Only the draft's own suggested time (no sample "best times"), plus a time of your own.
   await expect(schedule.getByRole("radio")).toHaveCount(2);
-  await schedule.getByRole("button", { name: "Save time" }).click();
-  await expect(toast("Publishing is coming next. The time is saved with your draft.")).toBeVisible();
+  await schedule.getByRole("button", { name: "Schedule post" }).click();
+  const connect = page.getByRole("dialog", { name: "Connect Instagram" });
+  await expect(connect).toBeVisible();
+  await connect.getByRole("button", { name: "Not now" }).click();
+  expect(await scheduledRows()).toBe(before);
+  await closeAll();
+
+  // Post now asks first (it goes live on Instagram); cancelling changes nothing.
+  await page.goto("/gallery");
+  await openAlbums();
+  await albumCard("Drafts").click();
+  await tiles().first().click();
+  await viewer().getByRole("button", { name: "Open post" }).click();
+  sheet = page.getByRole("dialog", { name: "Ready post" }).last();
+  await sheet.getByRole("button", { name: "Post now" }).click();
+  const confirm = page.getByRole("dialog", { name: "Post to Instagram now?" });
+  await expect(confirm).toContainText("You can delete it on Instagram afterwards");
+  await confirm.getByRole("button", { name: "Cancel" }).click();
+  expect(await scheduledRows()).toBe(before);
   await closeAll();
 });
 
-test("an answer with invented numbers or claims is never shown: the neutral caption about the business instead; Approve says publishing comes next", async () => {
+test("an answer with invented numbers or claims is never shown: the neutral caption about the business instead; Approve opens the schedule", async () => {
   const scheduled = async () => (await pool.query(`SELECT 1 FROM "ScheduledPost" WHERE "businessId" = $1`, [businessId])).rowCount;
   const scheduledBefore = await scheduled();
   await page.goto("/ai");
@@ -334,10 +354,12 @@ test("an answer with invented numbers or claims is never shown: the neutral capt
   await expect(card.getByTestId("post-caption")).toContainText("Noor Boutique", { timeout: 20_000 });
   await expect(card.getByTestId("post-caption")).not.toContainText("3.5");
   await expect(card.getByText("The AI isn't available right now, so here's a simple caption to start from. Edit it before posting.")).toBeVisible();
+  // Approve saves the draft and opens the schedule; closing it schedules nothing.
   await card.getByRole("button", { name: "Approve and schedule" }).click();
-  await expect(toast("Publishing is coming next. Your post is saved as a draft.")).toBeVisible();
+  const schedule = page.getByRole("dialog", { name: "Schedule" });
+  await expect(schedule.getByRole("button", { name: "Schedule post" })).toBeVisible();
+  await closeAll();
   await expect(card.getByRole("status")).toBeVisible();
-  // Nothing was scheduled.
   expect(await scheduled()).toBe(scheduledBefore);
 });
 

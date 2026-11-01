@@ -6,13 +6,15 @@ import type { CaptionVersionDto, GalleryDraftDto } from "@/types/api";
 import { logActivity } from "./activity";
 import { GALLERY_DRAFT_SELECT, GALLERY_DRAFT_WHERE, resolvePhotos, toDraftDto } from "./gallery";
 import { notFound } from "./http";
+import { assertDraftEditable } from "./publishing";
 
 /**
  * Gallery / AI chat drafts (BE2) on the existing PostDraft table (origin AI_CHAT or GALLERY), so the
  * publishing pipeline (ScheduledPost → lib/server/publishing.ts) can take them over in the next phase.
  * A draft keeps its photos in order (PostDraftPhoto; the first is the cover, also in imageUrl when it's
  * our own file), the caption in English and Arabic as posted (text + hashtags), the hashtags, the AI's
- * suggested time and the earlier captions Regenerate replaced. Nothing is published or scheduled here.
+ * suggested time and the earlier captions Regenerate replaced. Publishing is lib/server/publishing.ts (approveDraft):
+ * a scheduled draft can still be edited here until publishing starts, then it is locked (409 publish_started).
  */
 
 type Both = { en: string; ar: string };
@@ -54,27 +56,39 @@ export async function createDraft(businessId: string, userId: string, input: Dra
   return toDraftDto(draft);
 }
 
-/** Edits a draft's caption, hashtags or suggested time. A caption from Regenerate keeps the one it replaces as a version. */
+/**
+ * Edits a draft's caption, hashtags or suggested time. A caption from Regenerate keeps the one it replaces as a
+ * version. A scheduled draft keeps the language it was approved in; once publishing starts it can't be changed.
+ */
 export async function updateDraft(
   businessId: string,
   id: string,
   patch: { caption?: Both; hashtags?: string[]; suggestedFor?: Date | null; regenerated?: boolean },
 ): Promise<GalleryDraftDto> {
-  const draft = await db.postDraft.findFirst({ where: { id, businessId, ...GALLERY_DRAFT_WHERE }, select: { captionEn: true, captionAr: true, captionVersions: true } });
-  if (!draft) throw notFound("Draft");
-  const previous = { en: draft.captionEn ?? "", ar: draft.captionAr ?? "" };
-  const versions = patch.caption && patch.regenerated ? withVersion(parseVersions(draft.captionVersions), previous, patch.caption, new Date().toISOString()) : undefined;
-  const updated = await db.postDraft.update({
-    where: { id },
-    data: {
-      ...(patch.caption && { ...primaryCaption(patch.caption), captionEn: patch.caption.en, captionAr: patch.caption.ar }),
-      ...(patch.hashtags && { hashtags: patch.hashtags }),
-      ...(patch.suggestedFor !== undefined && { suggestedFor: patch.suggestedFor }),
-      ...(versions && { captionVersions: asJson(versions) }),
-    },
-    select: GALLERY_DRAFT_SELECT,
+  return db.$transaction(async (tx) => {
+    const draft = await tx.postDraft.findFirst({
+      where: { id, businessId, origin: GALLERY_DRAFT_WHERE.origin, status: { in: ["DRAFT", "QUEUED", "PUBLISHED"] } },
+      select: { status: true, language: true, captionEn: true, captionAr: true, captionVersions: true },
+    });
+    if (!draft) throw notFound("Draft");
+    // Locks the draft's jobs: the cron can't start publishing it until this edit is saved.
+    await assertDraftEditable(tx, id);
+    const previous = { en: draft.captionEn ?? "", ar: draft.captionAr ?? "" };
+    const versions = patch.caption && patch.regenerated ? withVersion(parseVersions(draft.captionVersions), previous, patch.caption, new Date().toISOString()) : undefined;
+    const lang = draft.status === "QUEUED" ? (draft.language === "en" ? "en" : "ar") : null;
+    const caption = patch.caption && (lang ? { caption: (lang === "en" ? patch.caption.en || patch.caption.ar : patch.caption.ar || patch.caption.en), language: lang } : primaryCaption(patch.caption));
+    const updated = await tx.postDraft.update({
+      where: { id },
+      data: {
+        ...(patch.caption && { ...caption, captionEn: patch.caption.en, captionAr: patch.caption.ar }),
+        ...(patch.hashtags && { hashtags: patch.hashtags }),
+        ...(patch.suggestedFor !== undefined && { suggestedFor: patch.suggestedFor }),
+        ...(versions && { captionVersions: asJson(versions) }),
+      },
+      select: GALLERY_DRAFT_SELECT,
+    });
+    return toDraftDto(updated);
   });
-  return toDraftDto(updated);
 }
 
 /** Deletes a draft (its photos stay in the Gallery). */
