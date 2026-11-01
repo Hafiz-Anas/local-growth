@@ -15,7 +15,8 @@ import { CompetitorDialog } from "./competitor-dialog";
 import { RemoveCompetitorDialog } from "./remove-competitor-dialog";
 import { TrendsPanels } from "./trends-panels";
 
-const GRID = "grid gap-4 sm:grid-cols-2 lg:grid-cols-3";
+// items-start: an expanded card grows on its own, its neighbours keep their height.
+const GRID = "grid items-start gap-4 sm:grid-cols-2 lg:grid-cols-3";
 
 /** Competitor Insights: tracked accounts as a card grid, then trends. */
 export function CompetitorsView() {

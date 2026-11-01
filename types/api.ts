@@ -193,6 +193,8 @@ export interface CompetitorDto {
   notableNote: string;
   /** Weekly engagement rate (percent), oldest first. */
   engagementHistory: EngagementPoint[];
+  /** Follower change over the last 30 days from stored snapshots (lib/analysis/competitor-summary.ts); null when there isn't enough history. */
+  growth: import("@/lib/analysis/competitor-summary").FollowerGrowth | null;
 }
 
 /** POST /api/ai-chat/similar-post: what makes a competitor's post work and a new post in that style (EN + AR); null = use the sample answer. */

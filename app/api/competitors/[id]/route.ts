@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { logActivity } from "@/lib/server/activity";
 import { competitorProfileFor, recordCompetitorFetch } from "@/lib/server/competitor-profiles";
 import { findOwnCompetitor, resolveCompetitorHandle } from "@/lib/server/competitors";
+import { competitorGrowth } from "@/lib/server/data";
 import { COMPETITOR_SELECT, toCompetitor } from "@/lib/server/dto";
 import { requireFeature } from "@/lib/server/guards";
 import { handler, ok, readJson, readParams } from "@/lib/server/http";
@@ -16,8 +17,8 @@ export const GET = handler(async (_request, context: Ctx) => {
   const { id } = await readParams(context, "id");
   await findOwnCompetitor(businessId, id);
   const row = await db.competitor.findUniqueOrThrow({ where: { id }, select: COMPETITOR_SELECT });
-  const profile = await competitorProfileFor(await getInstagramAccount(businessId), row);
-  return ok(toCompetitor(row, profile));
+  const [profile, growth] = await Promise.all([competitorProfileFor(await getInstagramAccount(businessId), row), competitorGrowth([id])]);
+  return ok(toCompetitor(row, profile, growth.get(id) ?? null));
 });
 
 /**

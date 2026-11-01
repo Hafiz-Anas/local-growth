@@ -1,5 +1,6 @@
 import "server-only";
 import { EXPERIMENT_DAYS } from "@/config/schedule";
+import { SUMMARY_WINDOW_DAYS, followerGrowth, type FollowerGrowth } from "@/lib/analysis/competitor-summary";
 import { db } from "@/lib/db";
 import type { DraftStatus, ReplyDraftStatus, ScheduledPostStatus } from "@/lib/generated/prisma/client";
 import { isFeatureEnabled } from "@/lib/permissions";
@@ -75,8 +76,25 @@ export async function catalogFor(businessId: string) {
 export async function listCompetitors(businessId: string): Promise<CompetitorDto[]> {
   const rows = await db.competitor.findMany({ where: { businessId, validationStatus: "READY" }, select: COMPETITOR_SELECT, orderBy: { followers: "desc" } });
   const account = await getInstagramAccount(businessId);
-  const profiles = await Promise.all(rows.map((row) => competitorProfileFor(account, row)));
-  return rows.map((row, i) => toCompetitor(row, profiles[i]));
+  const [profiles, growth] = await Promise.all([Promise.all(rows.map((row) => competitorProfileFor(account, row))), competitorGrowth(rows.map((r) => r.id))]);
+  return rows.map((row, i) => toCompetitor(row, profiles[i], growth.get(row.id) ?? null));
+}
+
+/** Follower change over the last 30 days per competitor, from the stored snapshots only (one query; no Instagram call). */
+export async function competitorGrowth(competitorIds: string[]): Promise<Map<string, FollowerGrowth>> {
+  const out = new Map<string, FollowerGrowth>();
+  if (!competitorIds.length) return out;
+  const since = new Date(Date.now() - SUMMARY_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+  const snapshots = await db.competitorSnapshot.findMany({
+    where: { competitorId: { in: competitorIds }, takenAt: { gte: since } },
+    select: { competitorId: true, takenAt: true, followers: true },
+    orderBy: { takenAt: "asc" },
+  });
+  for (const id of competitorIds) {
+    const growth = followerGrowth(snapshots.filter((s) => s.competitorId === id));
+    if (growth) out.set(id, growth);
+  }
+  return out;
 }
 
 export async function getTrends(businessId: string, permissions: Permissions): Promise<TrendsDto> {

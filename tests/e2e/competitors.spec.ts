@@ -1,4 +1,6 @@
+import path from "node:path";
 import { expect, test, type Browser, type Locator, type Page } from "@playwright/test";
+import { competitorSummary, type FollowerGrowth, type SummaryPost } from "../../lib/analysis/competitor-summary";
 import { startGeminiStub } from "./gemini-stub";
 
 /**
@@ -260,9 +262,11 @@ test("Create a similar post (mock mode): the chat explains why it works and writ
     const caption = await card.locator("p[lang]").first().innerText();
     for (const c of theirs) expect(caption).not.toContain(c.replace(/#\S+/g, "").trim());
 
-    // Publishing isn't connected yet: Approve saves the post as a draft and says so.
+    // Approve saves the post as a draft and opens the Schedule sheet (closing it schedules nothing).
     await card.getByRole("button", { name: "Approve and schedule" }).click();
-    await expect(toast("Publishing is coming next. Your post is saved as a draft.")).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "Schedule" }).getByRole("button", { name: "Schedule post" })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog", { name: "Schedule" })).toHaveCount(0);
     await expect(card.getByRole("status")).toBeVisible();
   } finally {
     await page.unroute("**/api/ai-chat/similar-post");
@@ -316,5 +320,148 @@ test("feature switch: with Inspiration off there is no tab, no route and no Save
     await page.keyboard.press("Escape");
   } finally {
     await set(true);
+  }
+});
+
+// ── Accounts: expandable cards (UX4) ─────────────────────────────────────────────
+
+const SHOTS = process.env.E2E_SHOTS_DIR ?? "test-results/competitor-shots";
+type ListItem = { id: string; handle: string; recentPosts: SummaryPost[]; growth: FollowerGrowth | null };
+const cardOf = (p: Page, handle: string) => p.locator("main article").filter({ hasText: `@${handle}` });
+const fmt = (n: number) => new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 }).format(n);
+
+test("Accounts: Show details expands a card in place with growth, posts per week, formats and observations, each with its period", async () => {
+  const list = (await (await page.request.get("/api/competitors")).json()).data as ListItem[];
+  const first = list[0];
+  // The numbers come from the same pure code as the card, from what the API returns.
+  const expected = competitorSummary(first.recentPosts);
+  expect(expected.enough).toBe(true);
+
+  await page.goto("/competitors");
+  const card = cardOf(page, first.handle);
+  const toggle = card.getByTestId("details-toggle");
+  await expect(toggle).toHaveText("Show details");
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await expect(card.getByTestId("competitor-details")).toHaveCount(0);
+  await toggle.click();
+  await expect(toggle).toHaveText("Hide details");
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  const details = card.getByTestId("competitor-details");
+  await expect(details).toBeVisible();
+  // Expands in place: the page didn't navigate, the other cards stay closed.
+  await expect(page).toHaveURL(/\/competitors$/);
+  await expect(page.getByTestId("competitor-details")).toHaveCount(1);
+
+  const growth = details.getByTestId("details-growth");
+  if (first.growth) {
+    await expect(growth).toContainText(`Last ${first.growth.days} days`);
+    await expect(growth).toContainText(`followers in ${first.growth.days} days`);
+  } else {
+    await expect(growth).toContainText("Not enough follower history yet");
+  }
+  const frequency = details.getByTestId("details-frequency");
+  await expect(frequency).toContainText(fmt(expected.postsPerWeek!));
+  await expect(frequency).toContainText(`${expected.posts} posts in the last ${expected.days} days`);
+  const formats = details.getByTestId("details-formats");
+  for (const f of expected.formats) await expect(formats).toContainText(`${fmt(f.sharePct)}%`);
+  const observations = details.getByTestId("details-observations");
+  await expect(observations.getByRole("listitem")).toHaveCount(Math.max(1, expected.observations.length));
+  await expect(observations).toContainText(`Last ${expected.days} days`);
+  await expect(details.getByTestId("details-top-post")).toHaveCount(Math.min(3, expected.top.length));
+  await expect(details.getByRole("link", { name: "View full analysis" })).toHaveAttribute("href", `/competitors/${first.id}`);
+  await page.screenshot({ path: path.join(SHOTS, "desktop-expanded.png"), fullPage: true });
+
+  await toggle.click();
+  await expect(card.getByTestId("competitor-details")).toHaveCount(0);
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+});
+
+test("Accounts: top posts open in the viewer; Save as inspiration and Create a similar post work from the card", async () => {
+  const list = (await (await page.request.get("/api/competitors")).json()).data as ListItem[];
+  const first = list[0];
+  await page.goto("/competitors");
+  const card = cardOf(page, first.handle);
+  await card.getByTestId("details-toggle").click();
+  const details = card.getByTestId("competitor-details");
+
+  // The top post opens in the Gallery's viewer with the competitor actions.
+  await details.getByTestId("details-top-post").first().click();
+  await expect(viewer().getByTestId("competitor-post")).toBeVisible();
+  await expect(viewer().getByRole("button", { name: "Create a similar post" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(viewer()).toHaveCount(0);
+
+  // Save as inspiration toggles for their top post, and the post is in this browser's Inspiration list.
+  const save = details.getByTestId("details-save");
+  if ((await save.getAttribute("aria-pressed")) === "true") await save.click();
+  await expect(save).toHaveAttribute("aria-pressed", "false");
+  await save.click();
+  await expect(save).toHaveAttribute("aria-pressed", "true");
+  await expect(save).toHaveText("Saved as inspiration");
+  const saved = await page.evaluate(() => Object.entries(localStorage).find(([k]) => k.startsWith("lge_inspiration:"))?.[1] ?? "[]");
+  expect((JSON.parse(saved) as Array<{ competitorId: string }>).some((s) => s.competitorId === first.id)).toBe(true);
+  await save.click();
+  await expect(save).toHaveAttribute("aria-pressed", "false");
+
+  // Create a similar post: the AI tab with their post as the reference.
+  await details.getByTestId("details-similar").click();
+  await page.waitForURL(/\/ai$/);
+  await expect(page.getByRole("textbox", { name: "Ask anything…" })).toHaveValue(`Create a post like @${first.handle}'s for my business`);
+});
+
+test("Accounts: not enough data — the card says so instead of showing numbers", async () => {
+  // A competitor with one recent post and no follower history (the API's answer, trimmed).
+  await page.route("**/api/competitors", async (route) => {
+    const res = await route.fetch();
+    const body = (await res.json()) as { ok: true; data: ListItem[] };
+    // Their newest post only (the mock dates some posts later today; those don't count yet).
+    const past = body.data[0].recentPosts.filter((p) => p.postedAt && Date.parse(p.postedAt) <= Date.now());
+    const newest = past.sort((a, b) => b.postedAt!.localeCompare(a.postedAt!))[0];
+    body.data[0] = { ...body.data[0], recentPosts: [newest], growth: null };
+    await route.fulfill({ response: res, json: body });
+  });
+  try {
+    const list = (await (await page.request.get("/api/competitors")).json()).data as ListItem[];
+    await page.goto("/competitors");
+    const card = cardOf(page, list[0].handle);
+    await card.getByTestId("details-toggle").click();
+    const details = card.getByTestId("competitor-details");
+    await expect(details.getByTestId("details-not-enough")).toContainText("Not enough recent posts to compare yet (1 in the last");
+    await expect(details.getByTestId("details-growth")).toContainText("Not enough follower history yet");
+    await expect(details.getByTestId("details-frequency")).toHaveCount(0);
+    await expect(details.getByTestId("details-observations")).toHaveCount(0);
+    await expect(details.getByTestId("details-top-post")).toHaveCount(1);
+    await page.screenshot({ path: path.join(SHOTS, "desktop-not-enough.png") });
+  } finally {
+    await page.unroute("**/api/competitors");
+  }
+});
+
+test("Accounts on a phone, in Arabic: the expanded card fits, right to left", async ({ browser }) => {
+  const phone = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+  await login(phone);
+  const language = async (dir: "rtl" | "ltr") => {
+    if ((await phone.locator("html").getAttribute("dir")) !== dir) {
+      await phone.getByTestId("profile-menu-trigger").filter({ visible: true }).click();
+      await phone.getByTestId("menu-language").click();
+    }
+    await expect(phone.locator("html")).toHaveAttribute("dir", dir);
+  };
+  try {
+    await phone.goto("/competitors");
+    await language("rtl");
+    const toggle = phone.getByTestId("details-toggle").first();
+    await expect(toggle).toHaveText("عرض التفاصيل");
+    await toggle.click();
+    await expect(toggle).toHaveText("إخفاء التفاصيل");
+    const details = phone.getByTestId("competitor-details").first();
+    await expect(details.getByTestId("details-frequency")).toContainText("منشورات في الأسبوع");
+    await expect(details.getByRole("link", { name: "عرض التحليل الكامل" })).toBeVisible();
+    expect(await phone.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
+    await details.scrollIntoViewIfNeeded();
+    await phone.screenshot({ path: path.join(SHOTS, "phone-arabic-expanded.png"), fullPage: true });
+  } finally {
+    await language("ltr");
+    await phone.close();
   }
 });

@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/dialog";
+import { daysPhrase } from "@/lib/i18n/days";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn, formatDateTime, formatNumber, formatPct, hourLabel } from "@/lib/utils";
 import { apiFetch } from "@/lib/api/client";
@@ -76,7 +77,7 @@ export function ExperimentView() {
             <Badge variant="neutral">{t(`experiment.status.${data.status}`)}</Badge>
           )}
           <Badge variant="outline">
-            {t("experiment.daysSampled", { count: data.daysSampled })} {t("experiment.ofDays", { count: data.daysPlanned })}
+            {t("experiment.daysSampled", { period: daysPhrase(data.daysSampled, locale, "nominative") })} {t("experiment.ofDays", { count: data.daysPlanned })}
           </Badge>
           <Badge variant="outline">
             <Target />

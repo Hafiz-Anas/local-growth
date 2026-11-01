@@ -267,7 +267,11 @@ export const COMPETITOR_SELECT = {
 } satisfies Prisma.CompetitorSelect;
 
 /** Stored row + live profile (falls back to the stored numbers when the profile is unavailable). */
-export function toCompetitor(row: Prisma.CompetitorGetPayload<{ select: typeof COMPETITOR_SELECT }>, profile: CompetitorProfile | null): CompetitorDto {
+export function toCompetitor(
+  row: Prisma.CompetitorGetPayload<{ select: typeof COMPETITOR_SELECT }>,
+  profile: CompetitorProfile | null,
+  growth: CompetitorDto["growth"] = null,
+): CompetitorDto {
   return {
     ...row,
     lastFetchedAt: row.lastFetchedAt?.toISOString() ?? null,
@@ -279,5 +283,6 @@ export function toCompetitor(row: Prisma.CompetitorGetPayload<{ select: typeof C
     recentPosts: profile?.recentPosts ?? [],
     notableNote: profile?.notableNote ?? "",
     engagementHistory: profile?.engagementHistory ?? [],
+    growth,
   };
 }

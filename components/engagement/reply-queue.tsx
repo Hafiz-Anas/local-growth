@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { apiFetch, type ApiClientError } from "@/lib/api/client";
 import { reportError } from "@/lib/api/errors";
 import { qk, useAction, useReplies, useReplySummary, useSentReplies } from "@/lib/api/queries";
+import { daysPhrase } from "@/lib/i18n/days";
 import { useI18n } from "@/lib/i18n/provider";
 import { DM_WINDOW_WARN_HOURS, REGENERATE_TONES, hoursLeft, replyLimit, replyProblem, type RegenerateTone } from "@/lib/replies";
 import { cn, formatNumber, initials, toneFor } from "@/lib/utils";
@@ -380,7 +381,7 @@ export function ReplySummaryCard() {
 
   return (
     <Card className="p-4" data-testid="reply-summary">
-      <p className="text-caption font-semibold text-muted uppercase">{t("engagement.sent.period", { days: formatNumber(s.days, locale) })}</p>
+      <p className="text-caption font-semibold text-muted uppercase">{t("engagement.sent.period", { period: daysPhrase(s.days, locale) })}</p>
       {total ? (
         <>
           <p className="mt-1 text-title font-semibold">{t("engagement.sent.rate", { rate: formatNumber(s.asIsRate ?? 0, locale) })}</p>

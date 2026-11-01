@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ApiClientError } from "@/lib/api/client";
 import { qk, usePostDetail } from "@/lib/api/queries";
+import { daysPhrase } from "@/lib/i18n/days";
 import { useI18n } from "@/lib/i18n/provider";
 import { formatCompact, formatNumber, intlLocale } from "@/lib/utils";
 import type { PostDetailDto, PostInsight } from "@/types";
@@ -145,7 +146,7 @@ function Detail({ detail }: { detail: PostDetailDto }) {
         <h2 className="mb-1 text-title font-bold">{t("postPerformance.historyTitle")}</h2>
         {detail.history.points.length >= 2 ? (
           <>
-            <p className="mb-3 text-caption text-muted">{t("postPerformance.historyHint", { days: detail.history.points.length })}</p>
+            <p className="mb-3 text-caption text-muted">{t("postPerformance.historyHint", { period: daysPhrase(detail.history.points.length, locale) })}</p>
             <HistoryChart detail={detail} />
           </>
         ) : (

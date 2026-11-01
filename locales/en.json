@@ -270,7 +270,47 @@
       "noPosts": "No recent posts yet",
       "engagement": "Engagement",
       "open": "View details for {name}",
-      "followers": "Followers"
+      "followers": "Followers",
+      "showDetails": "Show details",
+      "hideDetails": "Hide details",
+      "detailsFor": "Details for {name}",
+      "lastDays": "Last {period}",
+      "growth": "Follower growth",
+      "growthValue": "{change} followers in {period}",
+      "growthNone": "Not enough follower history yet. We save their count once a week.",
+      "postsPerWeek": "Posts per week",
+      "postsIn": "{count} posts in the last {period}",
+      "formats": "Formats",
+      "format": {
+        "reel": "Reels",
+        "photo": "Photos",
+        "carousel": "Carousels",
+        "video": "Videos"
+      },
+      "formatIn": {
+        "reel": "Reels",
+        "photo": "photos",
+        "carousel": "carousels",
+        "video": "videos"
+      },
+      "observations": "What stands out",
+      "obs": {
+        "formatLift": "Their {best} get {ratio}× the likes and comments of their {other}.",
+        "standout": "One recent post got {ratio}× the likes and comments of their others.",
+        "mostly": "{share}% of their recent posts are {format}.",
+        "none": "Nothing clearly stands out in their recent posts."
+      },
+      "measured": "From their public posts (likes and comments).",
+      "notEnough": "Not enough recent posts to compare yet ({count} in the last {period}). Check back after they post more.",
+      "topPosts": "Top recent posts",
+      "openPost": "Open post {n}",
+      "forTopPost": "Use their top post",
+      "saveInspiration": "Save as inspiration",
+      "savedInspiration": "Saved as inspiration",
+      "savedToast": "Saved to Inspiration",
+      "removedToast": "Removed from Inspiration",
+      "createSimilar": "Create a similar post",
+      "viewFull": "View full analysis"
     },
     "detail": {
       "back": "Competitor Insights",
@@ -387,7 +427,7 @@
     "question": "Is your posting strategy working?",
     "subtitle": "We rotate your posts across three time windows and compare reach against your usual baseline.",
     "live": "Live experiment",
-    "daysSampled": "{count} days sampled",
+    "daysSampled": "{period} sampled",
     "ofDays": "of {count}",
     "dailyTarget": "Daily target",
     "postsPerDay": "{count} posts/day",
@@ -600,7 +640,7 @@
       "ar": "هلا والله 🤍 أرسلنا لك الأسعار — تقدر تطلب على الواتساب: {link}"
     },
     "sent": {
-      "period": "Last {days} days",
+      "period": "Last {period}",
       "rate": "{rate}% of AI drafts were sent as-is",
       "outcome": {
         "as_is": "Sent as-is",
@@ -2179,7 +2219,7 @@
     "aiTitle": "How it did",
     "learn": "What to learn:",
     "historyTitle": "Over time",
-    "historyHint": "Daily numbers over {days} days.",
+    "historyHint": "Daily numbers over {period}.",
     "historySoon": "The chart fills in as we take a snapshot each day (two days are needed).",
     "interactions": "Likes + comments",
     "whatWorks": {

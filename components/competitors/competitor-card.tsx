@@ -1,7 +1,8 @@
 "use client";
 
+import { useId, useState } from "react";
 import Link from "next/link";
-import { Heart, MessageCircle, Sparkles } from "lucide-react";
+import { ChevronDown, Heart, MessageCircle, Sparkles } from "lucide-react";
 import { Avatar } from "@/components/shared/avatar";
 import { ChangeIndicator } from "@/components/shared/change-indicator";
 import { MediaPlaceholder } from "@/components/shared/media";
@@ -9,8 +10,9 @@ import { Skeleton } from "@/components/shared/states";
 import { VerifiedBadge } from "@/components/shared/verified-badge";
 import { Badge } from "@/components/ui/badge";
 import { useI18n } from "@/lib/i18n/provider";
-import { formatCompact, formatPct, initials, toneFor } from "@/lib/utils";
+import { cn, formatCompact, formatPct, initials, toneFor } from "@/lib/utils";
 import type { CompetitorDto } from "@/types";
+import { CompetitorDetails } from "./competitor-details";
 import { CompetitorMenu } from "./competitor-menu";
 import { bestPost, competitorName } from "./helpers";
 
@@ -18,6 +20,8 @@ import { bestPost, competitorName } from "./helpers";
  * Grid card: identity, note, their best recent post, and the two numbers that
  * matter. The whole card links to the detail view (a stretched link under the
  * content); the three-dot menu sits above it so it never triggers navigation.
+ * "Show details" expands the card in place (CompetitorDetails: growth, posting
+ * frequency, formats, observations, top posts and inline actions), above the link.
  */
 export function CompetitorCard({
   competitor: c,
@@ -33,6 +37,8 @@ export function CompetitorCard({
   const name = competitorName(c);
   const top = bestPost(c);
   const spike = Boolean(top?.notable);
+  const [expanded, setExpanded] = useState(false);
+  const detailsId = useId();
 
   return (
     <article className="group relative flex flex-col rounded-panel border border-border bg-background transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 hover:shadow-menu focus-within:shadow-menu motion-reduce:transition-none motion-reduce:hover:translate-y-0">
@@ -89,7 +95,8 @@ export function CompetitorCard({
           <dt className="text-caption text-muted">{t("competitors.card.followers")}</dt>
           <dd className="flex flex-wrap items-baseline gap-x-1.5">
             <span className="text-title font-bold tabular-nums">{formatCompact(c.followers, locale)}</span>
-            <ChangeIndicator value={c.followerChangePct} />
+            {/* The stored follower history (last 30 days), the same number as the expanded view; nothing until there's enough. */}
+            {c.growth && <ChangeIndicator value={c.growth.changePct} />}
           </dd>
         </div>
         <div>
@@ -97,6 +104,22 @@ export function CompetitorCard({
           <dd className="text-title font-bold tabular-nums">{formatPct(c.engagementRate)}</dd>
         </div>
       </dl>
+
+      <div className="relative z-10 px-4 pb-3">
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          aria-expanded={expanded}
+          aria-controls={detailsId}
+          aria-label={`${t(expanded ? "competitors.card.hideDetails" : "competitors.card.showDetails")} · ${name}`}
+          className="inline-flex h-8 w-full items-center justify-center gap-1 rounded-button bg-button-secondary px-3 text-body font-semibold hover:bg-button-secondary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          data-testid="details-toggle"
+        >
+          {t(expanded ? "competitors.card.hideDetails" : "competitors.card.showDetails")}
+          <ChevronDown className={cn("size-4 transition-transform motion-reduce:transition-none", expanded && "rotate-180")} aria-hidden="true" />
+        </button>
+      </div>
+      {expanded && <CompetitorDetails competitor={c} id={detailsId} />}
 
       {/* Stretched link: the whole card opens the detail view. */}
       <Link
