@@ -5,7 +5,7 @@ import { useTheme } from "next-themes";
 import { apiFetch } from "@/lib/api/client";
 import { useMounted } from "@/lib/hooks";
 import { useI18n } from "@/lib/i18n/provider";
-import { setSidebarCollapsed, useSidebarCollapsed } from "@/lib/sidebar";
+import { hasSavedSidebarState, setSidebarCollapsed, useSidebarCollapsed } from "@/lib/sidebar";
 import { normalizeTheme } from "@/lib/theme-script";
 import type { UiPreferences } from "@/types";
 
@@ -29,7 +29,9 @@ export function PreferencesSync({ saved }: { saved: UiPreferences }) {
     if (!mounted || applied.current) return;
     applied.current = true;
     if (normalizeTheme(saved.theme) !== theme) setTheme(normalizeTheme(saved.theme));
-    if (saved.sidebarCollapsed !== collapsed) setSidebarCollapsed(saved.sidebarCollapsed);
+    // The account's copy is saved 600 ms after a toggle, so after a quick reload it can be older than this
+    // browser's own state (applied before paint): it only fills in on a browser that has none yet.
+    if (saved.sidebarCollapsed !== collapsed && !hasSavedSidebarState()) setSidebarCollapsed(saved.sidebarCollapsed);
     if (saved.language !== locale) setLocale(saved.language);
   }, [mounted, saved, theme, collapsed, locale, setTheme, setLocale]);
 

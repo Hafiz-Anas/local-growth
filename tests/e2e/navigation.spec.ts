@@ -13,7 +13,8 @@ import { expect, test, type Browser, type Locator, type Page } from "@playwright
 const USER = { email: "user@mathanetbaity.dev", password: "User@123" };
 const ADMIN = { email: "admin@localgrowth.dev", password: "Admin@123" };
 
-test.describe.configure({ mode: "serial" });
+// Serial (one page across tests); the first visits compile pages in next dev, hence the longer timeout.
+test.describe.configure({ mode: "serial", timeout: 120_000 });
 
 async function login(p: Page, account: { email: string; password: string }) {
   await p.goto("/login");
@@ -49,7 +50,19 @@ test.beforeAll(async ({ browser }: { browser: Browser }) => {
   page = await browser.newPage({ viewport: { width: 1366, height: 800 } });
   await login(page, USER);
   if ((await page.locator("html").getAttribute("dir")) === "rtl") await switchLanguage(page, "en");
+  // next dev compiles a page on its first visit (and answers a not-yet-compiled dynamic API route with an HTML 404),
+  // which can outlast a click's wait: compile the pages and routes the tests open first.
+  test.setTimeout(300_000);
+  for (const route of ["/post-performance", "/reports", "/experiment", "/ai", "/competitors", "/api/admin/businesses/x/permissions"]) await page.request.get(route);
 });
+
+/** Starts from an expanded sidebar: this browser's saved state and the account's copy both reset. */
+async function resetSidebar(p: Page) {
+  await p.evaluate(() => localStorage.removeItem("lge-sidebar-collapsed"));
+  expect((await p.request.patch("/api/me/preferences", { data: { sidebarCollapsed: false } })).ok()).toBe(true);
+  await p.reload();
+  await expect(p.locator("html")).not.toHaveAttribute("data-sidebar", "collapsed");
+}
 
 test.afterAll(async () => {
   await page.close();
@@ -111,11 +124,14 @@ test("desktop: one sidebar entry per section; Insights holds its pages as tabs",
 
 test("desktop: the sidebar collapses to icons and expands again; the choice survives a reload, also in Arabic", async () => {
   await page.goto("/gallery");
+  await resetSidebar(page);
   await page.waitForLoadState("networkidle");
   const width = async () => (await sidebar(page).boundingBox())!.width;
   expect(await width()).toBe(244);
+  await expect(collapseButton(page)).toHaveAccessibleName("Collapse");
   await collapseButton(page).click();
   await expect(page.locator("html")).toHaveAttribute("data-sidebar", "collapsed");
+  await expect(collapseButton(page)).toHaveAccessibleName("Expand");
   await expect.poll(width).toBe(72);
   // The labels fade out; the sections, Settings and the profile row stay as icons.
   await expect(sidebar(page).getByRole("link", { name: "Engagement" }).getByText("Engagement")).toHaveCSS("opacity", "0");
@@ -126,6 +142,20 @@ test("desktop: the sidebar collapses to icons and expands again; the choice surv
   await expect(page.locator("html")).toHaveAttribute("data-sidebar", "collapsed");
   expect(await width()).toBe(72);
   await expect(collapseButton(page)).toHaveAccessibleName("Expand");
+  // The bug was the account's copy (saved 600 ms after a toggle) undoing a fresher state after a quick reload:
+  // expand and reload at once — the saved state must not be replaced once the page has settled.
+  await collapseButton(page).click();
+  await page.reload();
+  await page.waitForLoadState("networkidle");
+  await expect(page.locator("html")).not.toHaveAttribute("data-sidebar", "collapsed");
+  await expect(collapseButton(page)).toHaveAccessibleName("Collapse");
+  expect(await width()).toBe(244);
+  await collapseButton(page).click();
+  await page.reload();
+  await page.waitForLoadState("networkidle");
+  await expect(page.locator("html")).toHaveAttribute("data-sidebar", "collapsed");
+  await expect(collapseButton(page)).toHaveAccessibleName("Expand");
+  expect(await width()).toBe(72);
 
   // Arabic: the sidebar sits on the right, with the same button and the saved state.
   await switchLanguage(page, "ar");

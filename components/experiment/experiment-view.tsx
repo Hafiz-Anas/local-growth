@@ -28,18 +28,6 @@ export function ExperimentView() {
   const queryClient = useQueryClient();
   const experiment = useExperiment();
   const scheduled = useScheduled(showQueue);
-  const { client } = useActiveClient();
-  const [confirmPublish, setConfirmPublish] = useState<string | null>(null);
-
-  const publish = useAction({
-    mutationFn: (id: string) => apiFetch<{ published: boolean; mediaId: string }>(`/api/scheduled-posts/${id}/publish`, { method: "POST" }),
-    onSuccess: () => notify.success(t("publish.published")),
-    // On failure the post stays in the queue at its time; either way, refresh the queue and drafts.
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: qk.scheduled });
-      queryClient.invalidateQueries({ queryKey: qk.drafts });
-    },
-  });
 
   const apply = useAction({
     mutationFn: (window: PostWindow) =>
@@ -49,23 +37,18 @@ export function ExperimentView() {
       notify.success(t("experiment.appliedToast", { count: result.moved, window: t(`windows.${result.window}`) }));
     },
   });
-  const remove = useAction({
-    mutationFn: (id: string) => apiFetch(`/api/scheduled-posts/${id}`, { method: "DELETE" }),
-    onMutate: async (id) => {
-      await queryClient.cancelQueries({ queryKey: qk.scheduled });
-      const previous = queryClient.getQueryData<ScheduledPostDto[]>(qk.scheduled);
-      queryClient.setQueryData<ScheduledPostDto[]>(qk.scheduled, (list) => list?.filter((p) => p.id !== id));
-      return { previous };
-    },
-    onError: (_e, _id, context) => queryClient.setQueryData(qk.scheduled, context?.previous),
-    // The cancelled post's draft is back among the drafts.
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.drafts }),
-  });
 
   if (experiment.isPending) return <ExperimentSkeleton />;
   if (experiment.isError) return <ErrorState error={experiment.error} onRetry={() => experiment.refetch()} />;
   const data = experiment.data;
-  if (!data) return <EmptyState icon={FlaskConical} title={t("experiment.noneTitle")} hint={t("experiment.noneHint")} className="rounded-panel border border-border" />;
+  // No experiment yet (e.g. a new business): the scheduled posts are still listed, so they can be seen and cancelled.
+  if (!data)
+    return (
+      <div>
+        <EmptyState icon={FlaskConical} title={t("experiment.noneTitle")} hint={t("experiment.noneHint")} className="mb-8 rounded-panel border border-border" />
+        {showQueue && <ScheduledQueue posts={scheduled.data ?? []} query={scheduled} />}
+      </div>
+    );
 
   // Sections are present only when their features are ON.
   const windows = data.windows ?? [];
@@ -179,52 +162,95 @@ export function ExperimentView() {
         </Card>
       )}
 
-      {showQueue && (
-        <section>
-          <SectionTitle>{t("experiment.queue")}</SectionTitle>
-          {scheduled.isPending ? (
-            <Skeleton className="h-40 rounded-panel" />
-          ) : scheduled.isError ? (
-            <ErrorState error={scheduled.error} onRetry={() => scheduled.refetch()} />
-          ) : queue.length === 0 ? (
-            <EmptyState icon={CalendarDays} title={t("experiment.queueEmptyTitle")} hint={t("experiment.queueEmpty")} className="rounded-card border border-dashed border-border" />
-          ) : (
-            <ul className="divide-y divide-separator rounded-panel border border-border">
-              {queue.map((post) => (
-                <li key={post.id} className="flex items-center gap-3 px-4 py-3">
-                  <MediaPlaceholder tone={post.tone} icon={post.icon} className="size-11 shrink-0 rounded-button" iconClassName="size-5" />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-body font-semibold">
-                      <bdi>{post.caption}</bdi>
-                    </p>
-                    <p className="truncate text-caption text-muted">
-                      {formatDateTime(post.scheduledFor, locale, { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}
-                      {" · "}
-                      {post.source === "generator" ? t("experiment.fromGenerator") : t("experiment.manual")}
-                    </p>
-                  </div>
-                  <Badge variant={post.window === opportunity?.window ? "blue" : "neutral"} className="hidden sm:inline-flex">
-                    {t(`windows.${post.window}`)}
-                  </Badge>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    onClick={() => setConfirmPublish(post.id)}
-                    disabled={publish.isPending}
-                    aria-label={t("publish.now")}
-                    title={t("publish.now")}
-                  >
-                    {publish.isPending && publish.variables === post.id ? <Loader2 className="animate-spin" /> : <Send strokeWidth={1.75} />}
-                  </Button>
-                  <Button variant="ghost" size="icon-sm" onClick={() => remove.mutate(post.id)} disabled={publish.isPending && publish.variables === post.id} aria-label={t("common.remove")}>
-                    <Trash2 strokeWidth={1.75} />
-                  </Button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      )}
+      {showQueue && <ScheduledQueue posts={queue} query={scheduled} suggested={opportunity?.window} />}
+    </div>
+  );
+}
+
+/** The upcoming scheduled posts: publish one now or cancel it. Shown with or without an experiment. */
+function ScheduledQueue({
+  posts,
+  query,
+  suggested,
+}: {
+  posts: ScheduledPostDto[];
+  query: { isPending: boolean; isError: boolean; error: Error | null; refetch: () => unknown };
+  /** The experiment's suggested window, highlighted on the posts already in it. */
+  suggested?: PostWindow;
+}) {
+  const { t, locale } = useI18n();
+  const queryClient = useQueryClient();
+  const { client } = useActiveClient();
+  const [confirmPublish, setConfirmPublish] = useState<string | null>(null);
+
+  const publish = useAction({
+    mutationFn: (id: string) => apiFetch<{ published: boolean; mediaId: string }>(`/api/scheduled-posts/${id}/publish`, { method: "POST" }),
+    onSuccess: () => notify.success(t("publish.published")),
+    // On failure the post stays in the queue at its time; either way, refresh the queue and drafts.
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: qk.scheduled });
+      queryClient.invalidateQueries({ queryKey: qk.drafts });
+    },
+  });
+  const remove = useAction({
+    mutationFn: (id: string) => apiFetch(`/api/scheduled-posts/${id}`, { method: "DELETE" }),
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: qk.scheduled });
+      const previous = queryClient.getQueryData<ScheduledPostDto[]>(qk.scheduled);
+      queryClient.setQueryData<ScheduledPostDto[]>(qk.scheduled, (list) => list?.filter((p) => p.id !== id));
+      return { previous };
+    },
+    onError: (_e, _id, context) => queryClient.setQueryData(qk.scheduled, context?.previous),
+    // The cancelled post's draft is back among the drafts.
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.drafts }),
+  });
+
+  return (
+    <>
+      <section data-testid="scheduled-queue">
+        <SectionTitle>{t("experiment.queue")}</SectionTitle>
+        {query.isPending ? (
+          <Skeleton className="h-40 rounded-panel" />
+        ) : query.isError ? (
+          <ErrorState error={query.error} onRetry={() => query.refetch()} />
+        ) : posts.length === 0 ? (
+          <EmptyState icon={CalendarDays} title={t("experiment.queueEmptyTitle")} hint={t("experiment.queueEmpty")} className="rounded-card border border-dashed border-border" />
+        ) : (
+          <ul className="divide-y divide-separator rounded-panel border border-border">
+            {posts.map((post) => (
+              <li key={post.id} className="flex items-center gap-3 px-4 py-3">
+                <MediaPlaceholder tone={post.tone} icon={post.icon} className="size-11 shrink-0 rounded-button" iconClassName="size-5" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-body font-semibold">
+                    <bdi>{post.caption}</bdi>
+                  </p>
+                  <p className="truncate text-caption text-muted">
+                    {formatDateTime(post.scheduledFor, locale, { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}
+                    {" · "}
+                    {post.source === "generator" ? t("experiment.fromGenerator") : t("experiment.manual")}
+                  </p>
+                </div>
+                <Badge variant={post.window === suggested ? "blue" : "neutral"} className="hidden sm:inline-flex">
+                  {t(`windows.${post.window}`)}
+                </Badge>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => setConfirmPublish(post.id)}
+                  disabled={publish.isPending}
+                  aria-label={t("publish.now")}
+                  title={t("publish.now")}
+                >
+                  {publish.isPending && publish.variables === post.id ? <Loader2 className="animate-spin" /> : <Send strokeWidth={1.75} />}
+                </Button>
+                <Button variant="ghost" size="icon-sm" onClick={() => remove.mutate(post.id)} disabled={publish.isPending && publish.variables === post.id} aria-label={t("common.remove")}>
+                  <Trash2 strokeWidth={1.75} />
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <ConfirmDialog
         open={confirmPublish !== null}
@@ -235,7 +261,7 @@ export function ExperimentView() {
         cancelLabel={t("common.cancel")}
         onConfirm={() => confirmPublish && publish.mutate(confirmPublish)}
       />
-    </div>
+    </>
   );
 }
 

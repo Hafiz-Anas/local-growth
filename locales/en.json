@@ -413,7 +413,7 @@
       "Sat"
     ],
     "queue": "Scheduled posts",
-    "queueEmpty": "No posts scheduled yet. Add drafts from the Post Generator.",
+    "queueEmpty": "No posts scheduled yet. Create a post from the Gallery or the AI tab, then schedule it.",
     "fromGenerator": "From Post Generator",
     "manual": "Manual",
     "appliedToast": "{count} upcoming posts moved to the {window} window",

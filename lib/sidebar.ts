@@ -33,6 +33,20 @@ export function setSidebarCollapsed(collapsed: boolean) {
   listeners.forEach((l) => l());
 }
 
+/** Flips the state shown on <html> right now (never a value from an older render). */
+export function toggleSidebarCollapsed() {
+  setSidebarCollapsed(!isCollapsed());
+}
+
+/** Whether this browser has saved a collapse state of its own (it then wins over the account's copy). */
+export function hasSavedSidebarState() {
+  try {
+    return localStorage.getItem(STORAGE_KEY) !== null;
+  } catch {
+    return false;
+  }
+}
+
 /** The user's saved preference (desktop). Defaults to expanded. */
 export function useSidebarCollapsed() {
   return useSyncExternalStore(subscribe, isCollapsed, () => false);

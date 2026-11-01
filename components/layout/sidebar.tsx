@@ -10,7 +10,7 @@ import { Avatar } from "@/components/shared/avatar";
 import { Tooltip } from "@/components/ui/tooltip";
 import { useI18n } from "@/lib/i18n/provider";
 import { isActiveItem } from "@/lib/navigation";
-import { setSidebarCollapsed, useSidebarCollapsed, useSidebarIconOnly } from "@/lib/sidebar";
+import { toggleSidebarCollapsed, useSidebarCollapsed, useSidebarIconOnly } from "@/lib/sidebar";
 import { cn } from "@/lib/utils";
 import { NavIcon } from "./nav-icon";
 import { AdminShield, ProfileMenuTrigger, type MenuUser } from "./profile-menu";
@@ -76,7 +76,6 @@ export function Sidebar({
   };
 
   const toggleLabel = collapsed ? t("sidebar.expand") : t("sidebar.collapse");
-  const ToggleIcon = collapsed ? PanelLeftOpen : PanelLeftClose;
   const profileTooltip = `${user.name} · ${user.secondary}`;
 
   return (
@@ -100,15 +99,15 @@ export function Sidebar({
           {bottomItems.map(renderItem)}
           <li className="hidden xl:block">
             <Tooltip label={toggleLabel} side={tooltipSide} disabled={!iconOnly}>
-              <button
-                type="button"
-                onClick={() => setSidebarCollapsed(!collapsed)}
-                aria-label={toggleLabel}
-                aria-expanded={!collapsed}
-                className={cn(ROW, "w-full")}
-              >
-                <ToggleIcon className="size-6 shrink-0 rtl:-scale-x-100" strokeWidth={1.75} aria-hidden="true" />
-                <span className={cn("truncate text-title", SHOW_WHEN_EXPANDED, FADE)}>{toggleLabel}</span>
+              {/*
+                Icon and label (its accessible name) follow <html data-sidebar> through CSS, like the width, so
+                they always match it — also in the first render after a reload, before React reads the saved state.
+              */}
+              <button type="button" onClick={toggleSidebarCollapsed} aria-expanded={!collapsed} className={cn(ROW, "w-full")}>
+                <PanelLeftClose className={cn(TOGGLE_ICON, "sidebar-collapsed:hidden")} strokeWidth={1.75} aria-hidden="true" />
+                <PanelLeftOpen className={cn(TOGGLE_ICON, "hidden sidebar-collapsed:block")} strokeWidth={1.75} aria-hidden="true" />
+                <span className={cn("truncate text-title sidebar-collapsed:hidden", SHOW_WHEN_EXPANDED, FADE)}>{t("sidebar.collapse")}</span>
+                <span className={cn("hidden truncate text-title sidebar-collapsed:inline", SHOW_WHEN_EXPANDED, FADE)}>{t("sidebar.expand")}</span>
               </button>
             </Tooltip>
           </li>
@@ -124,6 +123,7 @@ export function Sidebar({
   );
 }
 
+const TOGGLE_ICON = "size-6 shrink-0 rtl:-scale-x-100";
 const ROW = "group my-0.5 flex h-12 items-center gap-4 rounded-button p-3 text-start whitespace-nowrap transition-colors hover:bg-hover";
 
 /** The bottom profile row: avatar + name + muted secondary line (role or handle). */
