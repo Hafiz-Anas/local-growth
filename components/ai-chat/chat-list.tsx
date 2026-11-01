@@ -267,7 +267,7 @@ export function ChatEditSheets({
             maxLength={80}
             autoFocus
             dir="auto"
-            className="h-12 w-full rounded-xl bg-ge-muted px-3 text-[16px] outline-none focus-visible:ring-2 focus-visible:ring-ge-ring"
+            className="h-12 w-full rounded-xl bg-ge-muted px-3 text-[16px] outline-none focus-visible:ring-2 focus-visible:ring-ge-ring focus-visible:ring-inset"
           />
         </form>
       </Sheet>

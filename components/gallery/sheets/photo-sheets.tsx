@@ -336,7 +336,7 @@ export function AlbumNameSheet() {
           aria-label={t("albumName")}
           autoFocus
           dir="auto"
-          className="h-12 w-full rounded-xl bg-ge-muted px-3 text-[16px] outline-none focus-visible:ring-2 focus-visible:ring-ge-ring"
+          className="h-12 w-full rounded-xl bg-ge-muted px-3 text-[16px] outline-none focus-visible:ring-2 focus-visible:ring-ge-ring focus-visible:ring-inset"
         />
         {album?.category && <p className="mt-2 text-[12.5px] text-ge-muted-foreground">{t("categoryRenameNote")}</p>}
       </form>
@@ -649,7 +649,7 @@ export function PostSheet() {
                 rows={8}
                 aria-label={t("caption")}
                 autoFocus
-                className="w-full resize-none rounded-xl bg-ge-muted px-3 py-2.5 text-[15px] leading-relaxed outline-none focus-visible:ring-2 focus-visible:ring-ge-ring"
+                className="w-full resize-none rounded-xl bg-ge-muted px-3 py-2.5 text-[15px] leading-relaxed outline-none focus-visible:ring-2 focus-visible:ring-ge-ring focus-visible:ring-inset"
               />
             </div>
           ) : (
