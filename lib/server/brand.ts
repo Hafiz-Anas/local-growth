@@ -6,7 +6,6 @@ import type { PostPurpose as DbPostPurpose, Prisma } from "@/lib/generated/prism
 import { BrandContextError, getAIService, type BrandContextForCaptions } from "@/lib/services/ai";
 import { getInstagramService } from "@/lib/services/instagram";
 import type { CatalogProfile } from "@/lib/services/catalog";
-import { getStorageService } from "@/lib/services/storage";
 import { captionStyleSchema, purposePatternSchema, styleNotesSchema } from "@/lib/validation/api";
 import type { BrandBasicsDto, BrandContextDto, BrandContextPatch, BrandPostDto, BrandProfileDto, InstagramLanguage, PostPurpose } from "@/types";
 import { logActivity } from "./activity";
@@ -54,21 +53,7 @@ export async function findOwnBrandPost(businessId: string, id: string) {
 }
 
 /** Deletes an uploaded file once no avatar, logo, brand post or brand context points to it. */
-export async function deleteUploadIfUnused(url: string | null | undefined) {
-  if (!url) return;
-  const storage = getStorageService();
-  const key = storage.keyFromUrl(url);
-  if (!key) return;
-  const uses = await Promise.all([
-    db.brandPost.count({ where: { mediaUrl: url } }),
-    db.business.count({ where: { OR: [{ logoUrl: url }, { avatarUrl: url }] } }),
-    db.brandContext.count({ where: { logoUrl: url } }),
-    db.user.count({ where: { avatarUrl: url } }),
-    db.postDraft.count({ where: { imageUrl: url } }),
-    db.scheduledPost.count({ where: { mediaUrl: url } }),
-  ]);
-  if (uses.every((n) => n === 0)) await storage.delete(key);
-}
+export { deleteUploadIfUnused } from "./upload-files";
 
 // Basics -----------------------------------------------------------------------
 

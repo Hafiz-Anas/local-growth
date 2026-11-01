@@ -9,10 +9,12 @@ import { getStorageService } from "@/lib/services/storage";
 import { STYLE_SUMMARY_MAX } from "@/lib/services/text/style";
 import type { StyleGuideDto, StylePhoto } from "@/types";
 import { aiPace } from "./ai-pace";
+import { addUploadsToGallery } from "./gallery-import";
 import { ApiError } from "./http";
 import { fetchImage, toAnalysisJpeg } from "./image-fetch";
 import { getInstagramAccount } from "./instagram-account";
 import { getRateLimiter, STYLE_GUIDE_LIMIT } from "./rate-limit";
+import { deleteUploadIfUnused } from "./upload-files";
 
 /**
  * Onboarding's "Your style": the owner picks up to 5 of their best posts and/or uploads photos; in the
@@ -89,12 +91,15 @@ export async function saveStylePhotos(businessId: string, photos: StylePhoto[]):
 
   const previous = readPhotos((await db.styleGuide.findUnique({ where: { businessId }, select: { photos: true } }))?.photos);
   const kept = new Set(unique.flatMap((p) => (p.source === "upload" ? [p.url] : [])));
-  const removed = previous.flatMap((p) => (p.source === "upload" && !kept.has(p.url) ? [uploadKey(p.url)] : [])).filter((k): k is string => Boolean(k));
+  const removed = previous.flatMap((p) => (p.source === "upload" && !kept.has(p.url) && uploadKey(p.url) ? [p.url] : []));
 
   const data = { photos: unique as unknown as Prisma.InputJsonArray, status: "BUILDING" as const, basis: unique.length ? "picked" : "recent", failureReason: null, summaryEditedAt: null };
   const row = await db.styleGuide.upsert({ where: { businessId }, update: data, create: { businessId, ...data }, select: STYLE_SELECT });
+  // The uploaded photos are the owner's: they go into the Gallery too (once each).
+  await addUploadsToGallery(businessId, [...kept]);
   after(async () => {
-    await Promise.all(removed.map((key) => getStorageService().delete(key).catch(() => undefined)));
+    // A photo left out is deleted unless it's still used (it is in the Gallery now, so it stays there).
+    await Promise.all(removed.map((url) => deleteUploadIfUnused(url).catch(() => undefined)));
     await buildStyleGuide(businessId).catch((e) => console.error("[style-guide] build failed", (e as Error).message));
   });
   return toDto(row);

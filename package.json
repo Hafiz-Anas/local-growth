@@ -19,6 +19,7 @@
     "create-admin": "tsx scripts/create-admin.ts",
     "simulate-dm": "tsx scripts/simulate-dm.ts",
     "simulate-comment": "tsx scripts/simulate-comment.ts",
+    "backfill-gallery-uploads": "tsx --conditions=react-server scripts/backfill-gallery-uploads.ts",
     "typecheck": "next typegen && tsc --noEmit",
     "test": "node --import tsx --test \"tests/**/*.test.ts\"",
     "test:e2e": "playwright test"

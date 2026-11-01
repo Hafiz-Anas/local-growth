@@ -1,12 +1,10 @@
 import "server-only";
 import { generateClientTokenFromReadWriteToken } from "@vercel/blob/client";
-import sharp, { type Metadata } from "sharp";
 import { db } from "@/lib/db";
 import { GALLERY_DRAFT_WHERE } from "@/lib/server/gallery";
 import {
   GALLERY_PENDING_TTL_MS,
   GALLERY_REMOVE_GRACE_MS,
-  GALLERY_THUMB_EDGE,
   GALLERY_UPLOAD_MAX_BYTES,
   extensionFor,
   titleFromName,
@@ -18,6 +16,8 @@ import { newStorageKey } from "@/lib/services/storage-core";
 import type { GalleryPhotoDto, GalleryUploadTicketDto } from "@/types/api";
 import { logActivity } from "./activity";
 import { ApiError, notFound } from "./http";
+import { THUMB_PREFIX, makeThumbnail } from "./gallery-thumbs";
+import { deleteUploadIfUnused } from "./upload-files";
 import { readUpload } from "./uploads";
 
 /**
@@ -33,7 +33,6 @@ import { readUpload } from "./uploads";
  */
 
 const UPLOAD_PREFIX = "gallery";
-const THUMB_PREFIX = "gallery-thumbs";
 const TOKEN_TTL_MS = 15 * 60 * 1000;
 
 type Reason = "type" | "size" | "missing" | "unreadable";
@@ -115,16 +114,13 @@ export async function completeUpload(businessId: string, userId: string, id: str
     const extension = sniffImage(data);
     if (!extension) throw invalid("type");
 
-    let meta: Metadata;
-    let thumb: Buffer;
+    let made: Awaited<ReturnType<typeof makeThumbnail>>;
     try {
-      meta = await sharp(data).metadata();
-      thumb = await sharp(data).rotate().resize(GALLERY_THUMB_EDGE, GALLERY_THUMB_EDGE, { fit: "cover" }).webp({ quality: 75 }).toBuffer();
+      made = await makeThumbnail(data);
     } catch {
       throw invalid("unreadable");
     }
-    // EXIF orientations 5–8 are rotated by a quarter turn.
-    const turned = (meta.orientation ?? 1) >= 5;
+    const { thumb } = made;
     const stored = await storage.save({ data: thumb, contentType: "image/webp", prefix: THUMB_PREFIX, extension: "webp" });
     const ready = await db.galleryPhoto.update({
       where: { id: row.id },
@@ -133,8 +129,8 @@ export async function completeUpload(businessId: string, userId: string, id: str
         url,
         contentType: CONTENT_TYPES[extension],
         bytes: data.length,
-        width: (turned ? meta.height : meta.width) ?? null,
-        height: (turned ? meta.width : meta.height) ?? null,
+        width: made.width,
+        height: made.height,
         thumbKey: stored.key,
         thumbUrl: stored.url,
         createdAt: new Date(),
@@ -173,7 +169,7 @@ export async function purgeGallery(now = new Date()): Promise<{ deleted: number 
         { status: "READY", source: { in: ["UPLOADED", "AI_GENERATED"] }, sampleKey: null, removedAt: { lt: new Date(now.getTime() - GALLERY_REMOVE_GRACE_MS) } },
       ],
     },
-    select: { id: true, storageKey: true, thumbKey: true },
+    select: { id: true, storageKey: true, thumbKey: true, url: true },
     take: 500,
   });
   if (!rows.length) return { deleted: 0 };
@@ -185,10 +181,14 @@ export async function purgeGallery(now = new Date()): Promise<{ deleted: number 
   const emptied = drafts.filter((d) => d.photos.every((p) => ids.has(p.photoId))).map((d) => d.id);
   if (emptied.length) await db.postDraft.deleteMany({ where: { id: { in: emptied } } });
 
+  const { count } = await db.galleryPhoto.deleteMany({ where: { id: { in: [...ids] } } });
   const storage = getStorageService();
   for (const row of rows) {
-    for (const key of [row.storageKey, row.thumbKey]) if (key) await storage.delete(key).catch((error) => console.warn("[gallery] couldn't delete a file", key, (error as Error).message));
+    if (row.thumbKey) await storage.delete(row.thumbKey).catch((error) => console.warn("[gallery] couldn't delete a file", row.thumbKey, (error as Error).message));
+    // The photo itself may still be a brand post or a "Your style" photo (they're added to the Gallery too).
+    // (Its row is gone already, so only other uses keep the file.) Unfinished uploads have no URL yet: deleted directly.
+    if (row.url) await deleteUploadIfUnused(row.url).catch((error) => console.warn("[gallery] couldn't delete a file", row.storageKey, (error as Error).message));
+    else if (row.storageKey) await storage.delete(row.storageKey).catch((error) => console.warn("[gallery] couldn't delete a file", row.storageKey, (error as Error).message));
   }
-  const { count } = await db.galleryPhoto.deleteMany({ where: { id: { in: [...ids] } } });
   return { deleted: count };
 }

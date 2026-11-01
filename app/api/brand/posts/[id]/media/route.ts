@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { logActivity } from "@/lib/server/activity";
 import { BRAND_POST_SELECT, deleteUploadIfUnused, findOwnBrandPost, toBrandPost } from "@/lib/server/brand";
 import { isOnboarding, mediaFromInstagram, receivePostUpload } from "@/lib/server/brand-posts";
+import { addUploadsToGallery } from "@/lib/server/gallery-import";
 import { requireBusiness } from "@/lib/server/guards";
 import { ApiError, handler, ok, readJson, readParams } from "@/lib/server/http";
 import { replaceBrandMediaSchema } from "@/lib/validation/api";
@@ -34,6 +35,8 @@ export const PUT = handler(async (request, context: RouteContext<"/api/brand/pos
     }
     row = await db.brandPost.update({ where: { id }, data: { source: "INSTAGRAM", ...media }, select: BRAND_POST_SELECT });
   }
+  // An uploaded photo is the owner's: it goes into the Gallery too (once).
+  if (row.source === "UPLOAD" && row.mediaType === "IMAGE") await addUploadsToGallery(businessId, [row.mediaUrl], session.userId);
   if (before.source === "UPLOAD" && before.mediaUrl !== row.mediaUrl) await deleteUploadIfUnused(before.mediaUrl);
   await logActivity({ businessId, userId: session.userId, action: "brand_post.replaced", details: { source: row.source.toLowerCase() } });
   return ok(toBrandPost(row));

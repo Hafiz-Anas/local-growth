@@ -147,6 +147,21 @@ Runs can overlap safely: each job is held by one run at a time (a 3-minute lease
 - **Editing.** The caption can be changed while a post is Scheduled. Once publishing starts it is locked, and the post can't be cancelled or moved.
 - The integration log (admin client page) has a line for every attempt: `publish post` with the reason code and the job id.
 
+#### Putting earlier uploads into the Gallery (one-off, after this release)
+
+Photos uploaded in onboarding ("Your style") and in Settings → brand posts now also go into the Gallery. Photos uploaded before this release are added by a one-off script. It only adds Gallery photos and thumbnails (nothing is changed or deleted), and it skips any photo already there, so running it twice is safe. Run it once, after the deploy, from the project folder in **PowerShell**:
+
+```powershell
+$env:DATABASE_URL = Read-Host "Neon POOLED connection string"
+$env:STORAGE_PROVIDER = "vercel-blob"
+$env:BLOB_READ_WRITE_TOKEN = Read-Host "Vercel Blob read-write token"
+npm run backfill-gallery-uploads                              # dry run: how many photos each business would get
+npm run backfill-gallery-uploads -- --apply --production      # adds them
+Remove-Item Env:DATABASE_URL, Env:STORAGE_PROVIDER, Env:BLOB_READ_WRITE_TOKEN
+```
+
+It prints the database it is about to use (host and name, never the password) and refuses a hosted database without `--production`. Values set in the shell take precedence over `.env`; remove them afterwards (or open a new terminal) so later local commands don't point at production.
+
 ### Post monitoring (hourly job)
 
 "Monitor this post" reads a post's numbers every hour for durations up to 3 days, and once a day for longer ones. The hourly readings need something to call `GET /api/cron/monitor` every hour with the same `CRON_SECRET` header. The daily job (`/api/cron/daily`) runs the same sweep once a day as a fallback, so daily monitoring and the end-of-monitoring summaries keep working without it; only the hourly readings depend on the hourly call.
@@ -209,6 +224,7 @@ Then sign in at `https://<your-domain>/login`.
 6. Deploy to Production. The build log should show `prisma migrate deploy` applying the migrations.
 7. Run `npm run create-admin` against Neon (section 6), then sign in.
 8. Create the cron-job.org publish job (section 5, *Publishing to Instagram*) and press **Test run**.
+9. Once, after the release that put uploads into the Gallery: `npm run backfill-gallery-uploads` (dry run, then `-- --apply --production`).
 
 ---
 

@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { logActivity } from "@/lib/server/activity";
 import { BRAND_POST_SELECT, listBrandPosts, toBrandPost, toDbPurpose } from "@/lib/server/brand";
 import { assertRoomForPost, isOnboarding, mediaFromInstagram, nextOrder, receivePostUpload } from "@/lib/server/brand-posts";
+import { addUploadsToGallery } from "@/lib/server/gallery-import";
 import { requireBusiness } from "@/lib/server/guards";
 import { ApiError, handler, ok, readJson } from "@/lib/server/http";
 import { getStorageService } from "@/lib/services/storage";
@@ -68,6 +69,8 @@ export const POST = handler(async (request) => {
       select: BRAND_POST_SELECT,
     });
   }
+  // An uploaded photo is the owner's: it goes into the Gallery too (once).
+  if (row.source === "UPLOAD" && row.mediaType === "IMAGE") await addUploadsToGallery(businessId, [row.mediaUrl], session.userId);
   await logActivity({ businessId, userId: session.userId, action: "brand_post.added", details: { source: row.source.toLowerCase(), purpose: row.purpose.toLowerCase() } });
   return ok(toBrandPost(row), { status: 201 });
 });
