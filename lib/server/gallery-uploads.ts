@@ -46,7 +46,8 @@ const REASON_TEXT: Record<Reason, string> = {
 
 const invalid = (reason: Reason) => new ApiError(422, "upload_invalid", REASON_TEXT[reason], [{ path: "reason", message: reason }]);
 
-const storageMode = (): "blob" | "local" => (process.env.STORAGE_PROVIDER === "vercel-blob" ? "blob" : "local");
+const storageMode = (): "blob" | "local" | "presigned" =>
+  process.env.STORAGE_PROVIDER === "vercel-blob" ? "blob" : process.env.STORAGE_PROVIDER === "spaces" ? "presigned" : "local";
 
 /** Step 1: one PENDING photo and upload permission per file. */
 export async function startUploads(businessId: string, userId: string, files: Array<{ name: string; type: GalleryUploadType; size: number }>): Promise<GalleryUploadTicketDto[]> {
@@ -56,6 +57,23 @@ export async function startUploads(businessId: string, userId: string, files: Ar
 
   const tickets: GalleryUploadTicketDto[] = [];
   for (const file of files) {
+    if (mode === "presigned") {
+      // Spaces: a POST form that only accepts this photo's type and size, under the business's own key.
+      const presigned = await getStorageService().presignUpload!({
+        prefix: UPLOAD_PREFIX,
+        extension: extensionFor(file.type),
+        contentType: file.type,
+        maxBytes: GALLERY_UPLOAD_MAX_BYTES,
+        businessId,
+        ttlSeconds: TOKEN_TTL_MS / 1000,
+      });
+      const row = await db.galleryPhoto.create({
+        data: { businessId, source: "UPLOADED", status: "PENDING", storageKey: presigned.key, contentType: file.type, title: titleFromName(file.name) || null, uploadedBy: userId },
+        select: { id: true },
+      });
+      tickets.push({ id: row.id, mode, pathname: presigned.key, token: null, uploadUrl: presigned.upload.url, fields: presigned.upload.fields, fileUrl: presigned.url });
+      continue;
+    }
     // With Blob the file's place is fixed now and the token only allows that one pathname.
     const pathname = mode === "blob" ? newStorageKey(UPLOAD_PREFIX, extensionFor(file.type)) : null;
     const row = await db.galleryPhoto.create({
@@ -90,7 +108,7 @@ export async function receiveLocalUpload(businessId: string, id: string, request
   const row = await pending(businessId, id);
   if (row.storageKey) throw new ApiError(409, "conflict", "This photo was already sent.");
   const upload = await readUpload(request, { imageMax: GALLERY_UPLOAD_MAX_BYTES, labels: { image: "10 MB" } });
-  const stored = await getStorageService().save({ data: upload.data, contentType: CONTENT_TYPES[upload.extension], prefix: UPLOAD_PREFIX, extension: upload.extension });
+  const stored = await getStorageService().save({ data: upload.data, contentType: CONTENT_TYPES[upload.extension], prefix: UPLOAD_PREFIX, extension: upload.extension, businessId });
   await db.galleryPhoto.update({ where: { id: row.id }, data: { storageKey: stored.key } });
   return { url: stored.url };
 }
@@ -121,7 +139,7 @@ export async function completeUpload(businessId: string, userId: string, id: str
       throw invalid("unreadable");
     }
     const { thumb } = made;
-    const stored = await storage.save({ data: thumb, contentType: "image/webp", prefix: THUMB_PREFIX, extension: "webp" });
+    const stored = await storage.save({ data: thumb, contentType: "image/webp", prefix: THUMB_PREFIX, extension: "webp", businessId });
     const ready = await db.galleryPhoto.update({
       where: { id: row.id },
       data: {

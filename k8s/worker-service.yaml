@@ -1,0 +1,11 @@
+# Inside the cluster only (no Ingress): the CronJobs call the worker's cron routes here.
+apiVersion: v1
+kind: Service
+metadata:
+  name: lge-worker
+  namespace: lge
+  labels: { app.kubernetes.io/name: lge-worker, app.kubernetes.io/part-of: ai-growth-engine }
+spec:
+  selector: { app.kubernetes.io/name: lge-worker }
+  ports:
+    - { name: http, port: 3000, targetPort: http }

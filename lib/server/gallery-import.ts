@@ -25,7 +25,7 @@ export async function addUploadsToGallery(businessId: string, urls: Array<string
       const extension = sniffImage(data);
       if (!extension) continue;
       const { thumb, width, height } = await makeThumbnail(data);
-      const stored = await storage.save({ data: thumb, contentType: "image/webp", prefix: THUMB_PREFIX, extension: "webp" });
+      const stored = await storage.save({ data: thumb, contentType: "image/webp", prefix: THUMB_PREFIX, extension: "webp", businessId });
       await db.galleryPhoto.create({
         data: {
           businessId,

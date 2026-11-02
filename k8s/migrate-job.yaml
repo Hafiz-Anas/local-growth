@@ -1,0 +1,31 @@
+# Database migrations before each rollout (`prisma migrate deploy`: pending migrations only — never the seed,
+# never a reset). Run by the deploy workflow, which replaces MIGRATE_IMAGE with the image of the commit being
+# deployed and waits for the Job to finish before updating the Deployments. If it fails, nothing is rolled out.
+# By hand:  sed "s|MIGRATE_IMAGE|registry.digitalocean.com/<registry>/lge-migrate:<tag>|" k8s/migrate-job.yaml | kubectl apply -f -
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: lge-migrate
+  namespace: lge
+  labels: { app.kubernetes.io/name: lge-migrate, app.kubernetes.io/part-of: ai-growth-engine }
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 600
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels: { app.kubernetes.io/name: lge-migrate }
+    spec:
+      restartPolicy: Never
+      securityContext: { runAsNonRoot: true, runAsUser: 1000, seccompProfile: { type: RuntimeDefault } }
+      containers:
+        - name: migrate
+          image: MIGRATE_IMAGE
+          env:
+            # The direct (unpooled) connection: migrations take advisory locks a pooler doesn't keep.
+            - name: DIRECT_URL
+              valueFrom: { secretKeyRef: { name: lge-secrets, key: DIRECT_URL } }
+            - name: DATABASE_URL
+              valueFrom: { secretKeyRef: { name: lge-secrets, key: DATABASE_URL } }
+          resources: { requests: { cpu: 100m, memory: 256Mi }, limits: { memory: 512Mi } }
+          securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: ["ALL"] } }

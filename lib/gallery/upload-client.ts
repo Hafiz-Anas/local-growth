@@ -66,6 +66,14 @@ async function send(ticket: GalleryUploadTicketDto, file: Prepared): Promise<Gal
   if (ticket.mode === "blob") {
     const blob = await put(ticket.pathname!, file.blob, { access: "public", token: ticket.token!, contentType: file.type });
     url = blob.url;
+  } else if (ticket.mode === "presigned") {
+    // Spaces: the presigned form fields first, the file last (S3 POST rules); no app cookies go to the bucket.
+    const form = new FormData();
+    for (const [name, value] of Object.entries(ticket.fields ?? {})) form.append(name, value);
+    form.append("file", file.blob, file.name);
+    const response = await fetch(ticket.uploadUrl!, { method: "POST", body: form, credentials: "omit" });
+    if (!response.ok) throw new Error(`Upload failed (${response.status}).`);
+    url = ticket.fileUrl!;
   } else {
     const form = new FormData();
     form.append("file", file.blob, file.name);

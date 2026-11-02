@@ -24,7 +24,7 @@ export const COOLDOWN_MS: Partial<Record<TextFailureReason, number>> = {
   model_unavailable: 30 * MINUTE,
 };
 /** Never trust a RetryInfo for longer than this (a deploy with a new key should take effect soon). */
-const MAX_COOLDOWN_MS = 6 * 60 * MINUTE;
+export const MAX_COOLDOWN_MS = 6 * 60 * MINUTE;
 
 export type GateDecision =
   | { allowed: true }

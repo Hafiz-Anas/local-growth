@@ -21,6 +21,6 @@ export const POST = handler(async (request) => {
     await recordError(businessId, "style", { kind: "upload", code: (error as { code?: string }).code ?? "unknown" });
     throw error;
   }
-  const stored = await getStorageService().save({ data: upload.data, contentType: CONTENT_TYPES[upload.extension], prefix: STYLE_UPLOAD_PREFIX, extension: upload.extension });
+  const stored = await getStorageService().save({ data: upload.data, contentType: CONTENT_TYPES[upload.extension], prefix: STYLE_UPLOAD_PREFIX, extension: upload.extension, businessId });
   return ok({ url: stored.url }, { status: 201 });
 });

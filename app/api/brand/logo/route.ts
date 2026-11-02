@@ -20,7 +20,7 @@ export const POST = handler(async (request) => {
     throw error;
   }
   const storage = getStorageService();
-  const stored = await storage.save({ data: upload.data, contentType: CONTENT_TYPES[upload.extension], prefix: "brand-logos", extension: upload.extension });
+  const stored = await storage.save({ data: upload.data, contentType: CONTENT_TYPES[upload.extension], prefix: "brand-logos", extension: upload.extension, businessId });
   const before = await db.business.findUniqueOrThrow({ where: { id: businessId }, select: { logoUrl: true } });
   await db.business.update({ where: { id: businessId }, data: { logoUrl: stored.url } });
   await deleteUploadIfUnused(before.logoUrl);

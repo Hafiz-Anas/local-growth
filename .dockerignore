@@ -1,0 +1,22 @@
+# Keep the build context small and free of secrets and local data.
+.git
+.github
+.next
+node_modules
+lib/generated
+uploads
+test-results
+playwright-report
+coverage
+*.log
+.env
+.env.*
+!.env.example
+.vscode
+.idea
+.claude
+k8s
+tests
+docs
+Dockerfile
+docker-compose*.yml

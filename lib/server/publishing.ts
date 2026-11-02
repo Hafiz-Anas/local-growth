@@ -127,17 +127,31 @@ async function freezeMedia(account: InstagramAccount, sources: MediaSource[]): P
         throw new PublishProblem("image_unreadable");
       }
       ratio ??= jpeg.width / jpeg.height;
-      const saved = await storage.save({ data: jpeg.data, contentType: "image/jpeg", prefix: PUBLISH_PREFIX, extension: "jpg" });
+      const saved = await storage.save({ data: jpeg.data, contentType: "image/jpeg", prefix: PUBLISH_PREFIX, extension: "jpg", businessId: account.businessId });
       urls.push(saved.url);
       keys.push(saved.key);
-      // Meta downloads the image itself: it has to be public (STORAGE_PROVIDER=vercel-blob).
-      if (account.provider === "meta" && !isPublicHttpsUrl(saved.url)) throw new PublishProblem("image_not_public");
+      // Meta downloads the image itself: a public link (vercel-blob), or a signed one at publish time (spaces).
+      if (account.provider === "meta" && !isPublicHttpsUrl(saved.url) && !storage.signedUrl) throw new PublishProblem("image_not_public");
     }
     return { urls, keys };
   } catch (error) {
     await deleteMedia(keys);
     throw error instanceof PublishProblem ? error : new PublishProblem("image_unreadable", (error as Error)?.message);
   }
+}
+
+/** How long Instagram's link to a private (Spaces) photo stays valid: it downloads it when the container is made. */
+const INSTAGRAM_URL_TTL_S = 60 * 60;
+
+/**
+ * The link Instagram downloads a frozen photo from: the stored one when it's already public (Vercel Blob,
+ * exactly as before), else a signed link to the private file made now (Spaces). Local storage keeps the
+ * stored link (Meta refuses it as not public; the mock doesn't download).
+ */
+async function instagramImageUrl(url: string, key: string | undefined): Promise<string> {
+  if (isPublicHttpsUrl(url)) return url;
+  const storage = getStorageService();
+  return key && storage.signedUrl ? storage.signedUrl(key, INSTAGRAM_URL_TTL_S) : url;
 }
 
 async function deleteMedia(keys: string[]) {
@@ -241,6 +255,9 @@ export async function approveDraft(businessId: string, userId: string, draftId: 
 
 /** Runs a job right after the response ("Post now"); the cron continues it if this dies. */
 function startSoon(jobId: string) {
+  // Kubernetes (BACKGROUND_MODE=worker): the worker deployment polls due jobs every 15 s, so the web pod
+  // that answered stays out of it — the job is already durable. Elsewhere (Vercel) it starts right away.
+  if (process.env.BACKGROUND_MODE === "worker") return;
   after(() => runJob(jobId, { trigger: "now" }).then(() => undefined, (e) => console.error("[publish] post now failed to run", (e as Error)?.message)));
 }
 
@@ -479,7 +496,8 @@ export async function runJob(jobId: string, ctx: RunContext): Promise<PublishOut
       });
 
       if (step === "create_child") {
-        const id = await ig.createPostContainer(account, { imageUrl: job.mediaUrls[job.childContainerIds.length], carouselItem: true });
+        const i = job.childContainerIds.length;
+        const id = await ig.createPostContainer(account, { imageUrl: await instagramImageUrl(job.mediaUrls[i], job.mediaKeys[i]), carouselItem: true });
         await save({ childContainerIds: { push: id } });
         continue;
       }
@@ -491,7 +509,7 @@ export async function runJob(jobId: string, ctx: RunContext): Promise<PublishOut
         const id =
           job.format === "CAROUSEL"
             ? await ig.createCarouselContainer(account, { childIds: job.childContainerIds, caption })
-            : await ig.createPostContainer(account, { imageUrl: job.mediaUrls[0], caption });
+            : await ig.createPostContainer(account, { imageUrl: await instagramImageUrl(job.mediaUrls[0], job.mediaKeys[0]), caption });
         await save({ containerId: id, publishStartedAt: new Date(), verifyFirst: false });
         continue;
       }

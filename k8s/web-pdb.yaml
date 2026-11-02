@@ -1,0 +1,10 @@
+# Node upgrades (DOKS maintenance) never take both web pods down at once.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: lge-web
+  namespace: lge
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels: { app.kubernetes.io/name: lge-web }

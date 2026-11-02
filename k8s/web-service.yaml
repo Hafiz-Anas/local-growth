@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: lge-web
+  namespace: lge
+  labels: { app.kubernetes.io/name: lge-web, app.kubernetes.io/part-of: ai-growth-engine }
+spec:
+  selector: { app.kubernetes.io/name: lge-web }
+  ports:
+    - { name: http, port: 80, targetPort: http }

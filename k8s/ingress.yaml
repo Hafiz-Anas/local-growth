@@ -1,0 +1,29 @@
+# Public HTTPS (ingress-nginx + cert-manager, both installed by DevOps). APP_DOMAIN and the issuer name
+# come from the client (DEPLOY-DIGITALOCEAN.md).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: lge-web
+  namespace: lge
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    # Uploads that go through the app (brand-post videos up to 50 MB, photos); Gallery photos go straight to Spaces.
+    nginx.ingress.kubernetes.io/proxy-body-size: "60m"
+    # A few requests wait on Instagram or the AI (old "Publish now" up to ~2 min, Recommendations refresh).
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "180"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "180"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts: [APP_DOMAIN]
+      secretName: lge-web-tls
+  rules:
+    - host: APP_DOMAIN
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: lge-web
+                port: { name: http }

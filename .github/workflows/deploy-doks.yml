@@ -1,0 +1,90 @@
+# Deploy to DigitalOcean Kubernetes — DISABLED until the client's DevOps team has created everything in
+# DEPLOY-DIGITALOCEAN.md and set the repository variable DOKS_ENABLED=true. Manual only.
+#
+# Needs: secret DIGITALOCEAN_ACCESS_TOKEN; variables DOKS_ENABLED, DOKS_CLUSTER, DOCR_REGISTRY.
+# image_tag empty: build and deploy this commit. image_tag set: re-deploy that earlier tag (rollback).
+name: Deploy to DigitalOcean (DOKS)
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Re-deploy an earlier image tag (rollback). Empty = build and deploy this commit."
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-doks
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: ${{ vars.DOKS_ENABLED == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    environment: production
+    env:
+      REGISTRY: registry.digitalocean.com/${{ vars.DOCR_REGISTRY }}
+      TAG: ${{ inputs.image_tag || github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+
+      - name: Log in to the registry
+        run: doctl registry login --expiry-seconds 1800
+
+      - uses: docker/setup-buildx-action@v3
+        if: ${{ inputs.image_tag == '' }}
+
+      - name: Build and push the migrate image
+        if: ${{ inputs.image_tag == '' }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: migrate
+          push: true
+          tags: ${{ env.REGISTRY }}/lge-migrate:${{ env.TAG }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push the app image
+        if: ${{ inputs.image_tag == '' }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: runner
+          push: true
+          tags: ${{ env.REGISTRY }}/lge-web:${{ env.TAG }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Cluster credentials
+        run: doctl kubernetes cluster kubeconfig save --expiry-seconds 1800 "${{ vars.DOKS_CLUSTER }}"
+
+      - name: Migrations (must succeed before the rollout)
+        run: |
+          kubectl -n lge delete job lge-migrate --ignore-not-found --wait=true
+          sed "s|MIGRATE_IMAGE|$REGISTRY/lge-migrate:$TAG|" k8s/migrate-job.yaml | kubectl apply -f -
+          if ! kubectl -n lge wait --for=condition=complete job/lge-migrate --timeout=600s; then
+            kubectl -n lge logs job/lge-migrate || true
+            echo "Migrations failed: nothing was rolled out."
+            exit 1
+          fi
+          kubectl -n lge logs job/lge-migrate
+
+      - name: Roll out
+        run: |
+          cd k8s
+          sed -i "s|newName: .*|newName: $REGISTRY/lge-web|; s|newTag: .*|newTag: $TAG|" kustomization.yaml
+          kubectl apply -k .
+          kubectl -n lge rollout status deployment/lge-web --timeout=600s
+          kubectl -n lge rollout status deployment/lge-worker --timeout=600s
+
+      - name: Smoke check
+        run: kubectl -n lge exec deploy/lge-web -c web -- node -e "fetch('http://127.0.0.1:3000/api/health?ready=1').then(async r=>{console.log(await r.text());process.exit(r.ok?0:1)})"

@@ -46,14 +46,14 @@ export async function mediaFromInstagram(businessId: string, igMediaId: string):
   const item = media.find((m) => m.id === igMediaId);
   if (!item) throw new ApiError(404, "not_found", "That post isn't on your account anymore.", [{ path: "igMediaId", message: "no_such_media" }]);
   // Meta's CDN links expire after a while: keep our own copy of the image (or video thumbnail).
-  const mediaUrl = account.provider === "meta" ? ((await copyRemoteImage(item.mediaUrl)) ?? item.mediaUrl) : item.mediaUrl;
+  const mediaUrl = account.provider === "meta" ? ((await copyRemoteImage(item.mediaUrl, businessId)) ?? item.mediaUrl) : item.mediaUrl;
   return { mediaUrl, mediaType: item.mediaType === "video" ? "VIDEO" : "IMAGE", igMediaId: item.id, caption: item.caption };
 }
 
 const REMOTE_IMAGE_TYPES: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
 
 /** Downloads an Instagram CDN image into storage; null when it can't (the caller keeps the remote URL). */
-async function copyRemoteImage(url: string | null): Promise<string | null> {
+async function copyRemoteImage(url: string | null, businessId: string): Promise<string | null> {
   if (!url?.startsWith("https://")) return null;
   try {
     const response = await fetch(url, { signal: AbortSignal.timeout(15_000), cache: "no-store" });
@@ -62,7 +62,7 @@ async function copyRemoteImage(url: string | null): Promise<string | null> {
     if (!response.ok || !extension) return null;
     const data = Buffer.from(await response.arrayBuffer());
     if (data.length > UPLOAD_LIMITS.image) return null;
-    return (await getStorageService().save({ data, contentType: type, prefix: "brand-posts", extension })).url;
+    return (await getStorageService().save({ data, contentType: type, prefix: "brand-posts", extension, businessId })).url;
   } catch (error) {
     console.warn("[brand-posts] couldn't copy the Instagram image", (error as Error).message);
     return null;
@@ -81,6 +81,6 @@ export async function receivePostUpload(request: Request, businessId: string, on
     if (onboarding) await recordError(businessId, "business", { kind: "upload", code: (error as { code?: string }).code ?? "unknown" });
     throw error;
   }
-  const stored = await getStorageService().save({ data: upload.data, contentType: CONTENT_TYPES[upload.extension], prefix: "brand-posts", extension: upload.extension });
+  const stored = await getStorageService().save({ data: upload.data, contentType: CONTENT_TYPES[upload.extension], prefix: "brand-posts", extension: upload.extension, businessId });
   return { upload, stored };
 }

@@ -1,0 +1,43 @@
+# Plain settings (no secrets). Secrets live in the "lge-secrets" Secret (secret.example.yaml).
+# Values marked CHANGE_ME come from the client — see the list at the top of DEPLOY-DIGITALOCEAN.md.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: lge-config
+  namespace: lge
+data:
+  NODE_ENV: "production"
+  # The public address of the app (password-reset links, Auth.js, Meta login callback).
+  AUTH_URL: "https://APP_DOMAIN"
+  DEMO_ACCOUNTS_ENABLED: "false"
+  EMAIL_VERIFICATION_BANNER: "false"
+
+  # Email
+  EMAIL_PROVIDER: "resend"
+  EMAIL_FROM: "AI Growth Engine <noreply@APP_DOMAIN>"
+
+  # Instagram (Meta)
+  INSTAGRAM_PROVIDER: "meta"
+  META_APP_ID: "CHANGE_ME"
+  META_REDIRECT_URI: "https://APP_DOMAIN/api/integrations/instagram/callback"
+  # META_GRAPH_VERSION: unset = the version the app was built and tested against.
+
+  # AI (Gemini)
+  AI_PROVIDER: "gemini"
+  IMAGE_PROVIDER: "gemini"
+  GEMINI_TEXT_RPM: "12"
+  GEMINI_TEXT_RPD: "450"
+
+  # Files: private DigitalOcean Spaces bucket (lib/services/spaces-storage.ts)
+  STORAGE_PROVIDER: "spaces"
+  SPACES_ENDPOINT: "https://SPACES_REGION.digitaloceanspaces.com"
+  SPACES_REGION: "SPACES_REGION"
+  SPACES_BUCKET: "SPACES_BUCKET"
+  # Signed file links (app file route) stay valid this many seconds.
+  SPACES_URL_TTL: "600"
+
+  # Rate limits and the Gemini budget shared by every pod (Valkey / Redis)
+  RATE_LIMIT_STORE: "redis"
+
+  # Long tasks (publishing) run on the worker deployment, not in the request that asked for them.
+  BACKGROUND_MODE: "worker"

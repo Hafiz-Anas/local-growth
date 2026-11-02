@@ -1,0 +1,100 @@
+# Scheduled jobs: small curl pods calling the worker's cron routes inside the cluster (never through the
+# Ingress, so its timeouts don't apply), with the CRON_SECRET header. One run at a time (Forbid).
+#   publish  every minute  (a safety net: the worker's poller already runs it every 15 s; jobs are leased)
+#   monitor  every hour     (post monitoring readings)
+#   daily    03:00 UTC      (reports, recommendations, analysis, clean-ups — the same job as vercel.json)
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: lge-cron-publish
+  namespace: lge
+  labels: { app.kubernetes.io/part-of: ai-growth-engine }
+spec:
+  schedule: "* * * * *"
+  timeZone: "Etc/UTC"
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 50
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 330
+      ttlSecondsAfterFinished: 600
+      template:
+        spec:
+          restartPolicy: Never
+          securityContext: { runAsNonRoot: true, runAsUser: 100, seccompProfile: { type: RuntimeDefault } }
+          containers:
+            - name: call
+              image: curlimages/curl:8.11.1
+              env:
+                - name: CRON_SECRET
+                  valueFrom: { secretKeyRef: { name: lge-secrets, key: CRON_SECRET } }
+              args: ["-fsS", "-m", "320", "-H", "Authorization: Bearer $(CRON_SECRET)", "http://lge-worker.lge.svc.cluster.local:3000/api/cron/publish"]
+              resources: { requests: { cpu: 10m, memory: 16Mi }, limits: { memory: 32Mi } }
+              securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: ["ALL"] } }
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: lge-cron-monitor
+  namespace: lge
+  labels: { app.kubernetes.io/part-of: ai-growth-engine }
+spec:
+  schedule: "5 * * * *"
+  timeZone: "Etc/UTC"
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 300
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 600
+      ttlSecondsAfterFinished: 3600
+      template:
+        spec:
+          restartPolicy: Never
+          securityContext: { runAsNonRoot: true, runAsUser: 100, seccompProfile: { type: RuntimeDefault } }
+          containers:
+            - name: call
+              image: curlimages/curl:8.11.1
+              env:
+                - name: CRON_SECRET
+                  valueFrom: { secretKeyRef: { name: lge-secrets, key: CRON_SECRET } }
+              args: ["-fsS", "-m", "320", "-H", "Authorization: Bearer $(CRON_SECRET)", "http://lge-worker.lge.svc.cluster.local:3000/api/cron/monitor"]
+              resources: { requests: { cpu: 10m, memory: 16Mi }, limits: { memory: 32Mi } }
+              securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: ["ALL"] } }
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: lge-cron-daily
+  namespace: lge
+  labels: { app.kubernetes.io/part-of: ai-growth-engine }
+spec:
+  schedule: "0 3 * * *"
+  timeZone: "Etc/UTC"
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 3600
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 900
+      ttlSecondsAfterFinished: 86400
+      template:
+        spec:
+          restartPolicy: Never
+          securityContext: { runAsNonRoot: true, runAsUser: 100, seccompProfile: { type: RuntimeDefault } }
+          containers:
+            - name: call
+              image: curlimages/curl:8.11.1
+              env:
+                - name: CRON_SECRET
+                  valueFrom: { secretKeyRef: { name: lge-secrets, key: CRON_SECRET } }
+              args: ["-fsS", "-m", "330", "-H", "Authorization: Bearer $(CRON_SECRET)", "http://lge-worker.lge.svc.cluster.local:3000/api/cron/daily"]
+              resources: { requests: { cpu: 10m, memory: 16Mi }, limits: { memory: 32Mi } }
+              securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: ["ALL"] } }

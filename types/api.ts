@@ -278,10 +278,15 @@ export interface GalleryDto {
 /** POST /api/gallery/uploads: one permission per file. `blob`: PUT straight to Vercel Blob with `token`; `local`: PUT to `uploadUrl`. */
 export interface GalleryUploadTicketDto {
   id: string;
-  mode: "blob" | "local";
+  /** blob: Vercel Blob client token · local: PUT to uploadUrl · presigned: POST `fields` + the file to uploadUrl (Spaces). */
+  mode: "blob" | "local" | "presigned";
   pathname: string | null;
   token: string | null;
   uploadUrl: string | null;
+  /** presigned only: the form fields to send before the file. */
+  fields?: Record<string, string> | null;
+  /** presigned only: the stored file's URL to complete the upload with. */
+  fileUrl?: string | null;
 }
 
 /** POST /api/gallery/caption: the AI's caption for the owner's photo, or the neutral template when the AI is unavailable. */

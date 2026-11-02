@@ -1,5 +1,8 @@
 # Deploying to Vercel (Neon + Vercel Blob)
 
+> DigitalOcean Kubernetes is described separately in **DEPLOY-DIGITALOCEAN.md**. Nothing here changes for
+> Vercel: the DigitalOcean parts are only switched on by variables Vercel doesn't set.
+
 Production runs on **Vercel**, with **Neon** PostgreSQL as the database and **Vercel Blob** for uploaded and AI-generated images. Production starts with an **empty database**: migrations create the schema, and you create the first admin with `npm run create-admin`. Nothing is copied over from your local database.
 
 > **Never run `npm run db:seed`, `npm run db:reset`, `prisma migrate reset` or `prisma migrate dev` against Neon.** The seed deletes every table first, and it refuses to run against a `*.neon.tech` host or on Vercel. Production only ever uses `prisma migrate deploy`.

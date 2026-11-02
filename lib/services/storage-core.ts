@@ -7,17 +7,44 @@ import { randomUUID } from "node:crypto";
 export interface StoredFile {
   /** Storage key, e.g. "avatars/3f2c….webp". */
   key: string;
-  /** Public URL to put in avatarUrl etc. */
+  /** The URL to put in avatarUrl etc.: public (local, Vercel Blob) or the app's own file route (Spaces). */
   url: string;
 }
 
+export interface SaveInput {
+  data: Buffer;
+  contentType: string;
+  prefix: string;
+  extension: string;
+  /**
+   * The business the file belongs to. Spaces puts it in the key so only that business (and admins) can
+   * open the file; local storage and Vercel Blob ignore it.
+   */
+  businessId?: string;
+}
+
+/** A direct browser upload (Spaces): a presigned POST form that only accepts this file. */
+export interface PresignedUpload {
+  key: string;
+  /** The stored file's URL once uploaded (what the app keeps). */
+  url: string;
+  upload: { url: string; fields: Record<string, string> };
+}
+
 export interface StorageService {
-  save(file: { data: Buffer; contentType: string; prefix: string; extension: string }): Promise<StoredFile>;
+  save(file: SaveInput): Promise<StoredFile>;
   delete(key: string): Promise<void>;
   /** The stored bytes, or null when missing (used server-side, e.g. colour extraction). */
   read(key: string): Promise<Buffer | null>;
   /** The key behind a URL this service produced, or null for any other URL (e.g. seeded /avatars/*.svg). */
   keyFromUrl(url: string): string | null;
+  /**
+   * Private storage only (Spaces): a link anyone can download for `ttlSeconds` — the app's file route
+   * redirects to one, and Instagram gets one to fetch a photo when publishing. Absent on public storage.
+   */
+  signedUrl?(key: string, ttlSeconds: number): Promise<string>;
+  /** Direct browser uploads to private storage (Spaces): a form limited to one content type and size. */
+  presignUpload?(input: { prefix: string; extension: string; contentType: string; maxBytes: number; businessId?: string; ttlSeconds: number }): Promise<PresignedUpload>;
 }
 
 /** "<prefix>/<uuid>.<extension>" */

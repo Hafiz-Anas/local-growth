@@ -1,0 +1,21 @@
+# AI Growth Engine on DigitalOcean Kubernetes. Apply with:  kubectl apply -k k8s
+# The deploy workflow sets the image tag below (newTag) to the commit being deployed.
+# The migration Job (migrate-job.yaml) and the Secret (secret.example.yaml) are NOT listed here:
+# CI runs the Job before each rollout, and the Secret is created by DevOps (DEPLOY-DIGITALOCEAN.md).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: lge
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - web-deployment.yaml
+  - web-service.yaml
+  - web-pdb.yaml
+  - worker-deployment.yaml
+  - worker-service.yaml
+  - ingress.yaml
+  - cronjobs.yaml
+images:
+  - name: lge-web
+    newName: registry.digitalocean.com/REGISTRY_NAME/lge-web
+    newTag: latest

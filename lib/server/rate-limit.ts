@@ -1,4 +1,6 @@
 import "server-only";
+import { FallbackRateLimiter, RedisRateLimiter } from "@/lib/services/redis-stores";
+import { getRedis } from "./redis";
 
 /**
  * Rate limiting behind an interface. Callers (login, password reset) only use
@@ -114,6 +116,10 @@ export function getRateLimiter(): RateLimiter {
   switch (store) {
     case "memory":
       globalForLimiter.lgeRateLimiter = new InMemoryRateLimiter();
+      break;
+    case "redis":
+      // Shared by every instance (Kubernetes); the in-memory limiter takes over while Redis doesn't answer.
+      globalForLimiter.lgeRateLimiter = new FallbackRateLimiter(new RedisRateLimiter(getRedis()), new InMemoryRateLimiter());
       break;
     default:
       throw new Error(`Unknown RATE_LIMIT_STORE "${store}".`);

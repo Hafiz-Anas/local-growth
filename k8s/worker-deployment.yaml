@@ -1,0 +1,87 @@
+# Long tasks, away from user traffic: the same image as lge-web, not behind the Ingress.
+#  - "poller" calls this pod's own publish route every 15 s, so Post now and scheduled posts go out quickly
+#    (jobs are durable in the database and leased, so overlapping runs never publish twice).
+#  - The CronJobs (cronjobs.yaml) call the lge-worker Service for the daily and hourly jobs.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lge-worker
+  namespace: lge
+  labels: { app.kubernetes.io/name: lge-worker, app.kubernetes.io/part-of: ai-growth-engine }
+spec:
+  replicas: 1
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels: { app.kubernetes.io/name: lge-worker }
+  template:
+    metadata:
+      labels: { app.kubernetes.io/name: lge-worker, app.kubernetes.io/part-of: ai-growth-engine }
+    spec:
+      # A publish run can take up to ~4 minutes; give it time to finish on a rollout.
+      terminationGracePeriodSeconds: 300
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: worker
+          image: lge-web
+          imagePullPolicy: IfNotPresent
+          ports:
+            - { name: http, containerPort: 3000 }
+          envFrom:
+            - configMapRef: { name: lge-config }
+            - secretRef: { name: lge-secrets }
+          env:
+            - { name: BACKGROUND_MODE, value: "worker" }
+          resources:
+            requests: { cpu: 250m, memory: 512Mi }
+            # Photo conversion (sharp) for carousels needs headroom.
+            limits: { memory: 1536Mi }
+          startupProbe:
+            httpGet: { path: /api/health, port: http }
+            periodSeconds: 3
+            failureThreshold: 40
+          readinessProbe:
+            httpGet: { path: /api/health?ready=1, port: http }
+            periodSeconds: 15
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet: { path: /api/health, port: http }
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 4
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+          volumeMounts:
+            - { name: next-cache, mountPath: /app/.next/cache }
+            - { name: tmp, mountPath: /tmp }
+        - name: poller
+          image: curlimages/curl:8.11.1
+          env:
+            - name: CRON_SECRET
+              valueFrom: { secretKeyRef: { name: lge-secrets, key: CRON_SECRET } }
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              sleep 20
+              while true; do
+                curl -fsS -m 300 -H "Authorization: Bearer $CRON_SECRET" http://127.0.0.1:3000/api/cron/publish > /dev/null || echo "publish run failed"
+                sleep 15
+              done
+          resources:
+            requests: { cpu: 10m, memory: 16Mi }
+            limits: { memory: 32Mi }
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 100
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+      volumes:
+        - { name: next-cache, emptyDir: {} }
+        - { name: tmp, emptyDir: {} }

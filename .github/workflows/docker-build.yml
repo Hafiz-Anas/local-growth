@@ -1,0 +1,112 @@
+# Proves the production Docker images build and start (no secrets, nothing is pushed or deployed):
+# builds both targets, applies the migrations to a throwaway Postgres, starts the app and checks
+# /api/health (liveness) and /api/health?ready=1 (readiness, database) answer 200.
+name: Docker build check
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docker-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # The Redis Lua scripts (rate limits, Gemini budget) against a real Valkey.
+  redis-scripts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      valkey:
+        image: valkey/valkey:8-alpine
+        ports: ["6379:6379"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npx tsx --test tests/integration/redis-scripts.itest.ts
+        env:
+          REDIS_URL: redis://127.0.0.1:6379
+
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: lge
+          POSTGRES_PASSWORD: lge
+          POSTGRES_DB: lge_ci
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U lge -d lge_ci"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://lge:lge@127.0.0.1:5432/lge_ci
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build the migrate image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: migrate
+          tags: lge-migrate:ci
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build the app image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: runner
+          tags: lge-web:ci
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Image size and user
+        run: |
+          docker image ls lge-web:ci --format 'lge-web: {{.Size}}'
+          docker image ls lge-migrate:ci --format 'lge-migrate: {{.Size}}'
+          test "$(docker run --rm --entrypoint id lge-web:ci -u)" = "1001" || { echo "The app image must run as uid 1001"; exit 1; }
+
+      - name: Apply the migrations
+        run: docker run --rm --network host -e DATABASE_URL="$DATABASE_URL" lge-migrate:ci
+
+      - name: Start the app
+        run: |
+          docker run -d --name web --network host \
+            -e DATABASE_URL="$DATABASE_URL" \
+            -e AUTH_SECRET=ci-only-not-a-secret-000000000000000000 \
+            -e AUTH_URL=http://localhost:3000 \
+            -e ENCRYPTION_KEY=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA= \
+            -e CRON_SECRET=ci-cron \
+            -e EMAIL_PROVIDER=console -e INSTAGRAM_PROVIDER=mock -e AI_PROVIDER=mock -e IMAGE_PROVIDER=mock \
+            lge-web:ci
+
+      - name: Liveness and readiness answer 200
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:3000/api/health; then break; fi
+            sleep 2
+          done
+          echo
+          curl -fsS http://localhost:3000/api/health | grep -q '"status":"ok"'
+          curl -fsS "http://localhost:3000/api/health?ready=1" | tee /dev/stderr | grep -q '"database":"ok"'
+          # The login page renders (the app works beyond the health route).
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/login)" = "200"
+
+      - name: App logs
+        if: always()
+        run: docker logs web || true

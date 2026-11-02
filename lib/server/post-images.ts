@@ -121,7 +121,7 @@ export async function generateDraftImage(businessId: string, userId: string, dra
     throw new ApiError(status, "image_unavailable", UNAVAILABLE_MESSAGES[error.reason] ?? "Image generation is unavailable.", [{ path: "image", message: error.reason }]);
   }
 
-  const stored = await getStorageService().save({ data: image.data, contentType: CONTENT_TYPES[image.extension], prefix: STORAGE_PREFIX, extension: image.extension });
+  const stored = await getStorageService().save({ data: image.data, contentType: CONTENT_TYPES[image.extension], prefix: STORAGE_PREFIX, extension: image.extension, businessId });
   const dto = await setDraftImage(businessId, draft, { url: stored.url, source: "GENERATED", prompt });
   await logActivity({ businessId, userId, action: "post.image_generated", details: { draftId, provider: imageProvider(), model: image.model, replaced: Boolean(draft.imageUrl) } });
   return dto;
@@ -132,7 +132,7 @@ export async function uploadDraftImage(businessId: string, userId: string, draft
   const draft = await editableDraft(businessId, draftId);
   const upload = await readUpload(request, { imageMax: POST_IMAGE_MAX_BYTES, labels: { image: "8 MB" } });
   if (upload.kind !== "image") throw new ApiError(415, "unsupported_media_type", "Use a JPG, PNG or WebP image.");
-  const stored = await getStorageService().save({ data: upload.data, contentType: CONTENT_TYPES[upload.extension], prefix: STORAGE_PREFIX, extension: upload.extension });
+  const stored = await getStorageService().save({ data: upload.data, contentType: CONTENT_TYPES[upload.extension], prefix: STORAGE_PREFIX, extension: upload.extension, businessId });
   const dto = await setDraftImage(businessId, draft, { url: stored.url, source: "UPLOADED", prompt: null });
   await logActivity({ businessId, userId, action: "post.image_uploaded", details: { draftId, replaced: Boolean(draft.imageUrl) } });
   return dto;

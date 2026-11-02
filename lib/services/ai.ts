@@ -14,6 +14,8 @@ import type { BestSlot, GrowthSignal } from "@/lib/analysis/growth-signals";
 import { mockStrategyTips, parseStrategy, type StrategyRecommendation, type TipBusiness } from "./text/strategy";
 import { TextGenerationError, sanitizeTextError, type TextFailureReason } from "./text/errors";
 import { TextRequestGate } from "./text/gate";
+import { SharedTextGate, type TextGate } from "./redis-stores";
+import { getRedis, redisEnabled } from "@/lib/server/redis";
 import { DEFAULT_GEMINI_TEXT_MODEL, DEFAULT_GEMINI_TEXT_RPD, DEFAULT_GEMINI_TEXT_RPM, generateGeminiText, readGeminiTextConfig } from "./text/gemini";
 import type { EditExample, RegenerateTone } from "@/lib/replies";
 import type { Method } from "@/lib/analysis/methods";
@@ -581,7 +583,15 @@ type AICall = "ai.captions" | "ai.reply.comment" | "ai.reply.dm" | "ai.reply.rew
  */
 export class GeminiAIService implements AIService {
   private readonly mock = new MockAIService();
-  private gate: TextRequestGate | null = null;
+  private gate: TextGate | null = null;
+
+  /** The request budget: per instance (memory), or shared by every instance when RATE_LIMIT_STORE="redis". */
+  private textGate(rpm: number, rpd: number): TextGate {
+    if (this.gate) return this.gate;
+    const local = new TextRequestGate(rpm, rpd);
+    this.gate = redisEnabled() ? new SharedTextGate(getRedis(), rpm, rpd, local) : local;
+    return this.gate;
+  }
   private lastBudgetLog = 0;
   private dailyBudgetLoggedUntil = 0;
 
@@ -602,9 +612,9 @@ export class GeminiAIService implements AIService {
         : call === "ai.chat" || call === "ai.strategy" || call === "ai.prefill" || call === "ai.reply.rewrite" || call === "ai.style" || call === "ai.suggest"
           ? { text: "told the user the AI is unavailable", fallback: "unavailable" }
           : { text: "used the template text instead", fallback: "template" };
-    const gate = (this.gate ??= new TextRequestGate(config?.rpm ?? DEFAULT_GEMINI_TEXT_RPM, config?.rpd ?? DEFAULT_GEMINI_TEXT_RPD));
+    const gate = this.textGate(config?.rpm ?? DEFAULT_GEMINI_TEXT_RPM, config?.rpd ?? DEFAULT_GEMINI_TEXT_RPD);
     const model = config?.model ?? DEFAULT_GEMINI_TEXT_MODEL;
-    const decision = gate.acquire();
+    const decision = await gate.acquire();
     if (!decision.allowed) {
       // Paused after a failure: that failure is already in the log. Over our own budget: the daily one is
       // logged once per day, the per-minute one at most once a minute.
@@ -624,7 +634,7 @@ export class GeminiAIService implements AIService {
       return await toResult(await generateGeminiText(config, prompt()));
     } catch (error) {
       const failure = error instanceof TextGenerationError ? error : new TextGenerationError("unavailable", sanitizeTextError((error as Error).message));
-      gate.failed(failure.reason, failure.retryAfterMs);
+      await gate.failed(failure.reason, failure.retryAfterMs);
       await logIntegration({
         businessId: businessId ?? null,
         provider: "gemini",
@@ -800,7 +810,7 @@ export class GeminiAIService implements AIService {
   textAvailability(): { available: true } | { available: false; reason: TextFailureReason } {
     const config = readGeminiTextConfig();
     if (!config) return { available: false, reason: "not_configured" };
-    const decision = (this.gate ??= new TextRequestGate(config.rpm, config.rpd)).peek();
+    const decision = this.textGate(config.rpm, config.rpd).peek();
     return decision.allowed ? { available: true } : { available: false, reason: decision.reason };
   }
 
