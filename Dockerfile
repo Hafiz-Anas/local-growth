@@ -27,9 +27,11 @@ ENV NEXT_OUTPUT=standalone \
     NODE_ENV=production
 # lib/db.ts needs a URL when route modules load during the build; nothing connects to it.
 # Real values come from the Kubernetes Secret at run time, never from the image.
-RUN DATABASE_URL="postgresql://build:build@127.0.0.1:5432/build" \
-    AUTH_SECRET="build-only-not-a-secret" \
-    npx prisma generate && npx next build
+# Exported (not `VAR=x cmd1 && cmd2`, which only gives them to cmd1) and only for this RUN step.
+RUN export DATABASE_URL="postgresql://build:build@127.0.0.1:5432/build" \
+           AUTH_SECRET="build-only-not-a-secret" \
+    && npx prisma generate \
+    && npx next build
 
 # ── Migrations (Kubernetes Job before each rollout) ──
 FROM ${NODE_IMAGE} AS migrate
