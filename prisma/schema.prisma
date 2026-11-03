@@ -396,6 +396,7 @@ model Business {
   directMessages      InstagramDirectMessage[]
   keywordTriggers     KeywordReplyTrigger[]
   assistantChats      AssistantConversation[]
+  aiChatActions       AiChatAction[]
   recommendationRuns  RecommendationRun[]
   recommendations     Recommendation[]
   notifications       Notification[]
@@ -1340,6 +1341,7 @@ model AssistantConversation {
   business Business           @relation(fields: [businessId], references: [id], onDelete: Cascade)
   user     User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
   messages AssistantMessage[]
+  actions  AiChatAction[]
 
   @@unique([businessId, clientKey])
   @@index([businessId, updatedAt])
@@ -1367,6 +1369,59 @@ model AssistantMessage {
 
   @@unique([conversationId, clientId])
   @@index([conversationId, createdAt])
+}
+
+/// AI tab actions (AI4): what the AI was asked to do to a post, and what happened. Saving a draft runs at
+/// once; anything that affects Instagram (schedule, post now, reschedule, cancel) waits as PROPOSED until the
+/// owner taps Approve (30 minutes, `expiresAt`). Each row points at the chat message that shows it.
+model AiChatAction {
+  id               String             @id @default(cuid())
+  businessId       String
+  conversationId   String
+  /// The action card's message id in the chat (AssistantMessage.clientId).
+  messageClientId  String
+  /// The owner's question it came from (AssistantMessage.clientId).
+  questionClientId String?
+  /// Who asked; who approved or dismissed it.
+  userId           String?
+  decidedBy        String?
+  type             AiChatActionType
+  status           AiChatActionStatus
+  /// The checked request: caption, hashtags, time, the draft's/job's state when proposed.
+  input            Json
+  /// The draft and publishing job it worked on (plain ids: the trace stays when they're deleted).
+  draftId          String?
+  scheduledPostId  String?
+  /// What happened (job id, time…), or the error code.
+  result           Json?
+  errorCode        String?
+  expiresAt        DateTime?
+  decidedAt        DateTime?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  business     Business              @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  conversation AssistantConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, createdAt])
+  @@index([conversationId])
+}
+
+enum AiChatActionType {
+  SAVE_DRAFT
+  SCHEDULE
+  POST_NOW
+  RESCHEDULE
+  CANCEL
+}
+
+enum AiChatActionStatus {
+  PROPOSED
+  RUNNING
+  DONE
+  FAILED
+  EXPIRED
+  CANCELLED
 }
 
 // ─── AI strategy recommendations ─────────────────────────────────────────────

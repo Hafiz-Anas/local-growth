@@ -1,5 +1,6 @@
 // Mock "AI studio": post drafts, directions and inspiration built from the active account's mock data.
 // Nothing is sent to any AI service; every caption comes from the templates below.
+import type { ChatActionView } from "@/lib/gallery/chat-actions";
 import type { CompetitorPostRef } from "@/lib/gallery/competitor-posts";
 import { suggestedTime } from "@/lib/gallery/suggest";
 import { captionFor as categoryCaption, categoriesFor, findCategory, hashtagsFor as categoryTags, type Category } from "./categories";
@@ -74,7 +75,11 @@ export type AiMsg =
   | { id: string; role: "ai"; kind: "post"; text?: L; steps: Step[]; ready: boolean; post: PostDraft }
   | { id: string; role: "ai"; kind: "directions"; text?: L; steps: Step[]; ready: boolean; options: PostDraft[]; chosen?: number; features?: Feature[] }
   | { id: string; role: "ai"; kind: "pickInspiration"; chosen?: string }
-  | { id: string; role: "ai"; kind: "pickProduct"; chosen?: string };
+  | { id: string; role: "ai"; kind: "pickProduct"; chosen?: string }
+  /** AI4: something the AI did or proposes (save a draft, schedule…), written by the server (lib/server/chat-actions.ts). */
+  | { id: string; role: "ai"; kind: "action"; text?: L; action: ChatActionView };
+
+export type { ChatActionView };
 
 export interface AiChat {
   id: string;
@@ -519,7 +524,7 @@ export function seedChats(ctx: StudioContext): AiChat[] {
           role: "ai",
           kind: "post",
           ready: true,
-          steps: PHOTO_STEPS,
+          steps: [],
           text: { en: `Your "${photo.dish.en}" photo hasn't been posted yet. Here's a post for it:`, ar: `صورة «${photo.dish.ar}» لم تُنشر بعد. هذا منشور جاهز لها:` },
           post: photoPost(ctx, [photo.id]),
         },

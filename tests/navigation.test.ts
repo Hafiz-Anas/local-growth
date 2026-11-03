@@ -36,19 +36,17 @@ describe("navigation config: one obvious home per page", () => {
   it("has every label in English and Arabic", () => {
     const get = (locale: string, key: string) => key.split(".").reduce<unknown>((o, k) => (o as Record<string, unknown>)?.[k], JSON.parse(readFileSync(path.join("locales", `${locale}.json`), "utf8")));
     const pages = USER_NAV.flatMap((i) => i.pages ?? []);
-    const keys = [...USER_NAV.map((i) => i.labelKey), ...pages.map((p) => p.labelKey), ...pages.flatMap((p) => (p.descriptionKey ? [p.descriptionKey] : [])), "nav.main"];
+    const keys = [...USER_NAV.map((i) => i.labelKey), ...pages.map((p) => p.labelKey), "nav.main"];
     for (const key of keys) for (const locale of ["en", "ar"]) assert.equal(typeof get(locale, key), "string", `${locale}: ${key}`);
   });
 
-  it("orders Insights from \"how am I doing\" to \"what to do\" to the deeper tools, each tab with a description", () => {
+  it("orders Insights from \"how am I doing\" to \"what to do\" to the deeper tools", () => {
     const insights = section(filterNav(USER_NAV, allOn()), "nav.insights")!;
     // Overview (UX3) first: Insights opens on it.
     assert.equal(insights.href, "/insights");
     assert.deepEqual(insights.pages!.map((p) => p.href), ["/insights", "/post-performance", "/recommendations", "/reports", "/methods", "/post-monitoring", "/experiment"]);
-    for (const page of insights.pages!) assert.ok(page.descriptionKey, `no description for ${page.href}`);
     const competitors = section(filterNav(USER_NAV, allOn()), "nav.competitors")!;
     assert.deepEqual(competitors.pages!.map((p) => p.href), ["/competitors", "/competitors/analysis", "/competitors/inspiration"]);
-    for (const page of competitors.pages!) assert.ok(page.descriptionKey, `no description for ${page.href}`);
     assert.equal(ROUTE_FEATURES["/competitors/analysis"], "competitors.analysis");
     assert.equal(ROUTE_FEATURES["/competitors/inspiration"], "competitors.inspiration");
     assert.equal(ROUTE_FEATURES["/reports"], "reports");
@@ -57,11 +55,10 @@ describe("navigation config: one obvious home per page", () => {
 });
 
 describe("Engagement tabs", () => {
-  it("splits replies into four tabs, comments first, each with a description", () => {
+  it("splits replies into four tabs, comments first", () => {
     const engagement = section(filterNav(USER_NAV, allOn()), "nav.engagement")!;
     assert.equal(engagement.href, "/engagement/comments");
     assert.deepEqual(engagement.pages!.map((p) => p.href), ["/engagement/comments", "/engagement/messages", "/engagement/keywords", "/engagement/settings"]);
-    for (const page of engagement.pages!) assert.ok(page.descriptionKey, `no description for ${page.href}`);
     assert.equal(activeSection(filterNav(USER_NAV, allOn()), "/engagement/keywords", "/gallery")?.labelKey, "nav.engagement");
   });
 

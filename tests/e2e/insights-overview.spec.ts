@@ -102,7 +102,6 @@ test("Insights opens on Overview, its first tab; the other tabs are unchanged", 
   const tabs = page.getByTestId("section-tabs");
   await expect(tabs.getByTestId("section-tab-label")).toHaveText(["Overview", "Post performance", "Recommendations", "Weekly reports", "Marketing methods", "Post monitoring", "Best posting times"]);
   await expect(tabs.getByRole("link", { name: "Overview" })).toHaveAttribute("aria-current", "page");
-  await expect(tabs.getByRole("link", { name: "Overview" })).toHaveAccessibleDescription("How you're doing at a glance");
   await expect(overview().getByRole("heading", { level: 1 })).toHaveText("Overview");
   await expect(page).toHaveTitle("Insights · AI Growth Engine");
 });

@@ -34,7 +34,8 @@ export const proxy = auth((request) => {
     return isPublic ? NextResponse.next() : NextResponse.redirect(new URL("/login", request.url));
   }
 
-  const home = HOME_BY_ROLE[user.role];
+  // Clients go through their start page (UX1: /dashboard redirects to the section they chose, Gallery by default).
+  const home = user.role === "user" ? "/dashboard" : HOME_BY_ROLE.admin;
   if (user.role === "user" && ADD_ACCOUNT_PATHS.has(pathname) && request.nextUrl.searchParams.get("add") === "1") {
     return NextResponse.next();
   }
@@ -44,7 +45,7 @@ export const proxy = auth((request) => {
 
   const isAdminRoute = pathname === "/admin" || pathname.startsWith("/admin/");
   if (isAdminRoute && user.role !== "admin") {
-    return NextResponse.redirect(new URL(HOME_BY_ROLE.user, request.url));
+    return NextResponse.redirect(new URL("/dashboard", request.url));
   }
   if (!isAdminRoute && user.role === "admin" && !request.cookies.has(COOKIES.preview)) {
     return NextResponse.redirect(new URL("/admin", request.url));

@@ -48,8 +48,8 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
     store.set(COOKIES.locale, prefs.language, { path: "/", maxAge: 60 * 60 * 24 * 365, sameSite: "lax" });
   }
   store.set(COOKIES.theme, normalizeTheme(prefs?.theme), { path: "/", maxAge: 60 * 60 * 24 * 365, sameSite: "lax" });
-  // Straight to the role's home page (redirecting via "/" left the address bar on "/").
-  redirect(HOME_BY_ROLE[user?.role === "ADMIN" ? "admin" : "user"]);
+  // Admins to their home; clients to their start page (UX1: /dashboard redirects to the section they chose).
+  redirect(user?.role === "ADMIN" ? HOME_BY_ROLE.admin : "/dashboard");
 }
 
 export type SignupField = "email" | "password";

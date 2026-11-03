@@ -5,5 +5,6 @@ import { getSession } from "@/lib/auth/server";
 // The proxy normally handles "/", this is the fallback.
 export default async function RootPage() {
   const session = await getSession();
-  redirect(session ? HOME_BY_ROLE[session.role] : "/login");
+  // Clients go through their start page (UX1, app/(user)/dashboard).
+  redirect(session ? (session.role === "user" ? "/dashboard" : HOME_BY_ROLE.admin) : "/login");
 }

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Loader2, RefreshCw, Unplug } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useActiveClient, useFeature } from "@/components/providers/active-client-provider";
@@ -37,6 +37,8 @@ import { ChangePassword } from "./change-password";
 import { GoalsCard } from "./goals-card";
 import { ProfilePhoto } from "./profile-photo";
 import { Segmented } from "./segmented";
+import { START_PAGES, USER_NAV, type StartPage } from "@/config/navigation";
+import { filterNav } from "@/lib/permissions";
 
 export function SettingsView() {
   const { client, isPreview } = useActiveClient();
@@ -67,7 +69,8 @@ export function SettingsView() {
         {canBrandVoice && <BrandVoiceCard />}
         {canNotifications && <NotificationsCard />}
         {!isPreview && <ChangePassword />}
-        <PreferencesCard />
+        {/* The start page belongs to the signed-in login (UX1): not while an admin previews. */}
+        <PreferencesCard startPage={!isPreview} />
       </div>
     </div>
   );
@@ -390,7 +393,7 @@ function NotificationsCard() {
 }
 
 /** Language, theme and Kuwait clock — shared by user and admin settings. Saved to the account by PreferencesSync. */
-export function PreferencesCard() {
+export function PreferencesCard({ startPage = false }: { startPage?: boolean }) {
   const { t, locale, setLocale } = useI18n();
   const { theme, setTheme } = useTheme();
   const mounted = useMounted();
@@ -400,6 +403,7 @@ export function PreferencesCard() {
         <CardTitle>{t("settings.preferences.title")}</CardTitle>
       </CardHeader>
       <div className="divide-y divide-separator px-4">
+        {startPage && <StartPageRow />}
         <div className="flex flex-wrap items-center justify-between gap-3 py-3">
           <span className="text-body font-semibold">{t("settings.preferences.language")}</span>
           <Segmented
@@ -433,5 +437,52 @@ export function PreferencesCard() {
         </div>
       </div>
     </Card>
+  );
+}
+
+/**
+ * Settings → Preferences: "Start page" (UX1) — where this login lands after logging in, switching accounts or
+ * finishing onboarding. Only the sections this business has are offered; one switched off later falls back to the
+ * Gallery (app/(user)/dashboard). Saved per user in User.uiPreferences.
+ */
+function StartPageRow() {
+  const { t } = useI18n();
+  const { permissions } = useActiveClient();
+  const queryClient = useQueryClient();
+  const me = useQuery<MeDto>({ queryKey: qk.me, queryFn: () => apiFetch<MeDto>("/api/me") });
+  const sections = filterNav(USER_NAV, permissions).filter((item) => (START_PAGES as readonly string[]).includes(item.icon));
+  const saved = me.data?.user.uiPreferences.startPage ?? "gallery";
+  // A section switched off since it was picked: the Gallery is where the user lands now, so that's what shows.
+  const value = sections.some((s) => s.icon === saved) ? saved : "gallery";
+  const save = useMutation({
+    mutationFn: (startPage: StartPage) => apiFetch("/api/me/preferences", { method: "PATCH", body: { startPage } }),
+    onSuccess: (_data, startPage) => {
+      queryClient.setQueryData<MeDto>(qk.me, (old) => (old ? { ...old, user: { ...old.user, uiPreferences: { ...old.user.uiPreferences, startPage } } } : old));
+      notify.success(t("settings.preferences.startPageSaved"));
+    },
+  });
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 py-3">
+      <div className="min-w-0">
+        <label htmlFor="start-page" className="text-body font-semibold">
+          {t("settings.preferences.startPage")}
+        </label>
+        <p className="text-caption text-muted">{t("settings.preferences.startPageHint")}</p>
+      </div>
+      <select
+        id="start-page"
+        data-testid="start-page"
+        value={value}
+        disabled={me.isPending || save.isPending}
+        onChange={(e) => save.mutate(e.target.value as StartPage)}
+        className="h-9 rounded-button border border-border bg-background px-3 text-body font-semibold text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60"
+      >
+        {sections.map((item) => (
+          <option key={item.icon} value={item.icon}>
+            {t(item.labelKey)}
+          </option>
+        ))}
+      </select>
+    </div>
   );
 }

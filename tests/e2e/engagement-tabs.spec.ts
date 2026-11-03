@@ -10,10 +10,10 @@ import { expect, test, type Browser, type Page } from "@playwright/test";
 const USER = { email: "cafe@localgrowth.dev", password: "User@123" };
 
 const TABS = [
-  { href: "/engagement/comments", label: "Comment replies", hint: "Answer comments on posts", intro: "When someone comments on your posts" },
-  { href: "/engagement/messages", label: "DM replies", hint: "Answer your messages", intro: "When a customer sends you a message" },
-  { href: "/engagement/keywords", label: "Keyword replies", hint: "Reply when words appear", intro: "When a comment contains a word you choose" },
-  { href: "/engagement/settings", label: "Reply settings", hint: "Approval and AI results", intro: "Choose whether AI replies wait for you" },
+  { href: "/engagement/comments", label: "Comment replies", intro: "When someone comments on your posts" },
+  { href: "/engagement/messages", label: "DM replies", intro: "When a customer sends you a message" },
+  { href: "/engagement/keywords", label: "Keyword replies", intro: "When a comment contains a word you choose" },
+  { href: "/engagement/settings", label: "Reply settings", intro: "Choose whether AI replies wait for you" },
 ];
 
 test.describe.configure({ mode: "serial" });
@@ -53,13 +53,12 @@ test("old /engagement links open Comment replies, the most-used tab", async () =
   await expect(current).toHaveAttribute("aria-current", "page");
 });
 
-test("shows four tabs, each with its description, intro sentence and automation status", async () => {
+test("shows four tabs, each with its intro sentence and automation status", async () => {
   const tabs = page.getByTestId("section-tabs");
   await expect(tabs.getByTestId("section-tab-label")).toHaveText(TABS.map((tab) => tab.label));
   for (const tab of TABS) {
     await tabs.getByRole("link", { name: tab.label }).click();
     await expect(page).toHaveURL(new RegExp(`${tab.href}$`));
-    await expect(tabs.getByRole("link", { name: tab.label })).toContainText(tab.hint);
     await expect(page.getByRole("heading", { level: 1, name: tab.label })).toBeVisible();
     await expect(page.getByText(tab.intro)).toBeVisible();
     await expect(page.getByTestId("automation-status")).toBeVisible();

@@ -1,6 +1,8 @@
 import { POST_PURPOSES } from "../../../config/onboarding";
 import type { BrandContextInput } from "../ai";
 import { AI_CHAT_MAX_QUESTION } from "./ai-chat";
+import { chatAnswerSchema, toolLines } from "./chat-actions";
+import type { ChatActionType } from "../../gallery/chat-actions";
 import { STRATEGY_MAX, STRATEGY_SCHEMA, type StrategyDecision } from "./strategy";
 import { REPORT_SUMMARY_SCHEMA } from "./report";
 import { PREFILL_SCHEMA } from "./prefill";
@@ -334,6 +336,11 @@ export interface AiChatPromptInput {
   history: Array<{ role: "user" | "model"; text: string }>;
   /** A demo business: its Instagram numbers are the app's sample data. */
   demo: boolean;
+  /**
+   * AI actions (AI4): the tools this business has switched on, "Today is …" in its time zone, the posts the
+   * AI may act on (postRefLines) and how many photos came with the question.
+   */
+  actions: { types: readonly ChatActionType[]; today: string; posts: string[]; attachedPhotos: number };
 }
 
 /**
@@ -365,16 +372,31 @@ export function aiChatPrompt(input: AiChatPromptInput): TextPrompt {
       "- Answer directly: no greeting, no sign-off. Plain text only: one short paragraph or up to 5 lines starting with \"- \". No markdown.",
       "- Keep it under 120 words.",
       "",
+      "Answer as JSON: \"reply\" is your answer as above; \"ask\" and \"action\" are for doing things (below) and are null otherwise.",
+      "",
+      "Doing things for the owner (only when they clearly ask you to do something to a post, e.g. \"schedule this for Friday at 8pm\", \"make the caption shorter and save it\", \"cancel tomorrow's post\"):",
+      ...toolLines(input.actions.types),
+      "- Put exactly one action in \"action\", with \"post\" set to one ref from \"Posts you can act on\" (P1 = the newest post card, \"this\"/\"it\" usually means P1). Never invent a ref.",
+      `- ${input.actions.today} Times are the business's local time: give \"date\" as YYYY-MM-DD and \"time\" as HH:MM (24-hour). \"Friday\" is the next Friday from today (today itself if it's Friday and the time is still ahead).`,
+      "- If you're not sure which post, or the owner gave a day without a time (or no day), or a new photo is needed and none was sent, don't guess: leave \"action\" null and put one short question in \"ask\" (in the reply's language).",
+      `- Photos sent with this message: ${input.actions.attachedPhotos}.`,
+      "- A rewritten caption: give caption_en and caption_ar (both, full text, without hashtags; hashtags only in \"hashtags\" and only if the owner asked to change them). No new numbers, prices or claims that aren't in the old caption or the facts.",
+      "- Never say an action is done: the app saves drafts itself and asks the owner to approve anything that goes to Instagram. In \"reply\" just say briefly what you're preparing.",
+      "- Actions not listed above aren't available: say so in \"reply\" and leave \"action\" null.",
+      "",
       "<business_facts>",
       input.facts,
+      "",
+      ...input.actions.posts,
       "</business_facts>",
     ]
       .filter((l): l is string => l !== null)
       .join("\n"),
     history: input.history,
     user: input.question.slice(0, AI_CHAT_MAX_QUESTION),
+    schema: chatAnswerSchema(input.actions.types),
     temperature: 0.4,
-    maxOutputTokens: 1536,
+    maxOutputTokens: 2048,
     timeoutMs: 30_000,
   };
 }

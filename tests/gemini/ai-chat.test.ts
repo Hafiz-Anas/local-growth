@@ -23,7 +23,27 @@ describe("AI tab: the prompt", () => {
       { role: "model" as const, text: "Your videos averaged 120 likes+comments." },
     ],
     demo: false,
+    actions: { types: [] as Array<"save_draft" | "schedule" | "post_now" | "reschedule" | "cancel">, today: "Today is Tuesday 2026-11-03, 14:05 (Asia/Kuwait time).", posts: [] as string[], attachedPhotos: 0 },
   };
+
+  it("offers only the switched-on actions, with the posts as refs, today's date and the JSON answer shape (AI4)", () => {
+    const prompt = aiChatPrompt({
+      ...input,
+      actions: { types: ["save_draft", "schedule"], today: input.actions.today, posts: ["## Posts you can act on", '- P1: post card in this chat (the newest one), not saved yet, 1 photo, caption: "Hi"'], attachedPhotos: 1 },
+    });
+    assert.match(prompt.system, /save_draft — /);
+    assert.match(prompt.system, /schedule — schedule a post/);
+    assert.doesNotMatch(prompt.system, /post_now — |cancel — /);
+    assert.match(prompt.system, /Today is Tuesday 2026-11-03, 14:05 \(Asia\/Kuwait time\)\./);
+    assert.match(prompt.system, /don't guess: leave "action" null and put one short question in "ask"/);
+    assert.match(prompt.system, /Never say an action is done/);
+    assert.match(prompt.system, /Photos sent with this message: 1\./);
+    assert.match(prompt.system, /## Posts you can act on\n- P1: post card[\s\S]*<\/business_facts>$/);
+    const schema = prompt.schema as { properties: { action: { properties: { type: { enum: string[] } } } } };
+    assert.deepEqual(schema.properties.action.properties.type.enum, ["save_draft", "schedule"]);
+    // Without a saved chat there's nothing to act on: no action in the answer at all.
+    assert.equal((aiChatPrompt(input).schema as { properties: Record<string, unknown> }).properties.action, undefined);
+  });
 
   it("answers from the business facts, with the chat's earlier turns, in the question's language", () => {
     const prompt = aiChatPrompt(input);

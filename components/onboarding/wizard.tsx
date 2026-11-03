@@ -79,7 +79,8 @@ export function OnboardingWizard({
     current.current = null;
     try {
       await apiFetch("/api/onboarding/defer", { method: "POST" });
-      router.push("/gallery");
+      // The start page (UX1): the Gallery unless the owner picked another section.
+      router.push("/dashboard");
       router.refresh();
     } catch {
       setDeferring(false);
@@ -219,7 +220,7 @@ function AllSet({ style }: { style: StyleGuideDto | null }) {
         ))}
       </ul>
       <Button asChild size="lg" className="mt-8 w-full">
-        <Link href="/gallery" onClick={() => router.refresh()}>
+        <Link href="/dashboard" onClick={() => router.refresh()}>
           {t("onboarding.allSet.home")}
           <ArrowRight className="size-4 rtl:-scale-x-100" aria-hidden="true" />
         </Link>

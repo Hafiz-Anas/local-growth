@@ -40,6 +40,15 @@ export function splitForPhone(nav: NavItem[], max = MAX_PHONE_TABS): { tabs: Nav
   return { tabs: eligible.slice(0, max), more: eligible.slice(max) };
 }
 
+/**
+ * Where a client lands after logging in, switching accounts or finishing onboarding (UX1): the section they chose as
+ * their start page when the business still has it, else the usual home (the Gallery, or the first section left).
+ */
+export function startPageHref(nav: NavItem[], startPage: string | null | undefined): string {
+  const chosen = startPage && startPage !== "gallery" ? nav.find((item) => item.icon === startPage && item.placement !== "bottom") : undefined;
+  return chosen?.href ?? clientHome(nav);
+}
+
 /** A client's landing page: the Gallery, or the first section they have when it's off (Settings at worst). */
 export function clientHome(nav: NavItem[]): string {
   return (nav.find((item) => item.icon === "gallery") ?? nav.find((item) => item.placement !== "bottom") ?? nav[0])?.href ?? "/settings";

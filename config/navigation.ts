@@ -22,8 +22,6 @@ export interface NavPage {
   href: string;
   /** Translation key under nav.* */
   labelKey: string;
-  /** Translation key of the one-line description shown under the tab title. */
-  descriptionKey?: string;
   /** When set, the page (and its route) only exist if this feature is ON. */
   feature?: FeatureKey;
 }
@@ -68,10 +66,10 @@ export const USER_NAV: NavItem[] = [
     labelKey: "nav.engagement",
     icon: "engagement",
     pages: [
-      { href: "/engagement/comments", labelKey: "nav.commentReplies", descriptionKey: "nav.tabHints.commentReplies", feature: "engagement.aiReplies" },
-      { href: "/engagement/messages", labelKey: "nav.dmReplies", descriptionKey: "nav.tabHints.dmReplies", feature: "engagement.aiReplies" },
-      { href: "/engagement/keywords", labelKey: "nav.keywordReplies", descriptionKey: "nav.tabHints.keywordReplies", feature: "engagement.dmRules" },
-      { href: "/engagement/settings", labelKey: "nav.replySettings", descriptionKey: "nav.tabHints.replySettings", feature: "engagement.aiReplies" },
+      { href: "/engagement/comments", labelKey: "nav.commentReplies", feature: "engagement.aiReplies" },
+      { href: "/engagement/messages", labelKey: "nav.dmReplies", feature: "engagement.aiReplies" },
+      { href: "/engagement/keywords", labelKey: "nav.keywordReplies", feature: "engagement.dmRules" },
+      { href: "/engagement/settings", labelKey: "nav.replySettings", feature: "engagement.aiReplies" },
     ],
   },
   { href: "/ai", labelKey: "nav.ai", icon: "ai", pages: [{ href: "/ai", labelKey: "nav.ai", feature: "aiChat" }] },
@@ -81,14 +79,14 @@ export const USER_NAV: NavItem[] = [
     labelKey: "nav.insights",
     icon: "insights",
     pages: [
-      { href: "/insights", labelKey: "nav.overview", descriptionKey: "nav.tabHints.overview", feature: "postInsights" },
-      { href: "/post-performance", labelKey: "nav.postPerformance", descriptionKey: "nav.tabHints.postPerformance", feature: "postInsights" },
-      ...(SHOW_STATISTICS ? [{ href: "/statistics", labelKey: "nav.statistics", descriptionKey: "nav.tabHints.statistics", feature: "statistics" as const }] : []),
-      { href: "/recommendations", labelKey: "nav.recommendations", descriptionKey: "nav.tabHints.recommendations", feature: "recommendations" },
-      { href: "/reports", labelKey: "nav.reports", descriptionKey: "nav.tabHints.reports", feature: "reports" },
-      { href: "/methods", labelKey: "nav.methods", descriptionKey: "nav.tabHints.methods", feature: "methods" },
-      { href: "/post-monitoring", labelKey: "nav.postMonitoring", descriptionKey: "nav.tabHints.postMonitoring", feature: "monitoring" },
-      { href: "/experiment", labelKey: "nav.experiment", descriptionKey: "nav.tabHints.experiment", feature: "experiment" },
+      { href: "/insights", labelKey: "nav.overview", feature: "postInsights" },
+      { href: "/post-performance", labelKey: "nav.postPerformance", feature: "postInsights" },
+      ...(SHOW_STATISTICS ? [{ href: "/statistics", labelKey: "nav.statistics", feature: "statistics" as const }] : []),
+      { href: "/recommendations", labelKey: "nav.recommendations", feature: "recommendations" },
+      { href: "/reports", labelKey: "nav.reports", feature: "reports" },
+      { href: "/methods", labelKey: "nav.methods", feature: "methods" },
+      { href: "/post-monitoring", labelKey: "nav.postMonitoring", feature: "monitoring" },
+      { href: "/experiment", labelKey: "nav.experiment", feature: "experiment" },
     ],
   },
   {
@@ -96,9 +94,9 @@ export const USER_NAV: NavItem[] = [
     labelKey: "nav.competitors",
     icon: "competitors",
     pages: [
-      { href: "/competitors", labelKey: "nav.competitorAccounts", descriptionKey: "nav.tabHints.competitorAccounts", feature: "competitors" },
-      { href: "/competitors/analysis", labelKey: "nav.competitorAnalysis", descriptionKey: "nav.tabHints.competitorAnalysis", feature: "competitors.analysis" },
-      { href: "/competitors/inspiration", labelKey: "nav.competitorInspiration", descriptionKey: "nav.tabHints.competitorInspiration", feature: "competitors.inspiration" },
+      { href: "/competitors", labelKey: "nav.competitorAccounts", feature: "competitors" },
+      { href: "/competitors/analysis", labelKey: "nav.competitorAnalysis", feature: "competitors.analysis" },
+      { href: "/competitors/inspiration", labelKey: "nav.competitorInspiration", feature: "competitors.inspiration" },
     ],
   },
   { href: "/settings", labelKey: "nav.settings", icon: "settings", pages: [{ href: "/settings", labelKey: "nav.settings" }], mobile: false, placement: "bottom" },
@@ -117,6 +115,13 @@ export const ROUTE_FEATURES: Record<string, FeatureKey> = Object.fromEntries(
     .filter((page) => page.feature)
     .map((page) => [page.href, page.feature!]),
 );
+
+/**
+ * The sections a client can pick as their start page (Settings → Preferences, UX1), by their nav icon. Gallery is the
+ * default; a section that's switched off for the business falls back to the usual home (startPageHref).
+ */
+export const START_PAGES = ["gallery", "engagement", "ai", "insights", "competitors"] as const;
+export type StartPage = (typeof START_PAGES)[number];
 
 /** Where each role lands after logging in. Clients land on the Gallery (see app/(user)/gallery/page.tsx when it's off). */
 export const HOME_BY_ROLE = {

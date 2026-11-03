@@ -747,4 +747,6 @@ export interface AiChatDto extends AiChatSummaryDto {
 export interface AiChatAnswerDto {
   text: string | null;
   message: AiChatMessageDto | null;
+  /** Post cards an action changed (AI4: a draft saved from a card), as saved: they replace the ones on screen. */
+  updated?: AiChatMessageDto[];
 }

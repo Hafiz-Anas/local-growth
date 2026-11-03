@@ -3,6 +3,8 @@ import { logIntegration } from "@/lib/server/integration-log";
 import type { CaptionStyle, PostPurpose, PurposePattern, StyleNotes } from "@/types";
 import { getContentCatalog, type CatalogProfile } from "./catalog";
 import { checkChatNumbers, cleanChatAnswer } from "./text/ai-chat";
+import { parseChatAnswer, type RawChatAction } from "./text/chat-actions";
+import { parseJsonAnswer } from "./text/output";
 import type { BusinessFocus } from "./text/focus";
 import { parsePrefill, type PrefillSuggestion } from "./text/prefill";
 import { parseStyleGuide, type StyleGuideText } from "./text/style";
@@ -274,8 +276,12 @@ export interface ChatReplyRequest {
   prompt: AiChatPromptInput;
 }
 
-/** `dropped`: sentences left out because they stated a number that isn't in the facts. */
-export type ChatReplyAnswer = { ok: true; text: string; dropped: number } | { ok: false; reason: TextFailureReason };
+/**
+ * `dropped`: sentences left out because they stated a number that isn't in the facts. `ask`: the AI's question
+ * back (unsure which post or time); `action`: what it was asked to do (AI4), checked and run by
+ * lib/server/chat-actions.ts. With an action, `text` may be empty (the app writes the action's text itself).
+ */
+export type ChatReplyAnswer = { ok: true; text: string; dropped: number; ask: string | null; action: RawChatAction | null } | { ok: false; reason: TextFailureReason };
 
 export type SimilarPostAnswer = { ok: true; post: SimilarPostText } | { ok: false; reason: TextFailureReason };
 export type PhotoCaptionAnswer = ({ ok: true } & PhotoCaptionText) | { ok: false; reason: TextFailureReason };
@@ -834,12 +840,19 @@ export class GeminiAIService implements AIService {
       request.businessId,
       () => aiChatPrompt(request.prompt),
       (answer) => {
-        const text = cleanChatAnswer(answer);
-        if (!text) throw new TextGenerationError("bad_output", "The model's answer was empty.", 200);
+        const parsed = parseChatAnswer(parseJsonAnswer(answer, "chat answer"), request.prompt.actions.types);
+        const facts = [request.prompt.facts, ...request.prompt.actions.posts].join("\n");
         // Every number must be in the facts: sentences with an invented one go; most of it gone → no answer.
-        const checked = checkChatNumbers(text, request.prompt.facts);
-        if (!checked.usable) throw new TextGenerationError("bad_output", `The model's answer quoted numbers that aren't in the data (${checked.dropped} sentence${checked.dropped === 1 ? "" : "s"}).`, 200);
-        return { ok: true, text: checked.text, dropped: checked.dropped };
+        const checked = checkChatNumbers(cleanChatAnswer(parsed.reply), facts);
+        const askChecked = parsed.ask ? checkChatNumbers(cleanChatAnswer(parsed.ask), facts) : null;
+        const ask = askChecked?.usable ? askChecked.text : null;
+        // An action's text is written by the app, so the reply only has to be usable when there's no action.
+        if (parsed.action) return { ok: true, text: checked.usable ? checked.text : "", dropped: checked.dropped, ask, action: parsed.action };
+        if (!checked.usable && !ask) {
+          if (!cleanChatAnswer(parsed.reply)) throw new TextGenerationError("bad_output", "The model's answer was empty.", 200);
+          throw new TextGenerationError("bad_output", `The model's answer quoted numbers that aren't in the data (${checked.dropped} sentence${checked.dropped === 1 ? "" : "s"}).`, 200);
+        }
+        return { ok: true, text: checked.usable ? checked.text : "", dropped: checked.dropped, ask, action: null };
       },
       (reason) => ({ ok: false, reason }),
     );

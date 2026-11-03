@@ -103,10 +103,11 @@ test.afterAll(async () => {
   await stub.close();
 });
 
-test("tabs like Insights: Accounts, Analysis and Inspiration, each with a short line; the old URLs keep working", async () => {
+test("tabs like Insights: Accounts, Analysis and Inspiration; the old URLs keep working", async () => {
   await page.goto("/competitors");
   await expect(page.getByTestId("section-tab-label")).toHaveText(["Accounts", "Analysis", "Inspiration"]);
-  for (const line of ["Who you're watching", "How you compare", "Posts you saved"]) await expect(tabs().getByText(line)).toBeVisible();
+  // Labels only (no description line under each tab).
+  await expect(tabs()).not.toContainText("Who you're watching");
   await expect(tabs().getByRole("link", { name: "Accounts" })).toHaveAttribute("aria-current", "page");
 
   await page.goto("/competitors/analysis");

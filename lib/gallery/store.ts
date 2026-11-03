@@ -216,6 +216,8 @@ interface State extends DemoData {
    */
   pushAi: (msgs: AiMsg[], opts?: { title?: L; chatId?: string; saved?: boolean }) => string;
   updateAiMsg: (msgId: string, patch: Partial<AiMsg>) => void;
+  /** A message as the server saved it (an action card, a post card an action changed): replaces it on screen, nothing is sent. */
+  putServerMsg: (msg: AiMsg) => void;
   /** Resolves once everything sent for the chat so far has reached the server (its question is saved before the AI is asked). */
   flushChat: (id: string) => Promise<void>;
 }
@@ -585,6 +587,10 @@ export const useStore = create<State>()((set, get) => {
       const msg = { ...chat.messages.find((m) => m.id === msgId)!, ...patch } as AiMsg;
       mapChat(chat.id, (c) => ({ ...c, messages: c.messages.map((m) => (m.id === msgId ? msg : m)) }));
       queueChat(chat.id, () => chatsApi.update(chat.id, msg));
+    },
+    putServerMsg: (msg) => {
+      const chat = (get().chats[acc()] ?? []).find((c) => c.messages.some((m) => m.id === msg.id));
+      if (chat) mapChat(chat.id, (c) => ({ ...c, messages: c.messages.map((m) => (m.id === msg.id ? msg : m)) }));
     },
     flushChat: (id) => chatQueues.get(id) ?? Promise.resolve(),
   };

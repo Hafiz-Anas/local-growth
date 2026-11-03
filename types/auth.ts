@@ -10,6 +10,8 @@ export interface UiPreferences {
   sidebarCollapsed: boolean;
   theme: ThemePreference;
   language: "en" | "ar";
+  /** UX1: the section the client lands on after logging in (Gallery by default). */
+  startPage?: "gallery" | "engagement" | "ai" | "insights" | "competitors";
 }
 
 /** Public user shape — never includes credentials or token hashes. */

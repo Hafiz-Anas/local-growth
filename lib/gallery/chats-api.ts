@@ -37,5 +37,8 @@ export const chatsApi = {
     }
     return imported;
   },
-  ask: (body: { question: string; chatId?: string; answerId?: string }) => apiFetch<AiChatAnswerDto>("/api/ai-chat", { method: "POST", body }),
+  ask: (body: { question: string; chatId?: string; answerId?: string; photoIds?: string[] }) => apiFetch<AiChatAnswerDto>("/api/ai-chat", { method: "POST", body }),
+  /** AI4: Approve / Cancel on an action card; answers the card as the server saved it. */
+  approveAction: (actionId: string) => apiFetch<{ message: AiChatMessageDto }>(`/api/ai-chat/actions/${actionId}/approve`, { method: "POST" }),
+  dismissAction: (actionId: string) => apiFetch<{ message: AiChatMessageDto }>(`/api/ai-chat/actions/${actionId}/dismiss`, { method: "POST" }),
 };

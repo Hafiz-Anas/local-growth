@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { FEATURE_KEYS } from "@/config/features";
+import { START_PAGES } from "@/config/navigation";
 import {
   BUSINESS_AIMS,
   BUSINESS_GOALS,
@@ -50,6 +51,8 @@ export const uiPreferencesSchema = z.object({
   // Only a saved "dark" is dark; "system" (an old default) and anything missing are read as light.
   theme: z.enum(["light", "dark", "system"]).default("light").transform(normalizeTheme),
   language: z.enum(["en", "ar"]).default("en"),
+  /** UX1: where the client lands after logging in; anything unknown reads as the Gallery. */
+  startPage: z.enum(START_PAGES).default("gallery").catch("gallery"),
 });
 
 export const uiPreferencesPatchSchema = z
@@ -57,6 +60,7 @@ export const uiPreferencesPatchSchema = z
     sidebarCollapsed: z.boolean(),
     theme: z.enum(["light", "dark", "system"]).transform(normalizeTheme),
     language: z.enum(["en", "ar"]),
+    startPage: z.enum(START_PAGES),
   })
   .partial()
   .strict()
@@ -463,6 +467,8 @@ export const aiChatSchema = z.object({
   chatId: chatKey.optional(),
   /** The id the answer gets in the chat. */
   answerId: chatKey.optional(),
+  /** Photos sent with the question (API ids), for "use this photo" (AI4). */
+  photoIds: z.array(z.string().min(1).max(100)).max(10).optional(),
 });
 
 /** A chat message as the AI tab draws it (AiMsg); any other fields are kept as they are, up to 30 kB. */

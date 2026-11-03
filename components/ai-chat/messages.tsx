@@ -1,6 +1,6 @@
 "use client";
 
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { CalendarClock, Check, ChevronDown, CircleCheck, Copy, ImageDown, LoaderCircle, PencilLine, RefreshCw, Send, Sparkles } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useState, type ReactNode } from "react";
@@ -24,7 +24,7 @@ import { answer, type ChatContext } from "@/mock-data/gallery/ai-chat";
 import { DIRECTION_LABEL, FEATURE_LABEL, fullCaption, inspirationSources, productsFor, recaption, retone, type AiMsg, type PostDraft, type Step } from "@/mock-data/gallery/ai-studio";
 import { findCategory } from "@/mock-data/gallery/categories";
 import type { CaptionTone, Lang, Photo } from "@/mock-data/gallery/types";
-import type { AiEngine } from "./engine";
+import type { AiEngine, TypingState } from "./engine";
 
 type AiOf<K> = Extract<AiMsg, { role: "ai"; kind: K }>;
 
@@ -84,19 +84,26 @@ export function UserMessage({ msg }: { msg: Extract<AiMsg, { role: "user" }> }) 
   );
 }
 
-export function TypingDots() {
+const TYPING_KEY: Record<Exclude<TypingState, boolean>, MessageKey> = { reading: "typingReading", caption: "typingCaption", similar: "typingSimilar" };
+
+/** The answer is on its way: what's actually happening right now ("Reading your question…"), or just the dots. */
+export function TypingDots({ label }: { label?: TypingState }) {
   const { t } = useT();
+  const text = label && label !== true ? t(TYPING_KEY[label]) : null;
   return (
     <AiRow>
-      <span className="flex h-6 items-center gap-1" role="status" aria-label={t("thinking")}>
-        {[0, 1, 2].map((i) => (
-          <motion.span
-            key={i}
-            className="size-1.5 rounded-full bg-ge-muted-foreground"
-            animate={{ opacity: [0.3, 1, 0.3] }}
-            transition={{ duration: 1, repeat: Infinity, delay: i * 0.15 }}
-          />
-        ))}
+      <span className="flex h-6 items-center gap-2" role="status" aria-label={text ?? t("thinking")} data-testid="ai-typing">
+        <span className="flex items-center gap-1">
+          {[0, 1, 2].map((i) => (
+            <motion.span
+              key={i}
+              className="size-1.5 rounded-full bg-ge-muted-foreground"
+              animate={{ opacity: [0.3, 1, 0.3] }}
+              transition={{ duration: 1, repeat: Infinity, delay: i * 0.15 }}
+            />
+          ))}
+        </span>
+        {text && <span className="text-[13.5px] text-ge-muted-foreground">{text}</span>}
       </span>
     </AiRow>
   );
@@ -104,7 +111,6 @@ export function TypingDots() {
 
 /* ---------- Progress steps ---------- */
 
-const STEP_MS = 750;
 const STEP_KEY: Record<Step["key"], MessageKey> = {
   look: "stepLook",
   style: "stepStyle",
@@ -117,44 +123,11 @@ const STEP_KEY: Record<Step["key"], MessageKey> = {
   combine: "stepCombine",
 };
 
-/** Runs the visible "working" steps, then marks the message ready so its result shows. */
-function useSteps(msgId: string, steps: Step[], ready: boolean) {
-  const [done, setDone] = useState(ready ? steps.length : 0);
-  useEffect(() => {
-    if (ready) return;
-    const timer = window.setTimeout(() => {
-      if (done < steps.length) setDone(done + 1);
-      else useStore.getState().updateAiMsg(msgId, { ready: true });
-    }, done < steps.length ? STEP_MS : 250);
-    return () => window.clearTimeout(timer);
-  }, [done, ready, steps.length, msgId]);
-  return ready ? steps.length : done;
-}
-
-function Steps({ steps, done, ready }: { steps: Step[]; done: number; ready: boolean }) {
+/** What was really done for this answer (the caption endpoint read the photo, wrote the caption…), as a finished list; nothing when it's sample data. */
+function Steps({ steps }: { steps: Step[] }) {
   const { t, l, lang } = useT();
   const [open, setOpen] = useState(false);
-  const label = (s: Step) => t(STEP_KEY[s.key], { v: l(s.v) });
-  const list = (
-    <ol className="space-y-1.5" aria-live="polite">
-      {steps.map((s, i) => {
-        const state = i < done ? "done" : i === done && !ready ? "active" : "todo";
-        return (
-          <li key={s.key} className={cn("flex items-center gap-2 text-[13.5px]", state === "todo" && "text-ge-muted-foreground/60", state === "done" && "text-ge-muted-foreground")}>
-            {state === "done" ? (
-              <CircleCheck className="size-4 shrink-0 text-ge-brand" />
-            ) : state === "active" ? (
-              <LoaderCircle className="size-4 shrink-0 animate-spin text-ge-brand" />
-            ) : (
-              <span className="mx-[3px] size-2.5 shrink-0 rounded-full border-2 border-current" />
-            )}
-            <span dir="auto">{label(s)}</span>
-          </li>
-        );
-      })}
-    </ol>
-  );
-  if (!ready) return <div className="rounded-2xl border bg-ge-card px-3.5 py-3">{list}</div>;
+  if (!steps.length) return null;
   return (
     <div>
       <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="inline-flex items-center gap-1.5 rounded-full text-[12.5px] font-medium text-ge-muted-foreground hover:text-ge-foreground">
@@ -162,7 +135,16 @@ function Steps({ steps, done, ready }: { steps: Step[]; done: number; ready: boo
         {t("stepsDone", { n: num(steps.length, lang) })}
         <ChevronDown className={cn("size-3.5 transition-transform", open && "rotate-180")} />
       </button>
-      {open && <div className="mt-2 ps-1">{list}</div>}
+      {open && (
+        <ol className="mt-2 space-y-1.5 ps-1">
+          {steps.map((s) => (
+            <li key={s.key} className="flex items-center gap-2 text-[13.5px] text-ge-muted-foreground">
+              <CircleCheck className="size-4 shrink-0 text-ge-brand" />
+              <span dir="auto">{t(STEP_KEY[s.key], { v: l(s.v) })}</span>
+            </li>
+          ))}
+        </ol>
+      )}
     </div>
   );
 }
@@ -171,18 +153,13 @@ function Steps({ steps, done, ready }: { steps: Step[]; done: number; ready: boo
 
 export function PostMessage({ msg, ctx }: { msg: AiOf<"post">; ctx: ChatContext }) {
   const { l } = useT();
-  const done = useSteps(msg.id, msg.steps, msg.ready);
   return (
     <AiRow id={msg.id}>
-      {msg.text && msg.ready && <p className="whitespace-pre-line" dir="auto">{l(msg.text)}</p>}
-      <Steps steps={msg.steps} done={done} ready={msg.ready} />
-      <AnimatePresence initial={false}>
-        {msg.ready && (
-          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
-            <PostCard msgId={msg.id} post={msg.post} ctx={ctx} />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {msg.text && <p className="whitespace-pre-line" dir="auto">{l(msg.text)}</p>}
+      <Steps steps={msg.steps} />
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
+        <PostCard msgId={msg.id} post={msg.post} ctx={ctx} />
+      </motion.div>
     </AiRow>
   );
 }
@@ -596,12 +573,11 @@ function Photos({ photos }: { photos: Photo[] }) {
 
 export function DirectionsMessage({ msg, ctx, engine }: { msg: AiOf<"directions">; ctx: ChatContext; engine: AiEngine }) {
   const { t, l } = useT();
-  const done = useSteps(msg.id, msg.steps, msg.ready);
   return (
     <AiRow id={msg.id}>
-      {msg.text && msg.ready && <p className="whitespace-pre-line" dir="auto">{l(msg.text)}</p>}
-      <Steps steps={msg.steps} done={done} ready={msg.ready} />
-      {msg.ready && msg.features && (
+      {msg.text && <p className="whitespace-pre-line" dir="auto">{l(msg.text)}</p>}
+      <Steps steps={msg.steps} />
+      {msg.features && (
         <ul className="grid max-w-md gap-1.5" aria-label={t("combineTook")}>
           {msg.features.map((f) => {
             const photo = ctx.photos.find((p) => p.id === f.photoId);
@@ -617,7 +593,7 @@ export function DirectionsMessage({ msg, ctx, engine }: { msg: AiOf<"directions"
           })}
         </ul>
       )}
-      {msg.ready && (
+      {(
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -657,7 +633,7 @@ export function DirectionsMessage({ msg, ctx, engine }: { msg: AiOf<"directions"
                     size="sm"
                     variant={chosen ? "primary" : "secondary"}
                     className="w-full"
-                    disabled={msg.chosen !== undefined || engine.typing}
+                    disabled={msg.chosen !== undefined || !!engine.typing}
                     onClick={() => engine.chooseDirection(msg.id, i)}
                     icon={chosen ? <Check /> : undefined}
                   >
@@ -700,7 +676,7 @@ export function InspirationMessage({ msg, ctx, engine }: { msg: AiOf<"pickInspir
             <button
               key={s.id}
               type="button"
-              disabled={!!msg.chosen || engine.typing}
+              disabled={!!msg.chosen || !!engine.typing}
               onClick={() => engine.pickInspiration(msg.id, s.id)}
               aria-pressed={chosen}
               aria-label={`@${s.handle}`}
@@ -737,7 +713,7 @@ export function ProductMessage({ msg, ctx, engine }: { msg: AiOf<"pickProduct">;
           <Chip
             key={p.id}
             active={msg.chosen === p.id}
-            disabled={!!msg.chosen || engine.typing}
+            disabled={!!msg.chosen || !!engine.typing}
             onClick={() => engine.pickProduct(msg.id, p.id)}
             className={cn("h-auto min-h-9 py-1.5", msg.chosen && msg.chosen !== p.id && "opacity-45")}
           >

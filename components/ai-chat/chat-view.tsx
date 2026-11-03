@@ -11,6 +11,7 @@ import { useActiveChat, useStore } from "@/lib/gallery/store";
 import { findCategory } from "@/mock-data/gallery/categories";
 import { ChatEditSheets, ChatList, ChatListDrawer, type ChatEdit } from "./chat-list";
 import { useAiEngine, useChatContext, type AiEngine } from "./engine";
+import { ActionCard } from "./action-card";
 import { AnswerMessage, DirectionsMessage, InspirationMessage, PostMessage, ProductMessage, ReferenceThumb, TextMessage, TypingDots, UserMessage } from "./messages";
 import { PROMPTS, SHORTCUTS, type Prompt } from "./modes";
 import { PhotoPicker } from "./photo-picker";
@@ -66,7 +67,7 @@ function Conversation({ engine, onAttach }: { engine: AiEngine; onAttach: (mode:
   // Admin preview is read-only: nothing can be sent, so no new chats are made or saved.
   const { isPreview } = useActiveClient();
   // A saved chat whose messages are still loading (or couldn't be loaded) takes no new messages.
-  const busy = isPreview || engine.typing || !!chat?.load || messages.some((m) => m.role === "ai" && "ready" in m && !m.ready);
+  const busy = isPreview || !!engine.typing || !!chat?.load;
   const scroller = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
@@ -140,11 +141,13 @@ function Conversation({ engine, onAttach }: { engine: AiEngine; onAttach: (mode:
                     return <ProductMessage key={m.id} msg={m} ctx={ctx} engine={engine} />;
                   case "text":
                     return <TextMessage key={m.id} msg={m} />;
+                  case "action":
+                    return <ActionCard key={m.id} msg={m} />;
                   default:
                     return <AnswerMessage key={m.id} msg={m} ctx={ctx} animate={!seen.ids.has(m.id)} />;
                 }
               })}
-              {engine.typing && <TypingDots />}
+              {engine.typing && <TypingDots label={engine.typing} />}
             </div>
           )}
         </div>

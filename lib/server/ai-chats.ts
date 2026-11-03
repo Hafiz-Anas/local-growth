@@ -55,6 +55,11 @@ async function conversation(businessId: string, key: string) {
   return row;
 }
 
+/** Action cards (AI4) are written by the server only (lib/server/chat-actions.ts). */
+function assertNoActionCards(messages: ChatMessageInput[]) {
+  if (messages.some((m) => m.kind === "action")) throw new ApiError(400, "validation_error", "Action cards are written by the server.");
+}
+
 /** The business's chats, most recent first; `sampleDue`: a demo business that hasn't had its sample chats yet. */
 export async function listChats(businessId: string): Promise<AiChatListDto> {
   const [rows, business, demo] = await Promise.all([
@@ -88,6 +93,7 @@ async function addMessages(conversationId: string, messages: ChatMessageInput[],
 
 /** A new chat with its first messages; sending the same chat again only adds the messages it doesn't have. */
 export async function createChat(businessId: string, userId: string | null, input: ChatInput, options: { sample?: boolean } = {}): Promise<AiChatSummaryDto> {
+  assertNoActionCards(input.messages);
   const at = input.at ? new Date(input.at) : new Date();
   let row: SummaryRow & { id: string };
   try {
@@ -106,7 +112,8 @@ export async function createChat(businessId: string, userId: string | null, inpu
 }
 
 /** Messages added to a chat (most recent activity: the chat moves to the top). */
-export async function appendMessages(businessId: string, key: string, messages: ChatMessageInput[]): Promise<void> {
+export async function appendMessages(businessId: string, key: string, messages: ChatMessageInput[], options: { server?: boolean } = {}): Promise<void> {
+  if (!options.server) assertNoActionCards(messages);
   const { id } = await conversation(businessId, key);
   if ((await db.assistantMessage.count({ where: { conversationId: id } })) + messages.length > MAX_CHAT_MESSAGES) throw new ApiError(409, "conflict", "This chat is full. Start a new chat.");
   await addMessages(id, messages);
@@ -117,10 +124,13 @@ export async function appendMessages(businessId: string, key: string, messages: 
  * A message's new state (a post card that finished, a direction picked). The role and the text kept for the
  * AI don't change; only what the chat draws.
  */
-export async function updateMessage(businessId: string, key: string, messageId: string, payload: ChatMessageInput): Promise<void> {
+export async function updateMessage(businessId: string, key: string, messageId: string, payload: ChatMessageInput, options: { server?: boolean } = {}): Promise<void> {
+  if (!options.server) assertNoActionCards([payload]);
   const { id } = await conversation(businessId, key);
-  const row = await db.assistantMessage.findUnique({ where: { conversationId_clientId: { conversationId: id, clientId: messageId } }, select: { id: true, role: true } });
+  const row = await db.assistantMessage.findUnique({ where: { conversationId_clientId: { conversationId: id, clientId: messageId } }, select: { id: true, role: true, payload: true } });
   if (!row) throw notFound("Message");
+  // An action card (AI4) is the server's record of what the AI did: the browser can't overwrite it.
+  if (!options.server && (row.payload as { kind?: unknown } | null)?.kind === "action") throw new ApiError(409, "conflict", "This message can't be changed.");
   if ((row.role === "USER") !== (payload.role === "user") || payload.id !== messageId) throw new ApiError(400, "validation_error", "A message's id and role can't change.");
   await db.assistantMessage.update({ where: { id: row.id }, data: { payload: sanitizeChatPayload(payload) as unknown as Prisma.InputJsonValue } });
 }

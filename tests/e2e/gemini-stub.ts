@@ -33,7 +33,8 @@ import { createServer } from "node:http";
  * - chat requests get an answer echoing the question (Arabic for an Arabic question), quoting the average likes from the
  *   business facts when they have them and naming the first earlier question when the chat has history (follow-ups);
  *   a question containing "[invent]" gets an answer whose numbers are mostly invented (the app must not show it) and
- *   "[partial]" one with a real number and one invented sentence (the app must drop that sentence);
+ *   "[partial]" one with a real number and one invented sentence (the app must drop that sentence); the chat answer is JSON
+ *   ({ reply, ask, action }) and some questions carry an action (stubChatAction, AI4);
  * - a question containing "[down]", or `state.fail`, gets a 503.
  */
 
@@ -76,6 +77,35 @@ export function stubRecommendations(n: number, system: string) {
       })),
     ],
   };
+}
+
+/**
+ * AI actions (AI4) for the chat, from the prompt's "Today is …" line and "Posts you can act on" refs:
+ * "Schedule this for Friday at 8pm" / "جدول هذا الجمعة 8 مساءً" → schedule P1 next Friday 20:00; "… for Friday" alone →
+ * a schedule without a time (the app must ask when); "Make the caption shorter and save it" → save_draft P1 with a short
+ * caption in both languages; "Post it now" → post_now P1; "Move it to Saturday at 9am" → reschedule P1; "Cancel
+ * tomorrow's post" → cancel the S ref scheduled tomorrow (else a question back); "[ask]" → a question back, no action.
+ */
+export function stubChatAction(question: string, system: string): { action: Record<string, unknown> | null; ask: string | null } {
+  const today = system.match(/Today is \w+ (\d{4}-\d{2}-\d{2})/)?.[1];
+  const refs = [...system.matchAll(/^- ([PS]\d+): (.*)$/gm)].map((m) => ({ ref: m[1], line: m[2] }));
+  const day = (offset: number) => new Date(Date.parse(`${today}T12:00:00Z`) + offset * 86_400_000).toISOString().slice(0, 10);
+  const next = (weekday: number) => {
+    const now = new Date(`${today}T12:00:00Z`).getUTCDay();
+    return day(((weekday - now + 7) % 7) || 7);
+  };
+  if (!today) return { action: null, ask: null };
+  if (/\[ask\]/.test(question)) return { action: null, ask: "Which post do you mean, the newest one?" };
+  if (/schedule (this|it) for friday at 8 ?pm|جدول.*الجمعة.*8/i.test(question)) return { action: { type: "schedule", post: "P1", date: next(5), time: "20:00" }, ask: null };
+  if (/schedule (this|it) for friday\b/i.test(question)) return { action: { type: "schedule", post: "P1", date: next(5), time: null }, ask: null };
+  if (/caption shorter/i.test(question)) return { action: { type: "save_draft", post: "P1", caption_en: "Short stub caption.", caption_ar: "كابشن قصير تجريبي." }, ask: null };
+  if (/post (it|this) now/i.test(question)) return { action: { type: "post_now", post: "P1" }, ask: null };
+  if (/move it to saturday at 9 ?am/i.test(question)) return { action: { type: "reschedule", post: "P1", date: next(6), time: "09:00" }, ask: null };
+  if (/cancel tomorrow'?s post/i.test(question)) {
+    const tomorrow = refs.find((r) => r.ref.startsWith("S") && r.line.includes(day(1)));
+    return tomorrow ? { action: { type: "cancel", post: tomorrow.ref }, ask: null } : { action: null, ask: "Which post do you mean? I don't see one tomorrow." };
+  }
+  return { action: null, ask: null };
 }
 
 export async function startGeminiStub(port = STUB_PORT) {
@@ -234,6 +264,9 @@ export async function startGeminiStub(port = STUB_PORT) {
         else if (question.includes("[partial]")) text = `Your posts average ${likes ?? "no"} likes. Saves went up 987654%. Keep posting Reels.`;
         else if (arabic) text = `إجابة تجريبية: ${question}${likes ? ` متوسط الإعجابات ${likes}.` : ""}`;
         else text = `**Stub answer** to: ${question}${likes ? ` Your posts average ${likes} likes.` : ""}${earlier ? ` Following up on: "${earlier}".` : ""}`;
+        // The chat answers as JSON (AI4); some questions carry an action on the listed posts (stubChatAction).
+        const { action, ask } = stubChatAction(question, system);
+        text = JSON.stringify({ reply: action ? "On it." : text, ask, action });
       }
       res.end(JSON.stringify({ candidates: [{ finishReason: "STOP", content: { role: "model", parts: [{ text }] } }] }));
     });

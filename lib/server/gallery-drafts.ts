@@ -5,7 +5,7 @@ import { mergeVersions, parseVersions, primaryCaption, withVersion } from "@/lib
 import type { CaptionVersionDto, GalleryDraftDto } from "@/types/api";
 import { logActivity } from "./activity";
 import { GALLERY_DRAFT_SELECT, GALLERY_DRAFT_WHERE, resolvePhotos, toDraftDto } from "./gallery";
-import { notFound } from "./http";
+import { ApiError, notFound } from "./http";
 import { assertDraftEditable } from "./publishing";
 
 /**
@@ -84,6 +84,32 @@ export async function updateDraft(
         ...(patch.hashtags && { hashtags: patch.hashtags }),
         ...(patch.suggestedFor !== undefined && { suggestedFor: patch.suggestedFor }),
         ...(versions && { captionVersions: asJson(versions) }),
+      },
+      select: GALLERY_DRAFT_SELECT,
+    });
+    return toDraftDto(updated);
+  });
+}
+
+/**
+ * Replaces a draft's photos (AI tab: "use this photo instead"). Only while it's a draft: once approved, its
+ * photos are already prepared for Instagram (409).
+ */
+export async function replaceDraftPhotos(businessId: string, id: string, photoIds: string[]): Promise<GalleryDraftDto> {
+  const photos = await resolvePhotos(businessId, photoIds);
+  const cover = photos[0];
+  const own = cover.source === "UPLOADED" || cover.source === "AI_GENERATED";
+  return db.$transaction(async (tx) => {
+    const draft = await tx.postDraft.findFirst({ where: { id, businessId, origin: GALLERY_DRAFT_WHERE.origin }, select: { status: true } });
+    if (!draft) throw notFound("Draft");
+    if (draft.status !== "DRAFT") throw new ApiError(409, "already_scheduled", "This post is already scheduled; its photo can't change now.");
+    await tx.postDraftPhoto.deleteMany({ where: { draftId: id } });
+    const updated = await tx.postDraft.update({
+      where: { id },
+      data: {
+        imageUrl: own && cover.url && !cover.url.startsWith("/photos/") ? cover.url : null,
+        imageSource: own ? (cover.source === "AI_GENERATED" ? "GENERATED" : "UPLOADED") : null,
+        photos: { create: photos.map((p, position) => ({ photoId: p.rowId, position })) },
       },
       select: GALLERY_DRAFT_SELECT,
     });

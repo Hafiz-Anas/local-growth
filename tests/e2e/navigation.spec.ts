@@ -91,8 +91,8 @@ test("desktop: one sidebar entry per section; Insights holds its pages as tabs",
   await expect(page).toHaveURL(/\/insights$/);
   await expect(tabLabels(page)).toHaveText(["Overview", "Post performance", "Recommendations", "Weekly reports", "Marketing methods", "Post monitoring", "Best posting times"]);
   await expect(sectionTabs(page).getByRole("link", { name: "Overview" })).toHaveAttribute("aria-current", "page");
-  await expect(sectionTabs(page).getByRole("link", { name: "Recommendations" })).toHaveAccessibleDescription("What to do next");
-  await expect(sectionTabs(page)).toContainText("When to post");
+  // Labels only: no description line under the tabs.
+  await expect(sectionTabs(page)).not.toContainText("What to do next");
 
   await sectionTabs(page).getByRole("link", { name: "Weekly reports" }).click();
   await expect(page).toHaveURL(/\/reports$/);
@@ -116,7 +116,7 @@ test("desktop: one sidebar entry per section; Insights holds its pages as tabs",
 
   // Home and Posts are gone: their old links land on the Gallery (Home keeps the query string).
   const home = await page.goto("/dashboard?switched=1");
-  expect(new URL(home!.url()).pathname + new URL(home!.url()).search).toBe("/gallery?switched=1");
+  expect(new URL(home!.url()).pathname + new URL(home!.url()).search).toBe("/gallery?switched=1"); // the start page (UX1): Gallery by default
   await page.goto("/post-generator");
   await expect(page).toHaveURL(/\/gallery$/);
   await expect(sidebar(page).getByRole("link", { name: "Gallery" })).toHaveAttribute("aria-current", "page");
@@ -194,6 +194,10 @@ test("phone: five icon tabs with accessible labels, active section, no footer ba
 
   await tabBar(page).getByRole("link", { name: "Insights" }).click();
   await expect(page).toHaveURL(/\/insights$/);
+  // Seven tabs on a phone: the tab row scrolls sideways, the page doesn't.
+  const row = await sectionTabs(page).evaluate((el) => ({ scroll: el.scrollWidth, width: el.clientWidth }));
+  expect(row.scroll).toBeGreaterThan(row.width);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
   await sectionTabs(page).getByRole("link", { name: "Weekly reports" }).click();
   await expect(page).toHaveURL(/\/reports$/);
   await expect(tabBar(page).getByRole("link", { name: "Insights" })).toHaveAttribute("aria-current", "page");
