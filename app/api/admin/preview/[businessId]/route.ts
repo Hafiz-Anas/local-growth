@@ -13,6 +13,7 @@ import { methodsOverview } from "@/lib/server/methods";
 import { STAT_RANGES } from "@/lib/analysis/statistics";
 import { monitorDetail, monitoringOverview } from "@/lib/server/monitoring";
 import { getStatistics } from "@/lib/server/statistics";
+import { insightsOverview } from "@/lib/server/insights-overview";
 import { postDetail, postPerformance } from "@/lib/server/post-performance";
 import { getShareability } from "@/lib/server/shareability";
 import { notificationPrefsSchema } from "@/lib/validation/api";
@@ -62,6 +63,7 @@ export const GET = handler(async (_request, context: RouteContext<"/api/admin/pr
   if (on("methods")) d.methods = await methodsOverview(businessId, permissions);
   if (on("postInsights")) {
     d.postPerformance = await postPerformance(businessId);
+    d.insightsOverview = await insightsOverview(businessId);
     if (on("postInsights.shareability")) d.shareability = await getShareability(businessId);
     // The recent posts, plus "Most shared" ones that are older.
     const ids = [...new Set([...d.postPerformance.summary.posts.map((p) => p.id), ...(d.shareability?.mostShared.map((p) => p.id) ?? [])])];

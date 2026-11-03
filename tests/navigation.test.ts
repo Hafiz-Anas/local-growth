@@ -42,8 +42,9 @@ describe("navigation config: one obvious home per page", () => {
 
   it("orders Insights from \"how am I doing\" to \"what to do\" to the deeper tools, each tab with a description", () => {
     const insights = section(filterNav(USER_NAV, allOn()), "nav.insights")!;
-    assert.equal(insights.href, "/post-performance");
-    assert.deepEqual(insights.pages!.map((p) => p.href), ["/post-performance", "/recommendations", "/reports", "/methods", "/post-monitoring", "/experiment"]);
+    // Overview (UX3) first: Insights opens on it.
+    assert.equal(insights.href, "/insights");
+    assert.deepEqual(insights.pages!.map((p) => p.href), ["/insights", "/post-performance", "/recommendations", "/reports", "/methods", "/post-monitoring", "/experiment"]);
     for (const page of insights.pages!) assert.ok(page.descriptionKey, `no description for ${page.href}`);
     const competitors = section(filterNav(USER_NAV, allOn()), "nav.competitors")!;
     assert.deepEqual(competitors.pages!.map((p) => p.href), ["/competitors", "/competitors/analysis", "/competitors/inspiration"]);

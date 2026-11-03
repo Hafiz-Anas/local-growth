@@ -571,6 +571,8 @@ export interface PreviewDto {
     competitorAnalysis?: import("./analysis").CompetitorAnalysisDto;
     methods?: import("./analysis").MethodsDto;
     postPerformance?: import("./analysis").PostPerformanceDto;
+    /** Insights → Overview (with postInsights). */
+    insightsOverview?: import("./analysis").InsightsOverviewDto;
     /** Post detail for the recent posts (preview opens them read-only). */
     postDetails?: Record<string, import("./analysis").PostDetailDto>;
     /** "Most shared" (postInsights.shareability). */

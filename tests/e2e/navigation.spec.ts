@@ -88,9 +88,9 @@ test("desktop: one sidebar entry per section; Insights holds its pages as tabs",
 
   // From "how am I doing" to "what to do" to the deeper tools, each tab with a line under its title.
   await sidebar(page).getByRole("link", { name: "Insights" }).click();
-  await expect(page).toHaveURL(/\/post-performance$/);
-  await expect(tabLabels(page)).toHaveText(["Post performance", "Recommendations", "Weekly reports", "Marketing methods", "Post monitoring", "Best posting times"]);
-  await expect(sectionTabs(page).getByRole("link", { name: "Post performance" })).toHaveAttribute("aria-current", "page");
+  await expect(page).toHaveURL(/\/insights$/);
+  await expect(tabLabels(page)).toHaveText(["Overview", "Post performance", "Recommendations", "Weekly reports", "Marketing methods", "Post monitoring", "Best posting times"]);
+  await expect(sectionTabs(page).getByRole("link", { name: "Overview" })).toHaveAttribute("aria-current", "page");
   await expect(sectionTabs(page).getByRole("link", { name: "Recommendations" })).toHaveAccessibleDescription("What to do next");
   await expect(sectionTabs(page)).toContainText("When to post");
 
@@ -193,7 +193,7 @@ test("phone: five icon tabs with accessible labels, active section, no footer ba
   await expect(tabBar(page).getByRole("link", { name: "Gallery" })).toHaveAttribute("aria-current", "page");
 
   await tabBar(page).getByRole("link", { name: "Insights" }).click();
-  await expect(page).toHaveURL(/\/post-performance$/);
+  await expect(page).toHaveURL(/\/insights$/);
   await sectionTabs(page).getByRole("link", { name: "Weekly reports" }).click();
   await expect(page).toHaveURL(/\/reports$/);
   await expect(tabBar(page).getByRole("link", { name: "Insights" })).toHaveAttribute("aria-current", "page");
@@ -207,7 +207,7 @@ test("phone: five icon tabs with accessible labels, active section, no footer ba
 test("Arabic, right to left: the sections and tabs are translated", async () => {
   await switchLanguage(page, "ar");
   await expect.poll(() => tabBarLabels(page)).toEqual(["المعرض", "التفاعل", "الذكاء الاصطناعي", "الإحصاءات", "المنافسون"]);
-  await expect(tabLabels(page)).toHaveText(["أداء المنشورات", "التوصيات", "التقارير الأسبوعية", "أساليب التسويق", "مراقبة المنشورات", "أفضل أوقات النشر"]);
+  await expect(tabLabels(page)).toHaveText(["نظرة عامة", "أداء المنشورات", "التوصيات", "التقارير الأسبوعية", "أساليب التسويق", "مراقبة المنشورات", "أفضل أوقات النشر"]);
   await switchLanguage(page, "en");
   await page.setViewportSize({ width: 1366, height: 800 });
 });

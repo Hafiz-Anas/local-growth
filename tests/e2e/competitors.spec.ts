@@ -376,6 +376,73 @@ test("Accounts: Show details expands a card in place with growth, posts per week
   await expect(toggle).toHaveAttribute("aria-expanded", "false");
 });
 
+type Box = { x: number; y: number; width: number; height: number };
+const box = async (l: Locator): Promise<Box> => (await l.boundingBox())!;
+
+test("Accounts layout: two wide cards per row on desktop; expanding one leaves its neighbour alone; the details sit in a tidy grid", async () => {
+  await page.goto("/competitors");
+  const grid = page.getByTestId("competitor-grid");
+  const cards = grid.locator(":scope > article");
+  await expect(cards.first()).toBeVisible();
+  expect(await cards.count()).toBeGreaterThanOrEqual(2);
+  const [a, b] = [await box(cards.nth(0)), await box(cards.nth(1))];
+  const gridBox = await box(grid);
+  // Two per row, side by side, each about half the column (not a third).
+  expect(Math.abs(a.y - b.y)).toBeLessThan(2);
+  expect(a.width).toBeGreaterThan(gridBox.width * 0.45);
+  expect(Math.abs(a.width - b.width)).toBeLessThan(2);
+  if ((await cards.count()) >= 3) expect((await box(cards.nth(2))).y).toBeGreaterThan(a.y + a.height - 1);
+  // A wide card puts the top post beside the numbers.
+  const body = cards.nth(0).getByTestId("card-body");
+  const [image, numbers] = [await box(body.locator(":scope > div").first()), await box(body.locator("dl"))];
+  expect(Math.abs(image.y + image.height / 2 - (numbers.y + numbers.height / 2))).toBeLessThan(image.height / 2);
+  expect(numbers.x).toBeGreaterThan(image.x + image.width - 1);
+
+  await cards.nth(0).getByTestId("details-toggle").click();
+  const details = cards.nth(0).getByTestId("competitor-details");
+  await expect(details).toBeVisible();
+  // The neighbour keeps its height and place.
+  const after = await box(cards.nth(1));
+  expect(Math.abs(after.height - b.height)).toBeLessThan(2);
+  expect(Math.abs(after.y - b.y)).toBeLessThan(2);
+  expect((await box(cards.nth(0))).height).toBeGreaterThan(a.height + 100);
+  // Growth and posts per week side by side, the formats bar full width, top posts as one row of tiles.
+  const growth = await box(details.getByTestId("details-growth"));
+  const frequency = await box(details.getByTestId("details-frequency"));
+  const formats = await box(details.getByTestId("details-formats"));
+  expect(Math.abs(growth.y - frequency.y)).toBeLessThan(2);
+  expect(Math.abs(frequency.x - growth.x)).toBeGreaterThan(50);
+  expect(formats.width).toBeGreaterThan(growth.width + frequency.width);
+  const tiles = details.getByTestId("details-top-post");
+  const tops = await Promise.all((await tiles.all()).map(async (t) => (await box(t)).y));
+  expect(Math.max(...tops) - Math.min(...tops)).toBeLessThan(2);
+  await page.screenshot({ path: path.join(SHOTS, "desktop-layout-expanded.png"), fullPage: true });
+  await cards.nth(0).getByTestId("details-toggle").click();
+});
+
+test("Accounts layout on a phone: one card per row, the expanded details stacked", async ({ browser }) => {
+  const phone = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+  try {
+    await login(phone);
+    await phone.goto("/competitors");
+    const cards = phone.getByTestId("competitor-grid").locator(":scope > article");
+    await expect(cards.first()).toBeVisible();
+    const [a, b] = [await box(cards.nth(0)), await box(cards.nth(1))];
+    expect(Math.abs(a.x - b.x)).toBeLessThan(2);
+    expect(b.y).toBeGreaterThan(a.y + a.height - 1);
+    await cards.nth(0).getByTestId("details-toggle").click();
+    const details = cards.nth(0).getByTestId("competitor-details");
+    const growth = await box(details.getByTestId("details-growth"));
+    const frequency = await box(details.getByTestId("details-frequency"));
+    expect(frequency.y).toBeGreaterThan(growth.y + growth.height - 1);
+    expect(await phone.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
+    await details.scrollIntoViewIfNeeded();
+    await phone.screenshot({ path: path.join(SHOTS, "phone-expanded.png"), fullPage: true });
+  } finally {
+    await phone.close();
+  }
+});
+
 test("Accounts: top posts open in the viewer; Save as inspiration and Create a similar post work from the card", async () => {
   const list = (await (await page.request.get("/api/competitors")).json()).data as ListItem[];
   const first = list[0];

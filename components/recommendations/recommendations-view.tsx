@@ -192,8 +192,8 @@ function useDecide(id: string) {
   });
 }
 
-/** One tip: the action on top, "Why" with the numbers, the impact label, and Mark as done. */
-function TipCard({ rec, n }: { rec: RecommendationDto; n?: number }) {
+/** One tip (also on Insights → Overview): the action on top, "Why" with the numbers, the impact label, and Mark as done. */
+export function TipCard({ rec, n }: { rec: RecommendationDto; n?: number }) {
   const { t, locale } = useI18n();
   const decide = useDecide(rec.id);
   const busy = decide.isPending;

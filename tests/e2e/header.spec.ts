@@ -117,6 +117,6 @@ test("phone width: the connection status fits; Settings is in the menu, the sect
   await page.waitForURL(/\/settings$/);
   await expect(instagramCard(page)).toContainText("Connected");
   await page.getByTestId("tab-bar").getByRole("link", { name: "Insights" }).click();
-  await page.waitForURL(/\/post-performance$/);
+  await page.waitForURL(/\/insights$/);
   await page.close();
 });

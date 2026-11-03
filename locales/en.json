@@ -74,7 +74,8 @@
       "replySettings": "Approval and AI results",
       "competitorAccounts": "Who you're watching",
       "competitorAnalysis": "How you compare",
-      "competitorInspiration": "Posts you saved"
+      "competitorInspiration": "Posts you saved",
+      "overview": "How you're doing at a glance"
     },
     "gallery": "Gallery",
     "ai": "AI",
@@ -2766,5 +2767,88 @@
     "waitUncertain": "Checking with Instagram whether it went out. It won't be posted twice.",
     "postNowTitle": "Post to Instagram now?",
     "postNowBody": "It goes live on @{handle} in a moment, even if you close the app. You can delete it on Instagram afterwards, but not from here."
+  },
+  "insightsOverview": {
+    "title": "Overview",
+    "subtitle": "How you're doing this week and what to do next",
+    "numbersTitle": "Your last 7 days",
+    "period": "{current} vs {previous}",
+    "metrics": {
+      "reach": "Reach of your posts",
+      "shares": "Shares",
+      "saves": "Saves",
+      "comments": "Comments",
+      "interactions": "Likes + comments per post",
+      "newFollowers": "New followers"
+    },
+    "metricHints": {
+      "reach": "Accounts reached by the posts you published",
+      "shares": "Times your posts were sent to someone",
+      "saves": "Times your posts were saved",
+      "comments": "Comments on the posts you published",
+      "interactions": "Average for the posts you published",
+      "newFollowers": "Followers gained minus followers lost"
+    },
+    "vsBefore": "vs {value} the 7 days before",
+    "basedOn": "From {count} posts",
+    "fromDailyCounts": "From your daily follower counts",
+    "notEnough": "Not enough data yet",
+    "notEnoughPosts": "No posts with this number in the last 7 days.",
+    "notEnoughFollowers": "We need a week of daily follower counts first.",
+    "noCompare": "Too little data to compare (needs at least 3 posts each week).",
+    "seeDetails": "See details",
+    "seeDetailsOf": "See details: {name}",
+    "actionsTitle": "What to do next",
+    "actionsEmpty": "No tips yet. New tips come once a week, when there are enough posts to learn from.",
+    "actionsPreview": "Tips are the business's own decisions, so they aren't shown in preview.",
+    "seeAllTips": "See all tips",
+    "summaryTitle": "Your week in short",
+    "summaryNotEnough": "Not enough data yet. Once you've posted at least twice in two weeks, a short summary appears here.",
+    "summary": {
+      "up": "{metric} up {pct}% compared with the 7 days before.",
+      "down": "{metric} down {pct}% compared with the 7 days before.",
+      "flat": "{metric} about the same as the 7 days before.",
+      "followersUp": "You gained {count} followers in the last 7 days.",
+      "followersDown": "You lost {count} followers in the last 7 days.",
+      "followersFlat": "Your follower count didn't change in the last 7 days.",
+      "posts": "You posted {current} times in the last 7 days and {previous} times the 7 days before.",
+      "best": "Over the last {days} days, {format} did best: {avg} likes and comments per post on average ({count} posts).",
+      "basedOn": "Based on {total} posts: {current} in the last 7 days and {previous} the 7 days before."
+    },
+    "summaryMetric": {
+      "reach": "Reach",
+      "shares": "Shares",
+      "saves": "Saves",
+      "comments": "Comments",
+      "interactions": "Likes and comments per post",
+      "newFollowers": "New followers"
+    },
+    "formats": {
+      "reel": "Reels",
+      "photo": "Photos",
+      "carousel": "Carousels",
+      "video": "Videos"
+    },
+    "notConnectedTitle": "Connect Instagram to see how you're doing",
+    "notConnectedHint": "Your numbers and weekly summary appear here once your account is connected.",
+    "goal": "Picked for your goal: {goal}",
+    "goals": {
+      "sales": "more sales",
+      "followers": "more followers",
+      "visits": "more visits",
+      "messages": "more messages",
+      "more_customers": "more customers",
+      "more_followers": "more followers",
+      "more_engagement": "more engagement",
+      "brand_awareness": "brand awareness",
+      "more_visits": "more visits"
+    },
+    "openSettings": "Open Settings",
+    "formatsInSentence": {
+      "reel": "Reels",
+      "photo": "photos",
+      "carousel": "carousels",
+      "video": "videos"
+    }
   }
 }

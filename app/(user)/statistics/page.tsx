@@ -10,10 +10,11 @@ export const metadata: Metadata = { title: "Statistics" };
 
 export default async function StatisticsPage() {
   if (!SHOW_STATISTICS) {
-    // The tab is turned off (config/insights.ts): old links land on Insights' first page (Post performance,
-    // which has its "What works best" card), or Home when the client has no Insights page.
+    // The tab is turned off (config/insights.ts): old links land on Post performance (it has the
+    // "What works best" card), else Insights' first page, or Home when the client has no Insights page.
     const { permissions } = await getActiveClientContext();
-    redirect(filterNav(USER_NAV, permissions).find((item) => item.labelKey === "nav.insights")?.href ?? "/gallery");
+    const insights = filterNav(USER_NAV, permissions).find((item) => item.labelKey === "nav.insights");
+    redirect(insights?.pages?.find((p) => p.href === "/post-performance")?.href ?? insights?.href ?? "/gallery");
   }
   await requireFeature("statistics");
   return <StatisticsView />;

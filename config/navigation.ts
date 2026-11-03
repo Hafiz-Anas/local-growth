@@ -76,11 +76,12 @@ export const USER_NAV: NavItem[] = [
   },
   { href: "/ai", labelKey: "nav.ai", icon: "ai", pages: [{ href: "/ai", labelKey: "nav.ai", feature: "aiChat" }] },
   {
-    // From "how am I doing" to "what to do" to the deeper tools.
-    href: "/post-performance",
+    // From "how am I doing" to "what to do" to the deeper tools; Overview (UX3) sums up the first two.
+    href: "/insights",
     labelKey: "nav.insights",
     icon: "insights",
     pages: [
+      { href: "/insights", labelKey: "nav.overview", descriptionKey: "nav.tabHints.overview", feature: "postInsights" },
       { href: "/post-performance", labelKey: "nav.postPerformance", descriptionKey: "nav.tabHints.postPerformance", feature: "postInsights" },
       ...(SHOW_STATISTICS ? [{ href: "/statistics", labelKey: "nav.statistics", descriptionKey: "nav.tabHints.statistics", feature: "statistics" as const }] : []),
       { href: "/recommendations", labelKey: "nav.recommendations", descriptionKey: "nav.tabHints.recommendations", feature: "recommendations" },

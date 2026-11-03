@@ -214,7 +214,7 @@ test("with the AI down, the numbers and charts still show", async () => {
 
 test("navigation: the new pages live under Insights and Competitors", async () => {
   await page.goto("/post-performance");
-  await expect(page.getByTestId("section-tab-label")).toHaveText(["Post performance", "Recommendations", "Weekly reports", "Marketing methods", "Post monitoring", "Best posting times"]);
+  await expect(page.getByTestId("section-tab-label")).toHaveText(["Overview", "Post performance", "Recommendations", "Weekly reports", "Marketing methods", "Post monitoring", "Best posting times"]);
   await expect(page.getByTestId("sidebar").getByRole("link", { name: "Insights" })).toHaveAttribute("aria-current", "page");
   await page.goto("/competitors/analysis");
   await expect(page.getByTestId("section-tabs").getByRole("link", { name: "Analysis" })).toHaveAttribute("aria-current", "page");

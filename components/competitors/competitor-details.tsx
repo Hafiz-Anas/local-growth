@@ -45,8 +45,9 @@ export function CompetitorDetails({ competitor: c, id }: { competitor: Competito
 
   return (
     <div id={id} className="relative z-10 space-y-4 border-t border-border bg-background px-4 pt-4 pb-4" data-testid="competitor-details">
-      <dl className="grid grid-cols-2 gap-3">
-        <div className="col-span-2 rounded-card bg-secondary-bg p-3" data-testid="details-growth">
+      {/* Phones: one tile per row. A wide card: growth and posts per week side by side, the formats full width. */}
+      <dl className="grid grid-cols-1 gap-3 @sm:grid-cols-2">
+        <div className="rounded-card bg-secondary-bg p-3" data-testid="details-growth">
           <dt className="flex items-baseline justify-between gap-2 text-caption text-muted">
             <span className="font-semibold text-foreground">{t("competitors.card.growth")}</span>
             <span>{t("competitors.card.lastDays", { period: daysPhrase(c.growth?.days ?? 30, locale) })}</span>
@@ -74,13 +75,14 @@ export function CompetitorDetails({ competitor: c, id }: { competitor: Competito
                 <span className="block text-caption text-muted">{t("competitors.card.postsIn", { count: summary.posts, period: daysPhrase(summary.days, locale) })}</span>
               </dd>
             </div>
-            <div className="rounded-card bg-secondary-bg p-3" data-testid="details-formats">
+            <div className="rounded-card bg-secondary-bg p-3 @sm:col-span-2" data-testid="details-formats">
               <dt className="text-caption font-semibold">{t("competitors.card.formats")}</dt>
-              <dd className="mt-1.5 space-y-1">
+              <dd className="mt-1.5 space-y-2">
                 <FormatBar summary={summary} />
-                <ul className="space-y-0.5 text-caption">
+                <ul className="flex flex-wrap gap-x-4 gap-y-1 text-caption">
                   {summary.formats.map((f) => (
-                    <li key={f.format} className="flex justify-between gap-2">
+                    <li key={f.format} className="flex items-center gap-1.5">
+                      <span className={cn("size-2 shrink-0 rounded-pill", BAR_TONE[f.format])} aria-hidden="true" />
                       <span>{t(`competitors.card.format.${f.format}`)}</span>
                       <span className="font-semibold tabular-nums">{num(f.sharePct)}%</span>
                     </li>
@@ -90,7 +92,7 @@ export function CompetitorDetails({ competitor: c, id }: { competitor: Competito
             </div>
           </>
         ) : (
-          <p className="col-span-2 rounded-card bg-secondary-bg p-3 text-caption text-muted" data-testid="details-not-enough">
+          <p className="rounded-card bg-secondary-bg p-3 text-caption text-muted @sm:col-span-2" data-testid="details-not-enough">
             {t("competitors.card.notEnough", { count: summary.posts, period: daysPhrase(summary.days, locale) })}
           </p>
         )}
@@ -120,7 +122,7 @@ export function CompetitorDetails({ competitor: c, id }: { competitor: Competito
           <h3 id={`${id}-top`} className="mb-1.5 text-caption font-semibold">
             {t("competitors.card.topPosts")}
           </h3>
-          <ul className="grid grid-cols-3 gap-1">
+          <ul className="grid grid-cols-3 gap-1 @sm:gap-2" data-testid="details-top-posts">
             {top.map((ref, i) => (
               <li key={ref.key}>
                 <button
@@ -148,8 +150,8 @@ export function CompetitorDetails({ competitor: c, id }: { competitor: Competito
       {best && (canSave || canCreate) && (
         <div>
           <p className="mb-1.5 text-caption text-muted">{t("competitors.card.forTopPost")}</p>
-          {/* Stacked: a card is narrow (three across on desktop), side by side the labels would be cut off. */}
-          <div className="grid grid-cols-1 gap-2">
+          {/* Stacked on a narrow card (labels would be cut off), side by side on a wide one. */}
+          <div className="grid grid-cols-1 gap-2 @sm:grid-cols-2">
             {canSave && (
               <Button variant="secondary" size="sm" onClick={toggleSave} aria-pressed={saved} data-testid="details-save">
                 <Bookmark className={cn("size-4", saved && "fill-current")} />

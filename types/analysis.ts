@@ -4,6 +4,7 @@ import type { MetricVsAverage, RecentSummary, SeriesPoint } from "@/lib/analysis
 import type { CompetitorInsight, PostInsight } from "@/lib/services/text/analysis";
 import type { PostShareRate } from "@/lib/analysis/shareability";
 import type { ShareFinding } from "@/lib/services/text/shareability";
+import type { InsightsOverview } from "@/lib/analysis/overview";
 
 export type { AccountStats, GrowthPoint, MetricComparison, PostFormat, Method, MethodRank, PromotedComparison, MetricVsAverage, RecentSummary, SeriesPoint, CompetitorInsight, PostInsight };
 
@@ -90,6 +91,13 @@ export interface MethodsDto {
 }
 
 // ── Part 3: post performance ────────────────────────────────────────────────────
+
+/** GET /api/insights/overview (Insights → Overview). */
+export interface InsightsOverviewDto extends InsightsOverview {
+  connected: boolean;
+  /** Mock connection: the app's sample data. */
+  demo: boolean;
+}
 
 export interface PostPerformanceDto {
   connected: boolean;

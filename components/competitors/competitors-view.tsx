@@ -15,8 +15,14 @@ import { CompetitorDialog } from "./competitor-dialog";
 import { RemoveCompetitorDialog } from "./remove-competitor-dialog";
 import { TrendsPanels } from "./trends-panels";
 
-// items-start: an expanded card grows on its own, its neighbours keep their height.
-const GRID = "grid items-start gap-4 sm:grid-cols-2 lg:grid-cols-3";
+/**
+ * Sized by the width the cards actually get (a container query on the section, not the screen, since
+ * the sidebar and the 975px content column decide it): one card per row on phones, two from 42rem
+ * (tablets, desktop), three from 80rem (only if the content column ever gets that wide — at today's
+ * width a third card would be the old cramped one). items-start: an expanded card grows on its own,
+ * its neighbours keep their height.
+ */
+const GRID = "grid items-start gap-4 @2xl:grid-cols-2 @7xl:grid-cols-3";
 
 /** Competitor Insights: tracked accounts as a card grid, then trends. */
 export function CompetitorsView() {
@@ -58,7 +64,7 @@ export function CompetitorsView() {
       </div>
 
       {showAccounts && (
-        <section className="mb-8" aria-labelledby="tracked-title">
+        <section className="@container mb-8" aria-labelledby="tracked-title">
           <SectionTitle
             action={
               updatedAt && (
@@ -98,7 +104,7 @@ export function CompetitorsView() {
               }
             />
           ) : (
-            <div className={GRID}>
+            <div className={GRID} data-testid="competitor-grid">
               {list.map((c) => (
                 <CompetitorCard
                   key={c.id}

@@ -24,6 +24,7 @@ import type {
   CompetitorAnalysisDto,
   MethodsDto,
   PostPerformanceDto,
+  InsightsOverviewDto,
   ShareabilityDto,
   PostDetailDto,
   MonitoringDto,
@@ -60,6 +61,7 @@ export const qk = {
   competitorAnalysis: ["competitors", "analysis"] as const,
   methods: ["methods"] as const,
   postPerformance: ["post-performance"] as const,
+  insightsOverview: ["insights-overview"] as const,
   postDetail: (id: string) => ["post-performance", id] as const,
   shareability: ["shareability"] as const,
   monitoring: ["monitoring"] as const,
@@ -188,6 +190,8 @@ export const useReplySummary = (enabled = true) =>
 export const useCompetitorAnalysis = (enabled = true) =>
   useClientData<CompetitorAnalysisDto>(qk.competitorAnalysis, "/api/competitors/analysis", (d) => d.competitorAnalysis, enabled);
 export const useMethods = (enabled = true) => useClientData<MethodsDto>(qk.methods, "/api/methods", (d) => d.methods, enabled);
+/** Insights → Overview: three key numbers and the weekly summary (the tips come from useRecommendations). */
+export const useInsightsOverview = () => useClientData<InsightsOverviewDto>(qk.insightsOverview, "/api/insights/overview", (d) => d.insightsOverview);
 export const usePostPerformance = (enabled = true) => useClientData<PostPerformanceDto>(qk.postPerformance, "/api/post-performance", (d) => d.postPerformance, enabled);
 export const usePostDetail = (id: string) =>
   useClientData<PostDetailDto>(qk.postDetail(id), `/api/post-performance/${encodeURIComponent(id)}`, (d) => d.postDetails?.[id]);

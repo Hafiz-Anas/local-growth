@@ -100,10 +100,10 @@ test.afterAll(async () => {
 let first: string[] = [];
 
 test("first analysis: at most 3 tips ranked by impact, each with a Why line; invented numbers are dropped", async () => {
-  // Insights opens on Post performance; Recommendations is its second tab.
+  // Insights opens on Overview; Recommendations is its third tab.
   await page.goto("/gallery", { waitUntil: "networkidle" });
   await page.getByTestId("sidebar").getByRole("link", { name: "Insights" }).click();
-  await page.waitForURL(/\/post-performance$/);
+  await page.waitForURL(/\/insights$/);
   await page.getByTestId("section-tabs").getByRole("link", { name: "Recommendations" }).click();
   await expect(page).toHaveURL(/\/recommendations$/);
   await expect(page.getByText("No tips yet")).toBeVisible();

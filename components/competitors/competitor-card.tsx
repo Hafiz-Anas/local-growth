@@ -41,7 +41,7 @@ export function CompetitorCard({
   const detailsId = useId();
 
   return (
-    <article className="group relative flex flex-col rounded-panel border border-border bg-background transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 hover:shadow-menu focus-within:shadow-menu motion-reduce:transition-none motion-reduce:hover:translate-y-0">
+    <article className="group @container relative flex flex-col rounded-panel border border-border bg-background transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 hover:shadow-menu focus-within:shadow-menu motion-reduce:transition-none motion-reduce:hover:translate-y-0">
       <header className="flex items-center gap-3 p-4 pb-3">
         <Avatar src={c.avatarUrl} initials={initials(name)} tone={toneFor(c.handle)} size="md" ring="story" />
         <div className="min-w-0 flex-1">
@@ -64,46 +64,49 @@ export function CompetitorCard({
         </p>
       )}
 
-      <div className="mx-4 overflow-hidden rounded-card">
-        {top ? (
-          <MediaPlaceholder tone={top.tone} icon={top.icon} src={top.mediaUrl} className="aspect-[4/3] w-full" iconClassName="size-1/4">
-            {spike && (
-              <Badge variant="gradient" size="sm" className="absolute start-2 top-2">
-                <Sparkles />
-                {t("competitors.card.spike")}
-              </Badge>
-            )}
-            <div className="absolute inset-x-0 bottom-0 flex items-center gap-3 bg-gradient-to-t from-black/65 to-transparent px-3 pt-8 pb-2.5 text-body font-semibold text-white">
-              <span className="flex items-center gap-1" title={t("common.likes", { count: top.likes })}>
-                <Heart className="size-4 fill-white" aria-hidden="true" />
-                {formatCompact(top.likes, locale)}
-              </span>
-              <span className="flex items-center gap-1">
-                <MessageCircle className="size-4 fill-white rtl:-scale-x-100" aria-hidden="true" />
-                {formatCompact(top.comments, locale)}
-              </span>
-              <span className="ms-auto text-caption font-semibold text-white/85">{t("competitors.card.topPost")}</span>
-            </div>
-          </MediaPlaceholder>
-        ) : (
-          <div className="flex aspect-[4/3] items-center justify-center bg-secondary-bg text-caption text-muted">{t("competitors.card.noPosts")}</div>
-        )}
-      </div>
+      {/* A wide card (two per row) puts the top post beside the numbers instead of above them. */}
+      <div className="@sm:mx-4 @sm:grid @sm:grid-cols-2 @sm:items-center @sm:gap-4" data-testid="card-body">
+        <div className="mx-4 overflow-hidden rounded-card @sm:mx-0">
+          {top ? (
+            <MediaPlaceholder tone={top.tone} icon={top.icon} src={top.mediaUrl} className="aspect-[4/3] w-full" iconClassName="size-1/4">
+              {spike && (
+                <Badge variant="gradient" size="sm" className="absolute start-2 top-2">
+                  <Sparkles />
+                  {t("competitors.card.spike")}
+                </Badge>
+              )}
+              <div className="absolute inset-x-0 bottom-0 flex items-center gap-3 bg-gradient-to-t from-black/65 to-transparent px-3 pt-8 pb-2.5 text-body font-semibold text-white">
+                <span className="flex items-center gap-1" title={t("common.likes", { count: top.likes })}>
+                  <Heart className="size-4 fill-white" aria-hidden="true" />
+                  {formatCompact(top.likes, locale)}
+                </span>
+                <span className="flex items-center gap-1">
+                  <MessageCircle className="size-4 fill-white rtl:-scale-x-100" aria-hidden="true" />
+                  {formatCompact(top.comments, locale)}
+                </span>
+                <span className="ms-auto text-caption font-semibold text-white/85">{t("competitors.card.topPost")}</span>
+              </div>
+            </MediaPlaceholder>
+          ) : (
+            <div className="flex aspect-[4/3] items-center justify-center bg-secondary-bg text-caption text-muted">{t("competitors.card.noPosts")}</div>
+          )}
+        </div>
 
-      <dl className="grid grid-cols-2 gap-2 p-4">
-        <div>
-          <dt className="text-caption text-muted">{t("competitors.card.followers")}</dt>
-          <dd className="flex flex-wrap items-baseline gap-x-1.5">
-            <span className="text-title font-bold tabular-nums">{formatCompact(c.followers, locale)}</span>
-            {/* The stored follower history (last 30 days), the same number as the expanded view; nothing until there's enough. */}
-            {c.growth && <ChangeIndicator value={c.growth.changePct} />}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-caption text-muted">{t("competitors.card.engagement")}</dt>
-          <dd className="text-title font-bold tabular-nums">{formatPct(c.engagementRate)}</dd>
-        </div>
-      </dl>
+        <dl className="grid grid-cols-2 gap-2 p-4 @sm:grid-cols-1 @sm:gap-4 @sm:px-0">
+          <div>
+            <dt className="text-caption text-muted">{t("competitors.card.followers")}</dt>
+            <dd className="flex flex-wrap items-baseline gap-x-1.5">
+              <span className="text-title font-bold tabular-nums">{formatCompact(c.followers, locale)}</span>
+              {/* The stored follower history (last 30 days), the same number as the expanded view; nothing until there's enough. */}
+              {c.growth && <ChangeIndicator value={c.growth.changePct} />}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-caption text-muted">{t("competitors.card.engagement")}</dt>
+            <dd className="text-title font-bold tabular-nums">{formatPct(c.engagementRate)}</dd>
+          </div>
+        </dl>
+      </div>
 
       <div className="relative z-10 px-4 pb-3">
         <button
