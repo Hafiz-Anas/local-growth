@@ -399,6 +399,57 @@ test("rate limited: waits and retries later; the owner sees what it's waiting fo
   await clearDrafts();
 });
 
+test("stuck jobs: one the scheduler never reached says it's late, then fails as missed; a run that died after media_publish is taken over and posted once", async ({ request }) => {
+  // 1. The scheduler was off: due 17 hours ago and never touched since (was shown as "Publishing…" forever).
+  const missed = await draft(["mathanet-07"], "e2epubstale");
+  expect((await approve(missed, { scheduledFor: tomorrow() })).status()).toBe(201);
+  const missedJob = await jobOf(missed);
+  await pool.query(
+    `UPDATE "ScheduledPost" SET "scheduledFor" = (now() AT TIME ZONE 'UTC') - interval '17 hours', "updatedAt" = (now() AT TIME ZONE 'UTC') - interval '17 hours' WHERE id = $1`,
+    [missedJob.id],
+  );
+  expect(await galleryPost(missed)).toMatchObject({ state: "waiting", reason: "delayed" });
+  await page.goto("/gallery");
+  let sheet = await openPost("mathanet-07");
+  await expect(sheet.getByTestId("post-status")).toHaveAttribute("data-state", "waiting");
+  await expect(sheet.getByTestId("publish-note")).toContainText("running late");
+  await closeAll();
+
+  // 2. A run died right after media_publish was sent (the post is live; the lease was left behind).
+  const died = await draft(["mathanet-08"], "e2epubdied", "#e2e_publish_unclear");
+  expect((await approve(died, { now: true })).status()).toBe(201);
+  let diedJob = await waitForJob(died, (j) => j.waitingReason === "uncertain");
+  expect(diedJob.publishCallAt).not.toBeNull();
+  await pool.query(
+    `UPDATE "ScheduledPost" SET "leaseUntil" = (now() AT TIME ZONE 'UTC') - interval '6 minutes', "nextAttemptAt" = NULL, "waitingReason" = NULL,
+       "scheduledFor" = (now() AT TIME ZONE 'UTC') - interval '10 minutes', "updatedAt" = (now() AT TIME ZONE 'UTC') - interval '9 minutes' WHERE id = $1`,
+    [diedJob.id],
+  );
+  expect(await galleryPost(died)).toMatchObject({ state: "waiting", reason: "delayed" });
+  sheet = await openPost("mathanet-08");
+  await expect(sheet.getByTestId("publish-note")).toContainText("It won't be posted twice");
+  await closeAll();
+
+  const started = Date.now();
+  const run = await cron(request);
+  expect(Date.now() - started, "the cron answers well within cron-job.org's 30 s").toBeLessThan(25_000);
+  expect(run).toMatchObject({ errors: 0 });
+
+  // The missed one fails with its reason (offers Try again / Reschedule), instead of going out 17 hours late.
+  expect(await jobOf(missed)).toMatchObject({ status: "FAILED", failureReason: "missed_window" });
+  expect(await galleryPost(missed)).toMatchObject({ state: "failed", reason: "missed_window" });
+  // The died one: taken over (an attempt counted), the container checked first, posted exactly once.
+  diedJob = await jobOf(died);
+  expect(diedJob).toMatchObject({ status: "PUBLISHED", attempts: 2 });
+  expect(diedJob.publishedMediaId).toMatch(/^ig_media_/);
+  expect(await published(diedJob.id)).toBe(1);
+  const interrupted = (
+    await pool.query(`SELECT count(*)::int AS n FROM "IntegrationEvent" WHERE details->>'scheduledPostId' = $1 AND "errorCode" = 'interrupted'`, [diedJob.id])
+  ).rows[0].n;
+  expect(interrupted).toBe(1);
+  await clearDrafts();
+});
+
 test("a rejected image fails with its reason; the queue offers Try again; Cancel makes it a draft again", async () => {
   const draftId = await draft(["mathanet-08"], "e2epubreject", "#e2e_container_error");
   expect((await approve(draftId, { now: true })).status()).toBe(201);

@@ -6,6 +6,7 @@ import { isFeatureEnabled, permissionsFromRows } from "@/lib/permissions";
 import {
   PROCESSING_RECHECK_MS,
   PUBLISH_LEASE_MS,
+  PUBLISH_MAX_ATTEMPTS,
   afterFailure,
   isMissed,
   nextStep,
@@ -63,6 +64,13 @@ export const PUBLISH_FEATURES = ["gallery.publishing", "postGenerator.addToQueue
 const PUBLISH_PREFIX = "ig-publish";
 /** How long one run may keep working on a job (polls included) before handing it to the next run. */
 const STEP_BUDGET_MS = 45_000;
+/**
+ * How long a publish cron run keeps starting new steps. Short, so the run answers well within an external
+ * scheduler's request timeout (cron-job.org: 30 s); whatever is left continues at the next run (every minute).
+ */
+export const CRON_RUN_BUDGET_MS = 20_000;
+/** Don't start a job with less time than this left in the run. */
+const MIN_JOB_BUDGET_MS = 3_000;
 /** "Publish now" from the old screens waits for the result inside the request, up to this long. */
 const INLINE_BUDGET_MS = 90_000;
 /** Quick re-checks of a processing container inside one run before handing it to the next run. */
@@ -362,6 +370,10 @@ export interface PublishRunSummary {
   failed: number;
   retryLater: number;
   skipped: number;
+  /** Jobs that stopped with an unexpected error (taken over by a later run after their lease). */
+  errors: number;
+  /** Due jobs left for the next run because this run's time was used. */
+  unstarted: number;
 }
 
 /** Jobs a run may take: due and not waiting, and not held by a live worker. */
@@ -375,24 +387,35 @@ function runnableWhere(now: Date): Prisma.ScheduledPostWhereInput {
 }
 
 /**
- * The publish cron (every minute): continues every runnable job, oldest first, until `budgetMs` is used up.
- * Businesses Meta asked to slow down wait for a later run.
+ * The publish cron (every minute): continues runnable jobs, oldest first, while `budgetMs` lasts (no new
+ * step starts after it; a step already sent finishes). One job's unexpected error never stops the others:
+ * it is logged, and the job is taken over by a later run once its lease expires. Businesses Meta asked to
+ * slow down wait for a later run.
  */
-export async function publishDuePosts({ budgetMs = 240_000, limit = 50 } = {}): Promise<PublishRunSummary> {
+export async function publishDuePosts({ budgetMs = CRON_RUN_BUDGET_MS, limit = 50 } = {}): Promise<PublishRunSummary> {
   const started = Date.now();
   const due = await db.scheduledPost.findMany({ where: runnableWhere(new Date()), select: { id: true, businessId: true }, orderBy: { scheduledFor: "asc" }, take: limit });
-  const summary: PublishRunSummary = { due: due.length, published: 0, failed: 0, retryLater: 0, skipped: 0 };
+  const summary: PublishRunSummary = { due: due.length, published: 0, failed: 0, retryLater: 0, skipped: 0, errors: 0, unstarted: 0 };
   for (const item of due) {
-    if (Date.now() - started > budgetMs) break;
+    const left = budgetMs - (Date.now() - started);
+    if (left < MIN_JOB_BUDGET_MS) {
+      summary.unstarted += 1;
+      continue;
+    }
     if (coolingDown(item.businessId)) {
       summary.skipped += 1;
       continue;
     }
-    const outcome = await runJob(item.id, { trigger: "scheduled", budgetMs: Math.min(STEP_BUDGET_MS, budgetMs - (Date.now() - started)) });
-    if (!outcome) continue; // taken by another run or "Post now" meanwhile
-    if (outcome.ok) summary.published += 1;
-    else if ("pending" in outcome || !outcome.final) summary.retryLater += 1;
-    else summary.failed += 1;
+    try {
+      const outcome = await runJob(item.id, { trigger: "scheduled", budgetMs: Math.min(STEP_BUDGET_MS, left) });
+      if (!outcome) continue; // taken by another run or "Post now" meanwhile
+      if (outcome.ok) summary.published += 1;
+      else if ("pending" in outcome || !outcome.final) summary.retryLater += 1;
+      else summary.failed += 1;
+    } catch (error) {
+      summary.errors += 1;
+      console.error("[publish] job", item.id, "stopped with an unexpected error; a later run takes it over", (error as Error)?.message);
+    }
   }
   return summary;
 }
@@ -415,6 +438,7 @@ const JOB_SELECT = {
   verifyFirst: true,
   attempts: true,
   publishStartedAt: true,
+  leaseUntil: true,
   draft: { select: { caption: true, imageUrl: true } },
 } satisfies Prisma.ScheduledPostSelect;
 
@@ -428,15 +452,46 @@ interface RunContext {
   budgetMs?: number;
 }
 
-/** Takes the job for this worker (lease); null when it isn't runnable or another worker has it. */
-async function claim(id: string): Promise<Job | null> {
+/**
+ * This worker no longer holds the job (its lease expired and another run took it over): it stops at once and
+ * writes nothing more — the other run continues from the saved state. Every write of a running job is
+ * conditional on its own lease (fencing), so two workers can never both create containers or publish.
+ */
+class LeaseLost extends Error {
+  constructor() {
+    super("lease lost");
+  }
+}
+
+/**
+ * Takes the job for this worker (lease); null when it isn't runnable or another worker has it.
+ * `interrupted`: the previous worker's lease ran out without the job being saved as done, waiting or failed
+ * (crashed, timed out, killed). That counts as an attempt, so a job that keeps crashing ends Failed.
+ */
+async function claim(id: string): Promise<{ job: Job; interrupted: boolean } | null> {
   const now = new Date();
-  const { count } = await db.scheduledPost.updateMany({
-    where: { id, ...runnableWhere(now) },
-    data: { status: "PUBLISHING", leaseUntil: new Date(now.getTime() + PUBLISH_LEASE_MS), nextAttemptAt: null },
+  const leaseUntil = new Date(now.getTime() + PUBLISH_LEASE_MS);
+  // Clean hand-backs (release, failure, final, posted) clear the lease, so an expired one means a dead worker.
+  const takeover = await db.scheduledPost.updateMany({
+    where: { id, status: "PUBLISHING", leaseUntil: { lt: now }, OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: now } }] },
+    data: { leaseUntil, nextAttemptAt: null, attempts: { increment: 1 }, waitingReason: "interrupted" },
   });
-  if (count !== 1) return null;
-  return db.scheduledPost.findUnique({ where: { id }, select: JOB_SELECT });
+  const interrupted = takeover.count === 1;
+  if (!interrupted) {
+    const { count } = await db.scheduledPost.updateMany({ where: { id, ...runnableWhere(now) }, data: { status: "PUBLISHING", leaseUntil, nextAttemptAt: null } });
+    if (count !== 1) return null;
+  }
+  const job = await db.scheduledPost.findUnique({ where: { id }, select: JOB_SELECT });
+  return job ? { job, interrupted } : null;
+}
+
+/** Side effects after the job's state is saved (logs, notifications, clean-up) never change its outcome. */
+async function quietly(what: string, fn: () => unknown): Promise<void> {
+  try {
+    await fn();
+  } catch (error) {
+    console.error(`[publish] ${what} failed`, (error as Error)?.message);
+  }
 }
 
 /**
@@ -446,15 +501,25 @@ async function claim(id: string): Promise<Job | null> {
 export async function runJob(jobId: string, ctx: RunContext): Promise<PublishOutcome | null> {
   const claimed = await claim(jobId);
   if (!claimed) return null;
-  let job: Job = claimed;
+  let job: Job = claimed.job;
   const started = Date.now();
   const budget = ctx.budgetMs ?? STEP_BUDGET_MS;
   const ig = getInstagramService();
   let provider: "meta" | "mock" = "mock";
 
-  /** Saves progress (Instagram's ids) at once, before the next call. */
-  const save = async (data: Prisma.ScheduledPostUpdateInput) => {
-    job = await db.scheduledPost.update({ where: { id: job.id }, data, select: JOB_SELECT });
+  /**
+   * Saves progress (Instagram's ids) at once, before the next call, and renews the lease — only while this
+   * worker still holds it (else LeaseLost: another run took over, this one stops without writing).
+   */
+  const save = async (data: Prisma.ScheduledPostUpdateManyMutationInput) => {
+    const { count } = await db.scheduledPost.updateMany({
+      where: { id: job.id, status: "PUBLISHING", leaseUntil: job.leaseUntil },
+      data: { ...data, leaseUntil: new Date(Date.now() + PUBLISH_LEASE_MS) },
+    });
+    if (count !== 1) throw new LeaseLost();
+    const fresh = await db.scheduledPost.findUnique({ where: { id: job.id }, select: JOB_SELECT });
+    if (!fresh) throw new LeaseLost();
+    job = fresh;
   };
 
   try {
@@ -462,6 +527,21 @@ export async function runJob(jobId: string, ctx: RunContext): Promise<PublishOut
     const publishCalled = Boolean(job.publishCallAt);
     const account = await getInstagramAccount(job.businessId);
     provider = account.provider;
+    if (claimed.interrupted) {
+      // The last run died mid-job. Everything below checks Instagram's saved containers before sending anything.
+      if (job.attempts >= PUBLISH_MAX_ATTEMPTS) return await final(job, "interrupted", ctx, { provider });
+      await quietly("logging the interruption", () =>
+        logIntegration({
+          businessId: job.businessId,
+          provider,
+          level: "warning",
+          call: "publish post",
+          errorCode: "interrupted",
+          message: `${LOG_TEXT.interrupted} Attempt ${job.attempts} of ${PUBLISH_MAX_ATTEMPTS}.`,
+          details: { scheduledPostId: job.id, draftId: job.draftId, trigger: ctx.trigger, containerId: job.containerId, publishCalled },
+        }),
+      );
+    }
     if (!publishCalled && !(await canPublish(job.businessId))) return await final(job, "feature_disabled", ctx, { provider });
     // Disconnected: held up to 6 hours late, then failed as not connected (reconnecting is the owner's fix).
     if (!account.connected) return await failure(job, "not_connected", ctx, { provider });
@@ -486,6 +566,8 @@ export async function runJob(jobId: string, ctx: RunContext): Promise<PublishOut
 
     let polls = 0;
     while (Date.now() - started < budget) {
+      // A fresh lease for the step about to run (and proof this worker still holds the job).
+      await save({});
       const step = nextStep({
         format: job.format,
         photos: job.mediaUrls.length,
@@ -542,6 +624,10 @@ export async function runJob(jobId: string, ctx: RunContext): Promise<PublishOut
     await release(job, null, null);
     return { ok: false, jobId: job.id, pending: true };
   } catch (error) {
+    if (error instanceof LeaseLost) {
+      console.warn("[publish] job", job.id, "was taken over by another run; this one stops");
+      return null;
+    }
     const reason = reasonOf(error);
     if (error instanceof PublishProblem && reason === "image_unreadable") return final(job, reason, ctx, { provider, detail: error.detail });
     if (reason === "failed") console.error("[publish] unexpected error", (error as Error)?.message);
@@ -557,9 +643,9 @@ async function canPublish(businessId: string): Promise<boolean> {
   return PUBLISH_FEATURES.some((key) => isFeatureEnabled(permissions, key));
 }
 
-/** Hands the job back for a later run (still processing, or this run's time is up). */
+/** Hands the job back for a later run (still processing, or this run's time is up). Nothing if another run holds it now. */
 async function release(job: Job, nextAttemptAt: Date | null, waitingReason: string | null) {
-  await db.scheduledPost.update({ where: { id: job.id }, data: { leaseUntil: null, nextAttemptAt, waitingReason } });
+  await db.scheduledPost.updateMany({ where: { id: job.id, leaseUntil: job.leaseUntil }, data: { leaseUntil: null, nextAttemptAt, waitingReason } });
 }
 
 function reasonOf(error: unknown): PublishReason {
@@ -581,8 +667,10 @@ async function posted(job: Job, account: InstagramAccount, caption: string, medi
     id = found?.mediaId ?? null;
     permalink = found?.permalink ?? null;
   }
-  if (id && !permalink) permalink = await ig.getPermalink(account, id);
+  // The post is live: nothing after this point may turn it into a failure (the link is optional).
+  if (id && !permalink) permalink = await ig.getPermalink(account, id).catch(() => null);
 
+  // Recorded whoever holds the lease: it is what happened on Instagram.
   await db.$transaction(async (tx) => {
     await tx.scheduledPost.update({
       where: { id: job.id },
@@ -591,19 +679,23 @@ async function posted(job: Job, account: InstagramAccount, caption: string, medi
     await tx.postDraft.update({ where: { id: job.draftId }, data: { status: "PUBLISHED", publishError: null } });
     await logActivity({ businessId: job.businessId, userId: ctx.userId ?? null, action: "post.published", details: { draftId: job.draftId, scheduledPostId: job.id, mediaId: id, trigger: ctx.trigger, photos: job.mediaUrls.length } }, tx);
   });
-  await logIntegration({
-    businessId: job.businessId,
-    provider: account.provider,
-    level: "info",
-    call: "publish post",
-    message: `Post published to Instagram (${ctx.trigger === "scheduled" ? "scheduled" : "Post now"}${job.format === "CAROUSEL" ? `, carousel of ${job.mediaUrls.length}` : ""}).${id ? "" : " Its media id wasn't found yet; the next sync shows the post."}`,
-    details: { scheduledPostId: job.id, draftId: job.draftId, mediaId: id, containerId: job.containerId, trigger: ctx.trigger },
-  });
-  if (ctx.trigger !== "manual") await notify({ businessId: job.businessId, type: "post_published" });
+  await quietly("logging the published post", () =>
+    logIntegration({
+      businessId: job.businessId,
+      provider: account.provider,
+      level: "info",
+      call: "publish post",
+      message: `Post published to Instagram (${ctx.trigger === "scheduled" ? "scheduled" : "Post now"}${job.format === "CAROUSEL" ? `, carousel of ${job.mediaUrls.length}` : ""}).${id ? "" : " Its media id wasn't found yet; the next sync shows the post."}`,
+      details: { scheduledPostId: job.id, draftId: job.draftId, mediaId: id, containerId: job.containerId, trigger: ctx.trigger },
+    }),
+  );
+  if (ctx.trigger !== "manual") await quietly("the published notification", () => notify({ businessId: job.businessId, type: "post_published" }));
   // Meta has the images; the copies aren't needed any more.
-  await deleteMedia(job.mediaKeys);
+  await quietly("deleting the publish copies", () => deleteMedia(job.mediaKeys));
   if (account.provider === "meta" && !coolingDown(job.businessId)) {
-    after(() => syncInstagram(job.businessId, { scope: "full", reason: "auto" }).catch((e) => console.error("[publish] sync after publishing failed", (e as Error).message)));
+    await quietly("scheduling the sync", () =>
+      after(() => syncInstagram(job.businessId, { scope: "full", reason: "auto" }).catch((e) => console.error("[publish] sync after publishing failed", (e as Error).message))),
+    );
   }
   return { ok: true, jobId: job.id, mediaId: id };
 }
@@ -639,8 +731,8 @@ async function failure(job: Job, reason: PublishReason, ctx: RunContext, extra: 
   if (decision.kind === "fail") return final(job, decision.reason, ctx, extra);
   // Nothing sent to Instagram yet: back to Scheduled (it can still be cancelled or moved). Otherwise it stays Publishing.
   const started = Boolean(job.containerId || job.childContainerIds.length || job.publishCallAt);
-  await db.scheduledPost.update({
-    where: { id: job.id },
+  const { count } = await db.scheduledPost.updateMany({
+    where: { id: job.id, leaseUntil: job.leaseUntil },
     data: {
       status: started ? "PUBLISHING" : "SCHEDULED",
       leaseUntil: null,
@@ -649,15 +741,18 @@ async function failure(job: Job, reason: PublishReason, ctx: RunContext, extra: 
       ...(decision.kind === "retry" && { attempts: decision.attempts }),
     },
   });
-  await logIntegration({
-    businessId: job.businessId,
-    provider: extra.provider ?? "meta",
-    level: "warning",
-    call: "publish post",
-    errorCode: reason,
-    message: `${LOG_TEXT[reason]}${extra.detail ? ` ${extra.detail}` : ""} Next try ${decision.at.toISOString()}.`,
-    details: { scheduledPostId: job.id, draftId: job.draftId, trigger: ctx.trigger, reason, outcome: decision.kind, attempts: decision.kind === "retry" ? decision.attempts : job.attempts },
-  });
+  if (count !== 1) return { ok: false, jobId: job.id, pending: true }; // another run holds it now
+  await quietly("logging the failure", () =>
+    logIntegration({
+      businessId: job.businessId,
+      provider: extra.provider ?? "meta",
+      level: "warning",
+      call: "publish post",
+      errorCode: reason,
+      message: `${LOG_TEXT[reason]}${extra.detail ? ` ${extra.detail}` : ""} Next try ${decision.at.toISOString()}.`,
+      details: { scheduledPostId: job.id, draftId: job.draftId, trigger: ctx.trigger, reason, outcome: decision.kind, attempts: decision.kind === "retry" ? decision.attempts : job.attempts },
+    }),
+  );
   return { ok: false, jobId: job.id, reason, final: false };
 }
 
@@ -665,25 +760,34 @@ async function failure(job: Job, reason: PublishReason, ctx: RunContext, extra: 
 async function final(job: Job, reason: PublishReason, ctx: RunContext, extra: { provider?: "meta" | "mock"; detail?: string } = {}): Promise<PublishOutcome> {
   try {
     await db.$transaction(async (tx) => {
-      await tx.scheduledPost.update({ where: { id: job.id }, data: { status: "FAILED", failureReason: reason, waitingReason: null, leaseUntil: null, nextAttemptAt: null } });
+      const { count } = await tx.scheduledPost.updateMany({
+        where: { id: job.id, leaseUntil: job.leaseUntil },
+        data: { status: "FAILED", failureReason: reason, waitingReason: null, leaseUntil: null, nextAttemptAt: null },
+      });
+      if (count !== 1) throw new LeaseLost();
       const stillActive = await tx.scheduledPost.count({ where: { draftId: job.draftId, status: { in: ["SCHEDULED", "PUBLISHING"] } } });
       await tx.postDraft.update({ where: { id: job.draftId }, data: { publishError: reason, ...(stillActive === 0 && { status: "DRAFT" }) } });
       await logActivity({ businessId: job.businessId, userId: ctx.userId ?? null, action: "post.publish_failed", details: { draftId: job.draftId, scheduledPostId: job.id, reason, trigger: ctx.trigger } }, tx);
     });
   } catch (error) {
-    console.error("[publish] couldn't record the failure", (error as Error).message);
+    // Not recorded (another run took over, or the database failed): the lease runs out and a later run
+    // takes the job over, so nobody is told about a failure that isn't saved.
+    if (!(error instanceof LeaseLost)) console.error("[publish] couldn't record the failure", (error as Error).message);
+    return { ok: false, jobId: job.id, pending: true };
   }
   // The owner isn't watching a scheduled or "Post now" job: tell them. An inline "Publish now" shows its result on screen.
-  if (ctx.trigger !== "manual") await notify({ businessId: job.businessId, type: "post_failed", params: { reason } });
-  await logIntegration({
-    businessId: job.businessId,
-    provider: extra.provider ?? "meta",
-    level: reason === "no_image" ? "warning" : "error",
-    call: "publish post",
-    errorCode: reason,
-    message: extra.detail ? `${LOG_TEXT[reason]} ${extra.detail}` : LOG_TEXT[reason],
-    details: { scheduledPostId: job.id, draftId: job.draftId, trigger: ctx.trigger, reason, outcome: "failed", containerId: job.containerId },
-  });
+  if (ctx.trigger !== "manual") await quietly("the failure notification", () => notify({ businessId: job.businessId, type: "post_failed", params: { reason } }));
+  await quietly("logging the failure", () =>
+    logIntegration({
+      businessId: job.businessId,
+      provider: extra.provider ?? "meta",
+      level: reason === "no_image" ? "warning" : "error",
+      call: "publish post",
+      errorCode: reason,
+      message: extra.detail ? `${LOG_TEXT[reason]} ${extra.detail}` : LOG_TEXT[reason],
+      details: { scheduledPostId: job.id, draftId: job.draftId, trigger: ctx.trigger, reason, outcome: "failed", containerId: job.containerId },
+    }),
+  );
   return { ok: false, jobId: job.id, reason, final: true };
 }
 

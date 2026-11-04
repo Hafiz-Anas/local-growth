@@ -61,7 +61,11 @@ export const PUBLISH_MAX_ATTEMPTS = 5;
 export const PUBLISH_BACKOFF_MIN = [2, 5, 15, 30, 60] as const;
 /** A due post waits at most this long (reconnect, daily limit, scheduler down) before it fails as missed. */
 export const PUBLISH_MAX_LATE_MS = 6 * 60 * 60 * 1000;
-/** How long a worker holds a job; past it, the next run continues the job (after checking Instagram). */
+/**
+ * How long a worker holds a job; renewed before every step (a step — at most a couple of Instagram calls of
+ * ≤ 20 s each plus retries — always ends well within it). Past it the worker is considered dead: the next
+ * run takes the job over (counted as an "interrupted" attempt) and checks Instagram before anything else.
+ */
 export const PUBLISH_LEASE_MS = 3 * 60 * 1000;
 /** A container still processing is checked again after this (Meta: once a minute, at most 5 minutes). */
 export const PROCESSING_RECHECK_MS = 60 * 1000;
@@ -173,13 +177,43 @@ export function nextStep(job: JobShape): Step {
 /** What the owner sees for a job. */
 export type PublishState = "scheduled" | "waiting" | "publishing" | "posted" | "failed" | "cancelled";
 
-export function publishStateOf(job: { status: "SCHEDULED" | "PUBLISHING" | "PUBLISHED" | "FAILED" | "CANCELLED"; scheduledFor: Date; waitingReason: string | null }, now: Date): PublishState {
-  if (job.status === "PUBLISHED") return "posted";
-  if (job.status === "FAILED") return "failed";
-  if (job.status === "CANCELLED") return "cancelled";
-  if (job.waitingReason && job.scheduledFor <= now) return "waiting";
-  if (job.status === "PUBLISHING" || job.scheduledFor <= now) return "publishing";
-  return "scheduled";
+/**
+ * A due job nobody has touched for this long after it should have run is shown as delayed: the publish cron
+ * runs every minute and a run never holds a job longer than PUBLISH_LEASE_MS, so this means the scheduler
+ * isn't reaching it (stopped, failing, or a crashed run whose lease hasn't been taken over yet).
+ */
+export const STALLED_AFTER_MS = 5 * 60 * 1000;
+
+/** Shown reason (a waiting note) for a stalled job; not a PublishReason, nothing stores it. */
+export const DELAYED_REASON = "delayed";
+
+export interface PublishJobView {
+  status: "SCHEDULED" | "PUBLISHING" | "PUBLISHED" | "FAILED" | "CANCELLED";
+  scheduledFor: Date;
+  waitingReason: string | null;
+  failureReason?: string | null;
+  /** When the job may run next (backoff / processing / hold). */
+  nextAttemptAt?: Date | null;
+  /** The job's last change (any step saves one). */
+  updatedAt?: Date | null;
+}
+
+/** The state and the reason line the owner sees (the reason: failure reason, waiting reason, or "delayed"). */
+export function publishViewOf(job: PublishJobView, now: Date): { state: PublishState; reason: string | null } {
+  if (job.status === "PUBLISHED") return { state: "posted", reason: null };
+  if (job.status === "FAILED") return { state: "failed", reason: job.failureReason ?? null };
+  if (job.status === "CANCELLED") return { state: "cancelled", reason: null };
+  const due = job.scheduledFor <= now;
+  if (!due && job.status === "SCHEDULED") return { state: "scheduled", reason: null };
+  // Should have run by `runAt` and nothing changed since: the scheduler isn't reaching it.
+  const runAt = Math.max(job.scheduledFor.getTime(), job.nextAttemptAt?.getTime() ?? 0, job.updatedAt?.getTime() ?? 0);
+  if (job.updatedAt !== undefined && now.getTime() - runAt > STALLED_AFTER_MS) return { state: "waiting", reason: DELAYED_REASON };
+  if (job.waitingReason && due) return { state: "waiting", reason: job.waitingReason };
+  return { state: "publishing", reason: null };
+}
+
+export function publishStateOf(job: PublishJobView, now: Date): PublishState {
+  return publishViewOf(job, now).state;
 }
 
 /** Reasons the owner can fix by reconnecting Instagram (the UI offers Reconnect next to them). */

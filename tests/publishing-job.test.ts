@@ -7,8 +7,12 @@ import {
   isMissed,
   nextStep,
   onContainerStatus,
+  DELAYED_REASON,
+  STALLED_AFTER_MS,
   publishStateOf,
+  publishViewOf,
   type JobShape,
+  type PublishJobView,
 } from "../lib/publishing/job";
 import { cropToRatio, instagramRatio } from "../lib/services/images/instagram-fit";
 
@@ -102,6 +106,31 @@ describe("publishStateOf: what the owner sees", () => {
     assert.equal(publishStateOf({ status: "PUBLISHING", scheduledFor: ago(1000), waitingReason: null }, NOW), "publishing");
     assert.equal(publishStateOf({ status: "PUBLISHED", scheduledFor: ago(1000), waitingReason: null }, NOW), "posted");
     assert.equal(publishStateOf({ status: "FAILED", scheduledFor: ago(1000), waitingReason: null }, NOW), "failed");
+  });
+});
+
+describe("publishViewOf: a job the scheduler isn't reaching says so", () => {
+  const view = (over: Partial<PublishJobView>) =>
+    publishViewOf({ status: "SCHEDULED", scheduledFor: ago(60_000), waitingReason: null, failureReason: null, nextAttemptAt: null, updatedAt: ago(2 * 3600_000), ...over }, NOW);
+
+  it("due a minute ago: Publishing (the next run takes it)", () => {
+    assert.deepEqual(view({}), { state: "publishing", reason: null });
+  });
+  it("due 17 hours ago and never picked up: Waiting, delayed — not 'Publishing' forever", () => {
+    assert.deepEqual(view({ scheduledFor: ago(17 * 3600_000) }), { state: "waiting", reason: DELAYED_REASON });
+  });
+  it("started, then nothing saved for longer than a run can hold it: delayed", () => {
+    assert.deepEqual(view({ status: "PUBLISHING", scheduledFor: ago(3600_000), updatedAt: ago(STALLED_AFTER_MS + 1000) }), { state: "waiting", reason: DELAYED_REASON });
+    assert.deepEqual(view({ status: "PUBLISHING", scheduledFor: ago(3600_000), updatedAt: ago(30_000) }), { state: "publishing", reason: null });
+  });
+  it("waiting for a later check isn't delayed until that check is overdue", () => {
+    const waiting = { status: "PUBLISHING" as const, scheduledFor: ago(3600_000), updatedAt: ago(3600_000), waitingReason: "rate_limited" };
+    assert.deepEqual(view({ ...waiting, nextAttemptAt: new Date(NOW.getTime() + 10 * 60_000) }), { state: "waiting", reason: "rate_limited" });
+    assert.deepEqual(view({ ...waiting, nextAttemptAt: ago(STALLED_AFTER_MS + 1000) }), { state: "waiting", reason: DELAYED_REASON });
+  });
+  it("failed shows its reason; upcoming has none", () => {
+    assert.deepEqual(view({ status: "FAILED", failureReason: "missed_window" }), { state: "failed", reason: "missed_window" });
+    assert.deepEqual(view({ scheduledFor: new Date(NOW.getTime() + 60_000) }), { state: "scheduled", reason: null });
   });
 });
 

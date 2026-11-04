@@ -28,6 +28,7 @@ const WAIT_KEYS: Record<string, GalleryKey> = {
   image_unreachable: "waitNetwork",
   uncertain: "waitUncertain",
   interrupted: "waitUncertain",
+  delayed: "waitDelayed",
 };
 
 /** The one line under the status: why it failed (with the fix), or what it is waiting for. Null when there's nothing to say. */
@@ -39,7 +40,8 @@ export function usePublishNote(publish: PhotoPublish | undefined): { text: strin
     return { text: publishReasonText(publish.reason, app.t), reconnect: isPublishReason(publish.reason) && RECONNECT_REASONS.has(publish.reason), tone: "error" };
   }
   if (publish.state === "waiting" && publish.reason) {
-    const key = WAIT_KEYS[publish.reason];
+    // Late and already started (locked: no Post now): the next run takes it over and checks Instagram first.
+    const key = publish.reason === "delayed" && publish.locked ? "waitDelayedLocked" : WAIT_KEYS[publish.reason];
     return key ? { text: t(key), reconnect: publish.reason === "not_connected", tone: "info" } : null;
   }
   if (publish.locked && publish.state === "publishing") return { text: t("lockedNote"), reconnect: false, tone: "info" };

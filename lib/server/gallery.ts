@@ -5,7 +5,7 @@ import { formatOf } from "@/lib/analysis/posts";
 import { parseVersions } from "@/lib/gallery/drafts";
 import { igPhotoId, parsePhotoRef, samplePhotoId } from "@/lib/gallery/refs";
 import { GALLERY_MAX_ALBUMS, GALLERY_REMOVE_GRACE_MS } from "@/lib/gallery/uploads";
-import { publishStateOf } from "@/lib/publishing/job";
+import { publishViewOf } from "@/lib/publishing/job";
 import type { GalleryAlbumDto, GalleryDraftDto, GalleryDto, GalleryPhotoDto, GalleryPostDto } from "@/types/api";
 import { ApiError, notFound } from "./http";
 
@@ -52,7 +52,7 @@ export const GALLERY_DRAFT_SELECT = {
     where: { status: { not: "CANCELLED" } },
     orderBy: { approvedAt: { sort: "desc", nulls: "last" } },
     take: 1,
-    select: { id: true, status: true, scheduledFor: true, publishedAt: true, failureReason: true, waitingReason: true, permalink: true, publishedMediaId: true },
+    select: { id: true, status: true, scheduledFor: true, publishedAt: true, failureReason: true, waitingReason: true, nextAttemptAt: true, updatedAt: true, permalink: true, publishedMediaId: true },
   },
 } satisfies Prisma.PostDraftSelect;
 
@@ -67,10 +67,9 @@ function toPostDto(job: DraftRow["scheduledPosts"][number] | undefined): Gallery
   if (!job) return null;
   return {
     id: job.id,
-    state: publishStateOf(job, new Date()),
+    ...publishViewOf(job, new Date()),
     scheduledFor: job.scheduledFor.toISOString(),
     publishedAt: job.publishedAt?.toISOString() ?? null,
-    reason: job.status === "FAILED" ? job.failureReason : job.waitingReason,
     permalink: job.permalink,
     mediaId: job.publishedMediaId,
     locked: job.status === "PUBLISHING" || job.status === "PUBLISHED",

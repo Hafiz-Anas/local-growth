@@ -23,7 +23,7 @@ import type {
 } from "@/types";
 import { connectionStatusOf } from "./instagram-account";
 import { windowOf } from "@/lib/time";
-import { publishStateOf } from "@/lib/publishing/job";
+import { publishViewOf } from "@/lib/publishing/job";
 
 /**
  * Prisma rows → API DTOs. Every query that feeds these uses an explicit
@@ -142,6 +142,8 @@ export const SCHEDULED_SELECT = {
   publishedMediaId: true,
   failureReason: true,
   waitingReason: true,
+  nextAttemptAt: true,
+  updatedAt: true,
   format: true,
   mediaUrls: true,
   permalink: true,
@@ -164,8 +166,7 @@ export function toScheduled(
     window: windowOf(row.scheduledFor, timeZone),
     status: lower(row.status) as ScheduledPostStatus,
     publishedMediaId: row.publishedMediaId,
-    state: publishStateOf(row, new Date()),
-    reason: row.status === "FAILED" ? row.failureReason : row.waitingReason,
+    ...publishViewOf(row, new Date()),
     photos: row.mediaUrls.length ? row.mediaUrls : [row.mediaUrl ?? row.draft.imageUrl].filter((u): u is string => Boolean(u)),
     format: row.format === "CAROUSEL" ? "carousel" : "photo",
     permalink: row.permalink,

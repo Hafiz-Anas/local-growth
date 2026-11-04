@@ -2751,6 +2751,8 @@
     "waitProcessing": "Instagram is still processing the photo.",
     "waitNetwork": "No answer from Instagram. Trying again in a few minutes.",
     "waitUncertain": "Checking with Instagram whether it went out. It won't be posted twice.",
+    "waitDelayed": "Publishing is running late: this post hasn't been picked up yet. It goes out automatically as soon as it is (we try for up to 6 hours), or tap Post now.",
+    "waitDelayedLocked": "Publishing is taking longer than it should. We check with Instagram and finish or retry within a few minutes. It won't be posted twice.",
     "postNowTitle": "Post to Instagram now?",
     "postNowBody": "It goes live on @{handle} in a moment, even if you close the app. You can delete it on Instagram afterwards, but not from here.",
     "actionAskNoPost": "Which post do you mean? There's no post in this chat yet. Ask me to make one first (e.g. \"Create a post from my latest photo\").",
