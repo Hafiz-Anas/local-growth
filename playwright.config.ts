@@ -19,7 +19,7 @@ import { defineConfig } from "@playwright/test";
  * The tests change data (rules, permissions, chats, recommendations) and refuse any non-local database.
  * E2E_BROWSER_CHANNEL=chrome uses the installed Chrome instead of Playwright's Chromium;
  * E2E_SERVER_STDOUT=1 prints the server's log (e.g. the `[email:console]` lines).
- * Run it from the correctly-cased project path (see CLAUDE.md): Next starts in this directory.
+ * On Windows, run it from the correctly-cased project path: a lowercase cwd makes Next load its internals twice.
  *
  * E2E_AI_PROVIDER=mock starts the app with the mock AI instead (no Gemini at all) for the specs that test
  * demo mode. Run only those specs then (the others expect the Gemini stub):

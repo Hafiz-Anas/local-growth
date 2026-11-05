@@ -2,7 +2,7 @@ import path from "node:path";
 import { expect, test, type Browser, type Locator, type Page } from "@playwright/test";
 
 /**
- * The Gallery (components/gallery, from the design proposal) for a demo business: the seeded "Mathanet Baity"
+ * The Gallery (components/gallery) for a demo business: the seeded "Mathanet Baity"
  * (mock Instagram connection) sees the home-cooking sample photos, each marked "Sample", plus its own uploads;
  * what the owner does (favourites, albums, removing, drafts, uploads) is saved on the server. Library grouped
  * by date, badges, albums (demo category albums + collections), the viewer (plain photo vs. ready post), photo
@@ -51,7 +51,7 @@ async function closeAll() {
     await page.waitForTimeout(300);
   }
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  // Toasts sit over the top of the page for a few seconds (as in the proposal).
+  // Toasts sit over the top of the page for a few seconds.
   await expect(page.locator("[data-sonner-toast]")).toHaveCount(0, { timeout: 10_000 });
 }
 async function openAlbums() {

@@ -403,7 +403,7 @@ export function mapDiscoveredProfile(handle: string, result: DiscoveryResult, no
 /**
  * business_discovery outcome → competitor validation status.
  *
- * What Meta actually tells us (documented in README → "Meta integration"):
+ * What Meta actually tells us:
  *   success                                  → ready
  *   same account as the business's own       → own_account (checked before calling, and on the returned id)
  *   110 / 2207013 "user … cannot be found"   → not_found. Meta returns this one error for a username that

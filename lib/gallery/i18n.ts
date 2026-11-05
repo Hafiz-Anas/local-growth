@@ -3,8 +3,8 @@ import en from "@/locales/en.json";
 import type { Lang } from "@/mock-data/gallery/types";
 
 /*
- * The Gallery and AI chat wording (from the design proposal) lives in locales/*.json under
- * `galleryAi`. These helpers keep the proposal's flat keys: t("library"), translate("ar", "photoPrompt").
+ * The Gallery and AI chat wording lives in locales/*.json under
+ * `galleryAi`. These helpers use flat keys: t("library"), translate("ar", "photoPrompt").
  */
 export type MessageKey = keyof typeof en.galleryAi;
 

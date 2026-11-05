@@ -32,12 +32,12 @@ import { type MenuUser, type MenuUserBase } from "./profile-menu";
 import { SectionTabs } from "./section-tabs";
 import { CLIENT_CONTENT_INSET, Sidebar } from "./sidebar";
 
-/** Pages laid out edge to edge by the design proposal's own screens (Gallery, AI). */
+/** Pages laid out edge to edge by their own screens (Gallery, AI). */
 const PROPOSAL_PAGES = ["/gallery", "/ai"];
 
 /**
  * The client app's shell: the platform's Instagram sidebar on desktop (collapsible, Settings and the
- * profile row at the bottom), the Instagram-style header and the proposal's phone tab bar with AI in the centre.
+ * profile row at the bottom), the Instagram-style header and the phone tab bar with AI in the centre.
  * `nav` is built on the server from the enabled features — hidden items never reach the browser.
  */
 export function UserShell({

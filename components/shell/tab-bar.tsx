@@ -9,7 +9,7 @@ import { useI18n } from "@/lib/i18n/provider";
 import { isActiveItem } from "@/lib/navigation";
 
 /**
- * Phone bottom bar from the design proposal: icons only, the AI tab in the centre in the brand colour.
+ * Phone bottom bar: icons only, the AI tab in the centre in the brand colour.
  * Same sections, labels and icons (NavIcon) as the desktop sidebar.
  */
 export function TabBar({ items }: { items: NavItem[] }) {

@@ -10,7 +10,7 @@ import { getLocale } from "@/lib/i18n/server";
 import "./globals.css";
 
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"], display: "swap" });
-// The Gallery / AI chat / navigation (from the design proposal) use it for Arabic (`.ge` in globals.css).
+// The Gallery / AI chat / navigation use it for Arabic (`.ge` in globals.css).
 const arabic = IBM_Plex_Sans_Arabic({ variable: "--font-arabic", subsets: ["arabic"], weight: ["400", "500", "600", "700"], display: "swap" });
 
 export const metadata: Metadata = {

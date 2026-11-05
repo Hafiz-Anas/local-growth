@@ -7,7 +7,7 @@ import { useI18n } from "@/lib/i18n/provider";
 import { translate, type MessageKey } from "./i18n";
 import { useStore } from "./store";
 
-/** The proposal's translation hook, reading the app's language (locales/*.json → galleryAi). */
+/** The Gallery / AI chat translation hook, reading the app's language (locales/*.json → galleryAi). */
 export function useT() {
   const lang = useI18n().locale;
   const t = useCallback((key: MessageKey, vars?: Record<string, string | number>) => translate(lang, key, vars), [lang]);

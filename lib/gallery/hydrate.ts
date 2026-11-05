@@ -5,8 +5,8 @@ import type { GalleryDraftDto, GalleryDto, GalleryPhotoDto } from "@/types/api";
 import { SAMPLE_PREFIX, samplePhotoId, splitSampleKey } from "./refs";
 
 /**
- * The server's Gallery (GET /api/gallery) as the screens' photos and albums (the design proposal's
- * Photo / CustomAlbum shapes, so its screens stay as they are).
+ * The server's Gallery (GET /api/gallery) as the screens' photos and albums (the
+ * Photo / CustomAlbum shapes the screens use).
  *  - Real businesses: only their own photos, AI images, drafts and Instagram posts; only their own albums.
  *  - Demo businesses: the sample account's photos and category albums too, each photo marked `sample`.
  *    A sample photo keeps its sample id on screen ("mathanet-07", which saved AI chats refer to); the

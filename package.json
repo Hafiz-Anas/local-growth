@@ -1,5 +1,6 @@
 {
-  "name": "local-growth-engine",
+  "name": "ai-growth-engine",
+  "description": "Instagram growth and management for local businesses (Raid Technologies).",
   "version": "0.1.0",
   "private": true,
   "scripts": {

@@ -17,17 +17,6 @@ export function LogoMark({ className }: { className?: string }) {
   );
 }
 
-export function Wordmark({ className }: { className?: string }) {
-  return (
-    <span className={cn("flex items-center gap-2", className)}>
-      <LogoMark />
-      <span className="text-[17px] font-semibold tracking-tight" dir="ltr">
-        Growth Engine
-      </span>
-    </span>
-  );
-}
-
 /* ---------- Avatars ---------- */
 
 export function Avatar({ src, alt, size = 32, ring, className }: { src?: string; alt: string; size?: number; ring?: boolean; className?: string }) {

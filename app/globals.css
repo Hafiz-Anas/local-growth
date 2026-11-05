@@ -1,5 +1,5 @@
 @import "tailwindcss";
-/* Animations of the Gallery / AI chat dropdowns (copied from the design proposal). */
+/* Animations of the Gallery / AI chat dropdowns. */
 @import "tw-animate-css";
 
 /*
@@ -243,11 +243,11 @@
 .heat-5 { background: var(--lge-heat-5); }
 
 /*
- * Gallery, AI chat and the app navigation, copied from the design proposal (ai-growth-proposal).
+ * Gallery, AI chat and the app navigation (the `.ge` scope).
  * Its tokens live here as ge-* so they never collide with the Instagram tokens above (the
- * proposal's `muted` is a surface, ours is text). Its accent is the platform's Instagram blue (the
+ * `ge-muted` is a surface, ours is text). Its accent is the platform's Instagram blue (the
  * brand tokens point at --lge-*), so the whole app has one look; the AI marks use the Instagram gradient. Everything the
- * proposal renders sits inside `.ge`, which also gives it the proposal's base type and borders.
+ * Gallery / AI chat renders sits inside `.ge`, which also gives it its base type and borders.
  */
 :root {
   --ge-background: #ffffff;
@@ -340,7 +340,7 @@
   --color-ge-neutral-series: var(--ge-neutral-series);
 }
 
-/* Base Ui / shadcn state variants used by the proposal's dropdown menu. */
+/* Base UI / shadcn state variants used by the Gallery's dropdown menu. */
 @custom-variant data-open {
   &:where([data-state="open"]),
   &:where([data-open]:not([data-open="false"])) {
@@ -380,7 +380,7 @@
 
 @layer base {
   .ge {
-    /* Plain `border` / `divide-*` inside take the proposal's border colour. */
+    /* Plain `border` / `divide-*` inside take the `.ge` border colour. */
     --lge-border: var(--ge-border);
     font-family: var(--font-inter), var(--font-arabic), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
     font-size: 16px;

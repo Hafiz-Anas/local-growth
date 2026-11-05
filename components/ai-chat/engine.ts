@@ -75,7 +75,7 @@ export function useChatContext(): ChatContext {
 /**
  * Turns prompts, attachments and picks into chat messages. Posts for a real business's own photos are
  * written by the AI (POST /api/gallery/caption, neutral template when it's unavailable); a demo business's
- * sample photos, and the analytics / competitor answers, use the design proposal's sample data.
+ * sample photos, and the analytics / competitor answers, use the bundled sample data (mock-data/gallery).
  */
 /**
  * What the chat is waiting for, shown under the dots: the question is with the AI ("reading"), the caption is being

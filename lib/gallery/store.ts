@@ -17,8 +17,7 @@ import { apiId, hydrateGallery, screenId, withDraft } from "./hydrate";
 import { chatsStorageKey, parseSavedChats, readChatMessages, shiftChats } from "./saved-chats";
 
 /*
- * The Gallery and AI chat state, copied from the design proposal (lib/store.ts there) without its
- * other demo screens. The screens read photos and albums from here as before; the data itself is the
+ * The Gallery and AI chat state. The screens read photos and albums from here as before; the data itself is the
  * business's own, stored on the server (BE1/BE2): GallerySync loads GET /api/gallery into the store
  * (setGallery), and every change (favourites, albums, removing, drafts) shows at once here and is sent
  * to the API — when the API refuses, the error is shown and the Gallery is loaded again. In admin preview
@@ -136,7 +135,7 @@ interface State extends DemoData {
   /** Gallery select mode: its toolbar sits above the tab bar. */
   selecting: boolean;
   setSelecting: (value: boolean) => void;
-  /** Kept from the proposal: screens show a short skeleton when it changes. */
+  /** Screens show a short skeleton when it changes. */
   switchTick: number;
 
   setLang: (lang: Lang) => void;

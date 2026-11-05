@@ -27,7 +27,7 @@ describe("AI chat: typed questions without modes", () => {
   });
 });
 
-// Real businesses never get the proposal's sample answers (components/ai-chat/engine.ts: send / askAi).
+// Real businesses never get the sample answers (components/ai-chat/engine.ts: send / askAi).
 describe("AI chat: sample answers are for demo businesses only", () => {
   it("a demo business gets the sample answer at once; a real business asks the AI", () => {
     assert.equal(localAnswerFor("How is my reach?", true), "an-reach");
@@ -54,7 +54,7 @@ describe("AI chat: sample answers are for demo businesses only", () => {
       assert.equal(localAnswerFor(q, false), "post-next", q);
       assert.ok(asksForPost(q), q);
     }
-    // Demo businesses keep the proposal's flows.
+    // Demo businesses keep the sample flows.
     assert.equal(localAnswerFor("How are my posts doing?", true), "post-next");
   });
 

@@ -1,4 +1,4 @@
-// Local Growth Engine — database schema.
+// AI Growth Engine — database schema.
 // Run `npm run db:migrate` after changing this file, then `npm run db:seed`.
 
 generator client {

@@ -1,265 +1,96 @@
-# Local Growth Engine
+# AI Growth Engine
 
-AI-powered Instagram growth and management for local businesses — by Raid Technologies.
+Instagram growth and management for local businesses, built by Raid Technologies. Business owners connect their Instagram account to manage a photo gallery, schedule and publish posts, reply to comments and DMs, and get AI-written captions, recommendations and reports. An admin area manages clients, plans and feature access.
 
-A Next.js 16 app with a PostgreSQL database, real authentication, role-based access and per-business feature permissions enforced on the server. Instagram data, AI generation and email are behind service interfaces with mock implementations until those integrations land (see [What's real and what's mocked](#whats-real-and-whats-mocked)).
+Instagram, AI, email and file storage sit behind service interfaces with mock or local implementations, so the app runs locally without any third-party accounts.
 
-## Requirements
+## Tech stack
 
-- Node.js 20+ (developed on 24)
-- Docker Desktop (for the local PostgreSQL), or any PostgreSQL 15+ server
+- Next.js 16 (App Router), React 19, TypeScript
+- PostgreSQL with Prisma 7
+- Auth.js v5 (credentials, JWT sessions)
+- TanStack Query, Zustand, Zod
+- Tailwind CSS 4, Radix UI / Base UI
+- Integrations: Meta Graph API (Instagram), Google Gemini (text and images), Resend (email), Vercel Blob or DigitalOcean Spaces (storage)
+- Tests: Node test runner (unit), Playwright (end-to-end)
 
-## Setup
+## Local setup
 
-```bash
-npm install                 # also generates the Prisma client
-cp .env.example .env        # then fill in AUTH_SECRET and ENCRYPTION_KEY (see below)
-npm run db:up               # starts PostgreSQL in Docker (docker compose up -d)
-npm run db:migrate          # creates the tables
-npm run db:seed             # demo businesses, users and data
-npm run dev                 # http://localhost:3000
-```
+### Prerequisites
 
-Generate the two secrets for `.env`:
+- Node.js 22 or later
+- PostgreSQL 15 or later, either through Docker (`docker-compose.yml`) or your own server. The database must use UTF-8 encoding (Arabic content).
 
-```bash
-node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"   # AUTH_SECRET
-node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"   # ENCRYPTION_KEY
-```
-
-### Docker / PostgreSQL
-
-`docker-compose.yml` runs `postgres:17-alpine` on port **5432** with user/password `lge` / `lge` and database `local_growth_engine`, matching `DATABASE_URL` in `.env.example`. Data lives in the `lge-pgdata` volume.
-
-| Command | What it does |
-|---|---|
-| `npm run db:up` | Start PostgreSQL (`docker compose up -d`) |
-| `npm run db:down` | Stop it (data is kept) |
-| `docker compose down -v` | Stop it **and delete all data** |
-
-Using your own PostgreSQL instead? Create a UTF-8 database (`CREATE DATABASE local_growth_engine ENCODING 'UTF8' TEMPLATE template0;` — Arabic content needs UTF-8) and point `DATABASE_URL` at it.
-
-### Migrations and seed
-
-| Command | What it does |
-|---|---|
-| `npm run db:migrate` | Apply migrations in development (`prisma migrate dev`); creates a new one if `prisma/schema.prisma` changed |
-| `npm run db:deploy` | Apply migrations in production (`prisma migrate deploy`) |
-| `npm run db:seed` | **Wipes all tables** and loads the demo data again |
-| `npm run db:reset` | Drop the database, re-apply every migration, then seed |
-
-The seed is the way to get back to a clean demo state (e.g. after testing password changes or deleting a business).
-
-### Viewing the database
+### Environment
 
 ```bash
-npx prisma studio
+cp .env.example .env
 ```
 
-Opens Prisma Studio at http://localhost:5555 — browse and edit every table (users, businesses, feature permissions, drafts, activity log …). `npm run db:studio` does the same.
+Set `AUTH_SECRET` and `ENCRYPTION_KEY` in `.env`. Each is a random 32-byte base64 value:
 
-> Changing `FeaturePermission` rows directly in Studio reaches signed-in users within 5 minutes. Changes made through the admin screens apply on the user's next click.
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+```
+
+The defaults use the mock Instagram and AI services, console email and local file storage. Every variable is described in `.env.example`.
+
+### Database
+
+```bash
+npm install          # also generates the Prisma client
+npm run db:up        # start PostgreSQL in Docker (skip if you use your own)
+npm run db:migrate   # apply migrations
+npm run db:seed      # load demo data (wipes existing data)
+```
+
+The seed creates demo businesses and logins and prints the logins when it finishes (they are defined in `config/demo.ts`). `npm run db:reset` drops the database, reapplies migrations and seeds again.
 
 ### Run
 
 ```bash
-npm run dev                       # development, http://localhost:3000
-npm run build && npm start        # production build
-npm run lint                      # ESLint
-npm run typecheck                 # next typegen + tsc --noEmit
+npm run dev          # http://localhost:3000
+npm run build        # production build
+npm start            # serve the production build
 ```
 
-## Demo accounts
+With `EMAIL_PROVIDER="console"`, verification and password-reset emails are printed to the server log.
 
-| Role | Email | Password | Business | Plan | Instagram |
-|---|---|---|---|---|---|
-| Admin | admin@localgrowth.dev | Admin@123 | — | — | — |
-| User | user@mathanetbaity.dev | User@123 | Mathanet Baity (@mathanet_baity) | Pro | Connected |
-| User | cafe@localgrowth.dev | User@123 | Dalla & Bean (@dallabean.kw) | Growth (+ trending audio, heatmap) | Needs attention (token expires in 3 days) |
-| User | boutique@localgrowth.dev | User@123 | Noor Boutique (@noorboutique.kw) | Starter (− top post) | Disconnected |
-| User | bakery@localgrowth.dev | User@123 | Fereej Bakery (self sign-up, onboarding stopped at step 3, Goals) | Starter | Connected (mock) |
+### Test
 
-The login page lists these accounts while `DEMO_ACCOUNTS_ENABLED="true"`. Set it to `"false"` in production.
+```bash
+npm run typecheck    # next typegen + tsc
+npm run lint
+npm test             # unit tests (tests/**/*.test.ts), no database needed
+npm run test:e2e     # Playwright
+```
 
-## Self-onboarding
+The end-to-end suite starts its own dev server on port 3001 and reseeds the database, so `DATABASE_URL` must point to a local database whose name contains `e2e` or `test`. See `playwright.config.ts` for the available options.
 
-Sign-up is **one page**: `/signup` asks for **email and password** and has one button, **Continue with Instagram**. No account exists until Instagram is connected: the sign-up waits server-side for 15 minutes (password hash only), and the user and business are created together once Instagram connects, the business named after that account (editable in *Settings → Business*). Cancelling on Instagram (or an error, or taking too long) creates nothing and returns to `/signup` with the email filled in; an Instagram account already connected to another login is refused. With `INSTAGRAM_PROVIDER=mock` a demo Instagram screen (`/signup/demo-instagram`) stands in for Facebook Login. Logins that exist without Instagram are still sent to `/signup/instagram` until they connect. Password resets are by email only. The business starts on the admin-configured **default plan for self sign-ups** (*Admin → System*), then the full-screen wizard at `/onboarding` takes about two minutes. Every step has **Skip** and **Finish later**:
+On Windows, run the dev server, build and tests from the correctly-cased project path; a path with different casing makes Next.js load its internals twice and the build fails.
 
-1. **Your business** — the AI pre-fills the business type, tone, hashtags and main products / menu categories from the Instagram bio and recent posts; the owner confirms or edits (empty fields if the AI is unavailable)
-2. **Your style** — up to 5 best posts from the Instagram grid and/or uploaded photos; in the background the Gemini text model reads them into a text style guide (colours, angle, lighting, closeness, background and props, mood) and the owner sees one editable line. Skipped → the most recent posts are used later
-3. **Your goals** — what they want more of (sales, followers, visits, messages, each with an optional number) and how posts should feel (tempting, intriguing, homely, premium, fun, or their own word)
-4. **Your location** — Kuwait governorate and area (English/Arabic list) and delivery only / shop / both
-5. **Your competitors** — optional; the AI suggests similar local accounts (each checked with Instagram first) and the owner can add their own
+## Deployment
 
-A short **"You're all set"** screen leads to the Gallery. The current step is saved on the business, so logging out and back in resumes it; the (user) layout sends anyone with onboarding in progress back to the wizard unless they chose *Finish later* (Settings then links back). The answers reach every AI call (captions, replies, recommendations, weekly reports) and can be changed in *Settings → Business* and *Settings → Goals*. Clients who finished the older wizard see a one-time prompt at the top of Settings to answer the new steps (or skip them). Admins can send an existing client through the wizard with *Send onboarding invite* on the client page.
+Production runs as a Next.js server with a managed PostgreSQL database, object storage for uploads, and scheduled calls to the cron routes under `/api/cron/*`. [DEPLOY.md](DEPLOY.md) covers Vercel with Neon and Vercel Blob, including environment variables, migrations and creating the first admin (`npm run create-admin`). [DEPLOY-DIGITALOCEAN.md](DEPLOY-DIGITALOCEAN.md) covers the Docker image and the Kubernetes setup on DigitalOcean (`Dockerfile`, `k8s/`).
 
-**Testing helpers (mock services):**
-
-- Competitor handles starting with `private_` → Private, `personal_` → Not a business account, `missing_` → Not found; your own handle → Your own account; anything else is Ready.
-- A business description containing `[ai-fail]` makes "Build my brand profile" fail (to test the error path).
-- On the sign-up connect screen (mock flow), type any handle; the business is named after it.
-- Verification and invite emails are printed in the `npm run dev` terminal (`[email:console] Verify your email`).
-- Sign-up is rate-limited to 5 attempts per IP per 15 minutes (in memory — restarting the dev server resets it).
-
-**Instrumentation.** Every step start/finish, back-navigation, validation error, failed upload, failed competitor lookup and page close is stored as an `OnboardingEvent`; "Report a problem" on each step saves a `Feedback` note. *Admin → Onboarding* shows the funnel, each business's current step, time per step, errors and reports.
-
-**Forgot password:** with `EMAIL_PROVIDER="console"`, the reset link is printed in the terminal running `npm run dev` (look for `[email:console] Password reset`). Links are single-use and expire after 1 hour.
-
-## Environment variables
-
-All variables are listed in `.env.example`.
-
-| Variable | Purpose |
-|---|---|
-| `DATABASE_URL` | PostgreSQL connection string |
-| `AUTH_SECRET` | Signs/encrypts the session cookie (Auth.js) |
-| `AUTH_URL` | Public URL of the app — used in password-reset links |
-| `ENCRYPTION_KEY` | 32-byte base64 key for AES-256-GCM encryption of Instagram tokens |
-| `EMAIL_PROVIDER`, `EMAIL_FROM`, `RESEND_API_KEY` | Email implementation (`console` or `resend`), sender, and Resend key (see DEPLOY.md) |
-| `INSTAGRAM_PROVIDER` | How new Instagram connections are made: `mock` or `meta` (existing connections keep their provider) |
-| `META_APP_ID`, `META_APP_SECRET`, `META_REDIRECT_URI`, `META_GRAPH_VERSION` | Meta app for Facebook Login / Graph API (see [Meta / Instagram integration](#meta--instagram-integration)); Meta stays off while the secret is empty |
-| `AI_PROVIDER` | Captions, reply drafts and the brand profile: `mock` (templates) or `gemini` (`GEMINI_API_KEY`, model `GEMINI_TEXT_MODEL`, budgets `GEMINI_TEXT_RPM` (default 12/min) and `GEMINI_TEXT_RPD` (default 450/day); falls back to the templates on any failure and logs it) |
-| `STORAGE_PROVIDER`, `UPLOAD_DIR` | File storage (`local` with its folder, or `vercel-blob` + `BLOB_READ_WRITE_TOKEN` in production) |
-| `RATE_LIMIT_STORE` | Rate-limit store (`memory`) |
-| `DEMO_ACCOUNTS_ENABLED` | Show demo logins on the login page |
-
-## Folder structure
+## Project structure
 
 ```
-app/
-  (auth)/                 login, signup, forgot-password, reset-password
-  (onboarding)/onboarding full-screen self-onboarding wizard
-  verify-email/           email verification link target
-  (user)/                 client screens: gallery, ai, competitors,
-                          experiment, engagement, settings
-  (admin)/admin/          overview, clients, clients/[clientId], onboarding, system
-  api/                    JSON API (route handlers) — see "API" below
-auth.ts                   Auth.js config: credentials login, JWT session, per-request session checks
-proxy.ts                  route protection (Next 16's middleware)
-components/
-  <feature>/              one folder per screen (views read data via TanStack Query)
-  shared/                 Instagram-style building blocks, skeletons, empty and error states
-  providers/              TanStack Query, feedback (toasts + Connect Instagram prompt), preferences sync
-  ui/                     primitives (Radix-based)
-config/                   feature catalogue, plan presets, navigation, demo accounts
+app/            routes: (auth), (onboarding), (user) client screens, (admin), api/ route handlers
+components/     UI, one folder per feature; shared/ and ui/ hold common components
+config/         feature catalogue, plans, navigation, demo accounts
 lib/
-  api/                    browser API client, query hooks, error messages
-  auth/                   session helpers, server actions, password hashing, session claims
-  server/                 API guards, JSON helpers, data readers, DTO mappers, rate limiter, activity log
-  services/               swappable services: instagram, ai, storage, email (+ mock catalogue)
-  validation/             Zod schemas shared by API and forms
-  generated/prisma/       generated Prisma client (not committed)
-locales/                  en.json, ar.json (all UI text; keep keys in sync)
-mock-data/                data behind the mock Instagram/AI services and the seed
-prisma/                   schema.prisma, migrations/, seed.ts
-store/                    toast / prompt state (zustand)
-types/                    shared types; types/api.ts is the API contract
+  api/          browser API client and query hooks
+  auth/         session helpers and server actions
+  server/       server-only logic: guards, data access, background jobs
+  services/     Instagram, AI, image, email and storage services (mock and real)
+  analysis/     pure analytics used by insights and recommendations
+locales/        UI text (en.json, ar.json)
+mock-data/      data for the mock services and the seed
+prisma/         schema, migrations, seed
+scripts/        one-off and developer scripts (create-admin, webhook simulators, backfills)
+tests/          unit tests; tests/e2e/ for Playwright
+k8s/            Kubernetes manifests
+auth.ts         Auth.js configuration
+proxy.ts        route protection
 ```
-
-## How feature permissions work
-
-1. **Catalogue.** `config/features.ts` declares every switchable feature. Keys are either a module (`engagement`) or a sub-feature (`engagement.dmRules`). A sub-feature only counts when its module is also on. Settings is always available. Gallery (`gallery`) and AI chat (`aiChat`) count as ON for businesses without a saved row (they were added without a data migration).
-2. **Storage.** Each business has one `FeaturePermission` row per key. A new business gets its plan's preset (`config/plans.ts`: Starter / Growth / Pro), and admins can then switch individual features.
-3. **Session.** The signed-in user's effective feature list is stored in the session. Every request checks the database cheaply, so when an admin changes a business's permissions (or suspends a user, or a password changes), the user's next request picks it up.
-4. **Enforced on the server, everywhere:**
-   - **Pages:** a disabled feature's page answers with the not-found page.
-   - **Navigation:** the sidebar is built on the server from the enabled features, so hidden items never reach the browser.
-   - **API:** every route checks the feature and answers **404** (not 403) when it's off, so its existence isn't revealed. Responses only include sections whose features are on.
-   - **UI widgets:** components use `<Feature flag>` / `useFeature()` to remove (never grey out) disabled parts.
-5. **Admin.** *Clients → a business* toggles features and plans (saved immediately, logged in the activity log). *Preview as this client* shows exactly what that business sees, read-only.
-
-## API
-
-Every route returns `{ ok: true, data }` or `{ ok: false, error: { code, message, details? } }`, validates input with Zod, and never returns password hashes or tokens. The business is always taken from the session; requesting another business's record by id returns 404.
-
-- **Account:** `GET /api/me`, `PATCH /api/me/preferences`, `PATCH /api/me/notifications`, `PATCH /api/me/password`, `POST /api/me/avatar`
-- **Client screens:** `/api/ai-chat` (typed AI-tab questions), `/api/competitors` (list, add) and `/api/competitors/:id` (get, edit, remove), `/api/competitors/trends`, `/api/post-generator/options`, `/api/post-drafts` (+ `generate`, `:id`, `:id/regenerate`, `:id/queue`, `:id/reject`), `/api/scheduled-posts[/:id]`, `/api/experiment` (+ `apply-window`), `/api/engagement` (+ `settings`, `rules[/:id]`), `/api/reply-drafts` (+ `:id`, `:id/approve`, `:id/dismiss`), `/api/brand-voice`, `/api/instagram/connection`
-- **Onboarding & brand:** `GET /api/onboarding`, `POST /api/onboarding/prefill`, `PUT /api/onboarding/business`, `PUT /api/onboarding/style` (+ `POST style/photos`), `PUT /api/onboarding/goals`, `PUT /api/onboarding/location`, `GET/POST /api/onboarding/competitors/suggestions`, `POST/DELETE /api/onboarding/new-steps`, `POST /api/onboarding/defer`, `POST /api/onboarding/progress`, `POST /api/onboarding/competitors` (+ `DELETE :id`), `POST /api/onboarding/events`, `POST /api/onboarding/feedback`, `POST /api/onboarding/complete`, `GET /api/brand`, `GET/PUT /api/brand/business`, `GET/PATCH /api/brand/style`, `GET/PUT /api/brand/goals`, `/api/brand/posts` (+ `:id`, `:id/media`), `PUT /api/brand/basics`, `GET /api/brand/colors`, `/api/brand/logo`, `/api/brand/context` (GET, POST = build/rebuild, PATCH = edit), `GET /api/instagram/media`, `POST /api/me/verify-email`
-- **Admin:** `/api/admin/overview`, `/api/admin/businesses[/:id]` (+ `permissions`, `permissions/preset`, `brand`, `onboarding-invite`), `/api/admin/users[/:id]` (+ `reset-password`, `suspend`, `reactivate`), `/api/admin/activity`, `/api/admin/preview/:businessId`, `/api/admin/system`, `/api/admin/onboarding`, `/api/admin/settings`
-- **Auth:** `/api/auth/*` (Auth.js), `/api/password-reset/request`, `/api/password-reset/confirm`
-
-Error codes the UI turns into friendly messages: `validation_error`, `unauthorized` (→ back to login), `forbidden`, `not_found`, `conflict`, `rate_limited`, `invalid_password`, `invalid_token`, `payload_too_large`, `unsupported_media_type`, `instagram_not_connected` (→ "Connect Instagram" prompt), `instagram_error`, `internal_error`.
-
-## Meta / Instagram integration
-
-Real Instagram data comes through **"Instagram API with Facebook Login"** (Facebook Login for Business) — the route that includes business discovery, which competitor tracking needs. The mock stays: each connection remembers its provider (`InstagramConnection.provider`), so seeded demo businesses keep their mock data while businesses connected through Facebook get real data. `INSTAGRAM_PROVIDER` only decides how **new** connections are made (`mock` = instant demo connection, `meta` = Facebook Login).
-
-**Setup:** set `META_APP_SECRET` in `.env` (Meta for Developers → App settings → Basic), set `INSTAGRAM_PROVIDER="meta"`, restart `npm run dev`. Without the secret the server prints a warning at startup and Meta features stay off (no crash). The redirect URI `http://localhost:3000/api/integrations/instagram/callback` must be listed in the app's Facebook Login for Business settings.
-
-**Connect flow** (`lib/server/meta-connect.ts`, routes under `app/api/integrations/instagram/`):
-
-1. `start` stores a random `state` in an encrypted httpOnly cookie bound to the user and business (10 minutes), then redirects to `https://www.facebook.com/v26.0/dialog/oauth` (`display=page`, `extras={"setup":{"channel":"IG_API_ONBOARDING"}}`, the 8 scopes).
-2. Meta returns to `callback` with `?code` → the code is exchanged **server-side** with the app secret, then for a long-lived token (~60 days), checked with `/debug_token` (must be issued to our app) and used for `/me/accounts`. Meta's Business Login docs also describe a mode that returns the token in the URL fragment; set `META_OAUTH_RESPONSE_TYPE="token"` if the code flow is refused — `callback` then serves a tiny page that clears the URL and posts the token once to `token`.
-3. One Page with an Instagram professional account → connected. Several → a picker (`pending`, choices kept 15 minutes, tokens encrypted server-side). None → a help screen. Cancel → a calm message where the user started. An account already connected to another business is refused.
-4. Stored encrypted in one blob (`InstagramConnection.credentialsEncrypted`): user token + expiry, Page id + token, Instagram account id, granted scopes. The account id is also stored as an HMAC (`igAccountKey`) to detect duplicates without decrypting. Tokens are never sent to the browser or logged; every Graph call carries `appsecret_proof`. Disconnect deletes them.
-
-**Data and sync** (`lib/server/instagram-sync.ts`): pages never call Meta on load — they read what the sync stored (`InstagramMedia`, `InstagramMediaComment`, `InstagramAccountSnapshot`, the profile and insights on the connection). The sync runs on connect (profile + last 50 posts before the redirect, insights + comments right after), on **Settings → Sync now** (1/min), and in the background when the data is older than 6 hours. New customer comments get AI reply drafts in Engagement; approving one replies on Instagram. Competitor lookups are cached 6 hours and every refresh saves a `CompetitorSnapshot`, which drives the follower change and engagement trend.
-
-**Errors:** Meta error 190 → connection `NEEDS_RECONNECT` and a "Reconnect Instagram" banner. Missing permission → listed on the connection, shown with "Reconnect and allow" (asks again with `auth_type=rerequest`). Rate limits (4, 17, 32, 613, 80001+) and the usage headers → short backoff, or a cool-down during which background syncs skip the business. Metrics Meta doesn't return (small/new accounts) show "Not available yet for this account" and are logged. Every failure is an `IntegrationEvent` — admins see the **Integration log** on the client page and the Onboarding page, plus token and data-access expiry.
-
-**Competitor validation — what business discovery can tell us:**
-
-| Meta's answer | Status |
-|---|---|
-| Success | `READY` |
-| The handle is the business's own account (checked before calling, and by returned id) | `OWN_ACCOUNT` |
-| Error 110 / subcode 2207013 "user … cannot be found" | `NOT_FOUND` — Meta returns this same error for a username that doesn't exist **and** for personal accounts (public or private), so the message says "not found, or a personal/private account" |
-| Error 100/33, 24, other 110 | `NOT_FOUND` |
-| — | `PRIVATE` and `NOT_BUSINESS` are never returned for Meta lookups: business/creator accounts can't be private, and personal accounts are indistinguishable from missing ones (they remain for the mock) |
-| Token, permission, rate-limit or server errors | Not a status: the request fails with a reconnect / permission / "try again" message |
-
-**Publishing** (single image + caption; no carousels, video, reels or stories yet): "Publish now" on a draft or a queued post, and queued posts at their time through `GET /api/cron/publish` (needs `CRON_SECRET`, see DEPLOY.md). `lib/server/publishing.ts` claims the post, converts the image to a JPEG Instagram accepts (centre-cropped to 4:5–1.91:1, `lib/services/images/instagram-fit.ts`), stores that copy publicly, then `lib/services/meta/publish.ts` creates the container, polls `status_code` until `FINISHED` (60 s timeout) and publishes it. Needs `STORAGE_PROVIDER=vercel-blob` (Meta downloads the image) and the `instagram_content_publish` permission. Failures get a reason code (no image, image rejected, daily limit, token revoked, …): the user sees it in their language, and it's logged to the integration log and kept on the draft.
-
-**DM replies:** Meta POSTs each Instagram DM to `/api/webhooks/instagram`. The app checks `X-Hub-Signature-256` against `META_APP_SECRET`, answers 200 at once, and processes the message after responding (`lib/server/instagram-dm.ts`). It finds the business by its Instagram account and, if **AI replies** (`engagement.aiReplies`) is on, stores the message and drafts a reply with the same `AIService.draftReply` the comment replies use (one pending draft per conversation). As with comments, nothing is sent until someone approves it on the Engagement page; then it goes out via `POST /me/messages`. Drafts older than Instagram's 24-hour reply window expire. Setup steps: DEPLOY.md → *Instagram DM replies*. Without Meta, `npm run simulate-dm -- --handle <instagram handle> --text "…"` sends a correctly signed fake DM to the local app.
-
-**Keyword replies** (feature `engagement.dmRules`, Engagement → Keyword replies): a comment that matches a rule's keyword (whole word or exact comment; case, punctuation, emojis and Arabic spelling variants ignored — `lib/keyword-replies.ts`) gets the rule's public reply and, optionally, a private DM (Instagram private reply by `comment_id`, once per comment, within 7 days). Comments arrive in real time through the `comments` webhook field on the same `/api/webhooks/instagram` route; the Instagram sync is the fallback. One reply per comment, never to the business's own comments, and the same person + rule at most once per 24 hours. With "Send automatically" off the reply waits in the approval queue. A comment a rule handled never also gets an AI draft. Every send and failure is in the admin integration log (`keyword.*`). Locally: `npm run simulate-comment -- --handle <instagram handle> --text "MENU"` (local app and database only).
-
-**E2E tests:** `npm run test:e2e` (Playwright, `tests/e2e`) starts the app itself on a seeded throwaway database, always with `EMAIL_PROVIDER=console` (no real email is ever sent) — see `playwright.config.ts`.
-
-**Still simulated with a Meta connection** (labelled in the app): keyword DM rules (comment → DM) — need Meta's private-replies API; trending audio/hashtags — not in the Graph API.
-
-**Tests:** `npm test` runs the mapping and client tests in `tests/meta/` against recorded sample responses (`tests/meta/fixtures.json`: success, several Pages, no Page, expired token, rate limits, permission errors, business discovery not found, unsupported metrics), plus the publishing flow (`tests/meta/publish.test.ts`) and image fitting (`tests/images/`).
-
-## What's real and what's mocked
-
-**Real**
-
-- PostgreSQL database via Prisma: users, businesses, permissions, drafts, scheduled posts, experiments, DM rules, reply drafts, brand voice, competitors, activity log
-- Authentication: Auth.js credentials with bcrypt hashes, httpOnly JWT session cookie, roles (admin / user)
-- Login rate limiting (5 failed attempts per 15 minutes per IP + email) behind a `RateLimiter` interface
-- Password reset (hashed single-use tokens, 1-hour expiry), password change, admin password reset. Any password change signs the user out everywhere. Suspension takes effect on the next request.
-- Feature permissions enforced in pages, navigation and every API route, with optimistic admin toggles
-- Profile photo upload (JPG/PNG/WebP, 2 MB, type checked from the file's contents)
-- Preferences (theme, language, sidebar) and notification settings saved per user
-- Instagram access tokens encrypted at rest (AES-256-GCM)
-- Real Instagram via Meta (Facebook Login for Business): connect, profile, posts, insights, comments and replies, competitor business discovery with history, publishing single-image posts (now or scheduled) — see [Meta / Instagram integration](#meta--instagram-integration)
-- Admin activity log for every admin action and most user actions
-- Public sign-up with email verification (hashed single-use tokens, 48 h), self-onboarding wizard with saved progress, brand posts (uploads type-checked from content), server-side colour extraction, versioned brand contexts, onboarding events and problem reports
-
-**Mocked (behind interfaces in `lib/services`, chosen by environment variables)**
-
-| Area | Mock today | To go live |
-|---|---|---|
-| Instagram for demo/mock connections — profile numbers, insights, comments, trends, competitor profiles | `MockInstagramService` serves `mock-data/` (new businesses get empty data); mock "connect" approves instantly | Connect through Facebook (`INSTAGRAM_PROVIDER=meta`): `MetaInstagramService` is real |
-| Instagram with a Meta connection — keyword DM rules, trends, API health | Keyword DM rules simulated (DM *replies* and publishing are real); no trends; health is mock | Private-replies API |
-| AI captions, reply drafts and brand profile | `MockAIService` fills caption templates with brand words and the brand context | `AI_PROVIDER=gemini`: `GeminiAIService` (prompts in `lib/services/text/prompts.ts`) |
-| Brand profile (`buildBrandContext`) | Template sentences built from the onboarding answers | Same interface, real model |
-| Competitor validation (`lookupBusinessAccount`) for mock connections | Handle prefixes decide the status (see *Self-onboarding*) | Real for Meta connections (business discovery) |
-| Instagram posts in the post picker for mock connections | Generated posts with stand-in images from `public/mock-media` (`node scripts/generate-mock-media.mjs`) | Real for Meta connections (synced posts) |
-| Gallery and AI chat (`/gallery`, `/ai`) | **Real:** photos (uploaded straight to storage, Instagram posts from the sync), albums, favourites, removing, and post drafts (`PostDraft` with EN/AR captions, hashtags, suggested time, earlier captions) are stored per business; post captions for the owner's photos come from `AIService.photoCaption` (neutral template when the AI is off). **Sample:** demo businesses (mock Instagram) also see the design proposal's photos, marked "Sample"; analytics and competitor answers in the chat are the proposal's sample answers. Approve / Schedule / Post now save a draft and say publishing is coming next | Publishing drafts (next phase), real analytics answers in the chat |
-| Product catalogue for the Post Generator | `lib/services/catalog.ts` reads `mock-data/`; other businesses use their onboarding products and post purposes | A table or the AI provider |
-| Email | `ConsoleEmailService` prints messages (reset links) to the server log; `EMAIL_PROVIDER="resend"` sends real HTML + text emails (EN/AR) through Resend | Set `RESEND_API_KEY` and a verified `EMAIL_FROM` |
-| File storage | `LocalStorageService` writes to `UPLOAD_DIR`, served by `/api/uploads/*`; `VercelBlobStorageService` for production | Set `STORAGE_PROVIDER="vercel-blob"` (see [DEPLOY.md](DEPLOY.md)) |
-| Rate limits | In-memory (`RATE_LIMIT_STORE="memory"`) — resets on restart, single instance only | Add a Redis `RateLimiter` |
-
-## Deploying
-
-Production runs on Vercel with Neon PostgreSQL and Vercel Blob. See [DEPLOY.md](DEPLOY.md) for setup, environment variables, migrations (`prisma migrate deploy` only, never the seed) and `npm run create-admin`.
-
-## Troubleshooting
-
-- **`DATABASE_URL is not set`:** copy `.env.example` to `.env`.
-- **Port 5432 already in use:** another PostgreSQL is running. Stop it, or change the port mapping in `docker-compose.yml` and in `DATABASE_URL`.
-- **Arabic text fails to save (`WIN1252` encoding error):** the database isn't UTF-8. Recreate it as shown under *Docker / PostgreSQL*.
-- **"Too many attempts":** the in-memory rate limiter. Wait 15 minutes, or restart `npm run dev`.
-- **Signed out unexpectedly:** your password was changed, or an admin suspended you or reset your password. Every existing session ends in those cases by design.

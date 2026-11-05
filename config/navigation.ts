@@ -52,7 +52,7 @@ export const MAX_PHONE_TABS = 5;
  * The client app's sections — the single source for the sidebar, the phone tab bar, the profile
  * menu on phones and the tabs at the top of a section: route, label, icon and feature come from here,
  * the active section from isActiveItem (lib/navigation) and the icon's drawing from NavIcon
- * (components/layout/nav-icon.tsx), so desktop and phone can't drift apart. The order is the design proposal's:
+ * (components/layout/nav-icon.tsx), so desktop and phone can't drift apart. Section order:
  * Gallery, Engagement, AI (the centre tab), Insights, Competitors. To add a page, add one entry to
  * a section's `pages` (it becomes a tab there) or add a section. Pages keep their own URLs, so links
  * from notifications and emails don't change. Home (/dashboard) and Posts (/post-generator) are gone
