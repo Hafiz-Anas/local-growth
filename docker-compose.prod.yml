@@ -14,8 +14,6 @@ x-app-env: &app-env
   # 32 zero bytes, base64 — local only.
   ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
   CRON_SECRET: local-compose-cron
-  EMAIL_PROVIDER: console
-  EMAIL_FROM: "AI Growth Engine <noreply@example.com>"
   INSTAGRAM_PROVIDER: mock
   AI_PROVIDER: mock
   IMAGE_PROVIDER: mock

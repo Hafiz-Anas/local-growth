@@ -27,12 +27,11 @@ export interface RateLimiter {
 }
 
 export const LOGIN_LIMIT: RateLimitRule = { name: "login", limit: 5, windowMs: 15 * 60 * 1000 };
-export const RESET_REQUEST_LIMIT: RateLimitRule = { name: "reset-request", limit: 3, windowMs: 15 * 60 * 1000 };
-export const RESET_CONFIRM_LIMIT: RateLimitRule = { name: "reset-confirm", limit: 10, windowMs: 15 * 60 * 1000 };
 export const PASSWORD_CHANGE_LIMIT: RateLimitRule = { name: "password-change", limit: 5, windowMs: 15 * 60 * 1000 };
 /** Sign-up attempts per IP (counts every attempt, like login counts failures). */
 export const SIGNUP_LIMIT: RateLimitRule = { name: "signup", limit: 5, windowMs: 15 * 60 * 1000 };
-export const VERIFY_RESEND_LIMIT: RateLimitRule = { name: "verify-resend", limit: 3, windowMs: 15 * 60 * 1000 };
+/** "Test key" on the admin AI settings, per admin (each is one Gemini call). */
+export const AI_KEY_TEST_LIMIT: RateLimitRule = { name: "ai-key-test", limit: 10, windowMs: 60 * 1000 };
 /** "Report a problem" notes per business. */
 export const FEEDBACK_LIMIT: RateLimitRule = { name: "feedback", limit: 10, windowMs: 15 * 60 * 1000 };
 /** "Sync now" (Meta) per business. */

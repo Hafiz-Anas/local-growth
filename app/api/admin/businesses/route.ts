@@ -1,6 +1,8 @@
 import { db } from "@/lib/db";
 import type { Plan } from "@/lib/generated/prisma/client";
 import { hashPassword } from "@/lib/auth/password";
+import { assertIdentityFree } from "@/lib/server/user-identity";
+import { resolveIdentity } from "@/lib/usernames";
 import { logActivity } from "@/lib/server/activity";
 import { ADMIN_BUSINESS_SELECT, getAdminBusiness, toAdminBusiness } from "@/lib/server/admin";
 import { requireRole } from "@/lib/server/guards";
@@ -37,6 +39,8 @@ export const GET = handler(async (request) => {
 export const POST = handler(async (request) => {
   const session = await requireRole("ADMIN");
   const { owner, plan, ...fields } = await readJson(request, createBusinessSchema);
+  const identity = owner ? resolveIdentity(owner) : null;
+  if (identity) await assertIdentityFree(identity);
   const passwordHash = owner ? await hashPassword(owner.password) : null;
 
   const business = await db.$transaction(async (tx) => {
@@ -51,13 +55,12 @@ export const POST = handler(async (request) => {
       select: { id: true },
     });
     await logActivity({ businessId: created.id, userId: session.userId, action: "business.created", details: { name: fields.name, plan } }, tx);
-    if (owner && passwordHash) {
+    if (owner && passwordHash && identity) {
       const user = await tx.user.create({
-        // Created by Raid's team, so the address counts as verified.
-        data: { email: owner.email, name: owner.name, passwordHash, role: "USER", businessId: created.id, avatarUrl: fields.avatarUrl ?? null, emailVerifiedAt: new Date(), memberships: { create: { businessId: created.id } } },
+        data: { username: identity.username, email: identity.email, name: owner.name, passwordHash, role: "USER", businessId: created.id, avatarUrl: fields.avatarUrl ?? null, memberships: { create: { businessId: created.id } } },
         select: { id: true },
       });
-      await logActivity({ businessId: created.id, userId: session.userId, action: "user.created", details: { targetUserId: user.id, email: owner.email } }, tx);
+      await logActivity({ businessId: created.id, userId: session.userId, action: "user.created", details: { targetUserId: user.id, login: identity.username ?? identity.email } }, tx);
     }
     return created;
   });

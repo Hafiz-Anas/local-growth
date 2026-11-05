@@ -28,16 +28,16 @@ type Account = { igId: string };
 
 class MemoryStore implements SignupStore<Account> {
   pending = new Map<string, PendingSignupRecord>();
-  users: { id: string; email: string; passwordHash: string; businessId: string; handle: string; businessName: string }[] = [];
+  users: { id: string; username: string; passwordHash: string; businessId: string; handle: string; businessName: string }[] = [];
   takenHandles = new Set<string>();
   /** Simulates a race: the next createAccount fails with this. */
   conflict: SignupConflict | null = null;
 
-  async emailRegistered(email: string) {
-    return this.users.some((u) => u.email === email);
+  async usernameTaken(username: string) {
+    return this.users.some((u) => u.username === username);
   }
   async replacePending(record: PendingSignupRecord) {
-    for (const [id, row] of this.pending) if (row.email === record.email) this.pending.delete(id);
+    for (const [id, row] of this.pending) if (row.username === record.username) this.pending.delete(id);
     this.pending.set(record.id, { ...record });
   }
   async findPending(id: string) {
@@ -49,7 +49,7 @@ class MemoryStore implements SignupStore<Account> {
   async createAccount(pending: PendingSignupRecord, account: SignupInstagram<Account>) {
     if (this.conflict) throw this.conflict;
     if (!this.pending.delete(pending.id)) throw new SignupConflict("expired");
-    const user = { id: `u${this.users.length + 1}`, email: pending.email, passwordHash: pending.passwordHash, businessId: `b${this.users.length + 1}`, handle: account.username, businessName: account.businessName };
+    const user = { id: `u${this.users.length + 1}`, username: pending.username, passwordHash: pending.passwordHash, businessId: `b${this.users.length + 1}`, handle: account.username, businessName: account.businessName };
     this.users.push(user);
     return { userId: user.id, businessId: user.businessId };
   }
@@ -67,39 +67,39 @@ const later = (ms: number) => new Date(NOW.getTime() + ms);
 const account = (username = "kbakes"): SignupInstagram<Account> => ({ username, businessName: "Kbakes", data: { igId: `ig-${username}` } });
 const connected = (username?: string) => async (): Promise<ConnectResult<Account>> => ({ kind: "account", account: account(username) });
 
-async function started(store: MemoryStore, email = "owner@example.com") {
-  const result = await startSignup(store, { email, password: PASSWORD, language: "en" }, { ...deps, now: NOW });
+async function started(store: MemoryStore, username = "owner") {
+  const result = await startSignup(store, { username, password: PASSWORD, language: "en" }, { ...deps, now: NOW });
   assert.equal(result.ok, true);
   if (!result.ok) throw new Error("not started");
   return result;
 }
 
 describe("startSignup: validation", () => {
-  it("rejects a bad email and a weak password with the same fields as before, and stores nothing", async () => {
+  it("rejects a bad username and a weak password with the same fields as before, and stores nothing", async () => {
     const store = new MemoryStore();
-    const bad = await startSignup(store, { email: "not-an-email", password: PASSWORD, language: "en" }, deps);
-    assert.deepEqual(bad, { ok: false, error: "invalid", fields: ["email"] });
-    const weak = await startSignup(store, { email: "a@example.com", password: "short", language: "en" }, deps);
+    const bad = await startSignup(store, { username: "no spaces!", password: PASSWORD, language: "en" }, deps);
+    assert.deepEqual(bad, { ok: false, error: "invalid", fields: ["username"] });
+    const weak = await startSignup(store, { username: "alice", password: "short", language: "en" }, deps);
     assert.equal(weak.ok, false);
     assert.ok(!weak.ok && weak.fields.includes("password"));
-    const personal = await startSignup(store, { email: "kbakes@example.com", password: "kbakes2026", language: "en" }, deps);
+    const personal = await startSignup(store, { username: "kbakes", password: "kbakes2026", language: "en" }, deps);
     assert.ok(!personal.ok && personal.fields.includes("password"));
     assert.equal(store.pending.size, 0);
   });
 
-  it("refuses an email that already has an account", async () => {
+  it("refuses a username that already has an account (any case)", async () => {
     const store = new MemoryStore();
-    store.users.push({ id: "u0", email: "owner@example.com", passwordHash: "x", businessId: "b0", handle: "old", businessName: "Old" });
-    const result = await startSignup(store, { email: " Owner@Example.com ", password: PASSWORD, language: "en" }, deps);
-    assert.deepEqual(result, { ok: false, error: "email_taken", fields: ["email"] });
+    store.users.push({ id: "u0", username: "owner", passwordHash: "x", businessId: "b0", handle: "old", businessName: "Old" });
+    const result = await startSignup(store, { username: " Owner ", password: PASSWORD, language: "en" }, deps);
+    assert.deepEqual(result, { ok: false, error: "username_taken", fields: ["username"] });
     assert.equal(store.pending.size, 0);
   });
 
   it("stores only the password hash, the state's hash and a 15-minute expiry — no user", async () => {
     const store = new MemoryStore();
-    const result = await started(store, "Owner@Example.com");
+    const result = await started(store, "Owner");
     const row = store.pending.get(result.id)!;
-    assert.equal(row.email, "owner@example.com");
+    assert.equal(row.username, "owner");
     assert.equal(row.passwordHash, `hash(${PASSWORD})`);
     assert.ok(!JSON.stringify(row).includes(`"${PASSWORD}"`));
     assert.equal(row.expiresAt.getTime() - NOW.getTime(), PENDING_SIGNUP_TTL_MS);
@@ -109,7 +109,7 @@ describe("startSignup: validation", () => {
     assert.equal(store.users.length, 0);
   });
 
-  it("the same email starting twice replaces the older pending sign-up", async () => {
+  it("the same username starting twice replaces the older pending sign-up", async () => {
     const store = new MemoryStore();
     const first = await started(store);
     const second = await started(store);
@@ -161,8 +161,8 @@ describe("finishSignup: Instagram's callback", () => {
     assert.equal(result.outcome, "connected");
     assert.equal(store.users.length, 1);
     assert.deepEqual(
-      { email: store.users[0].email, passwordHash: store.users[0].passwordHash, handle: store.users[0].handle, businessName: store.users[0].businessName },
-      { email: "owner@example.com", passwordHash: `hash(${PASSWORD})`, handle: "kbakes", businessName: "Kbakes" },
+      { username: store.users[0].username, passwordHash: store.users[0].passwordHash, handle: store.users[0].handle, businessName: store.users[0].businessName },
+      { username: "owner", passwordHash: `hash(${PASSWORD})`, handle: "kbakes", businessName: "Kbakes" },
     );
     assert.equal(store.pending.size, 0, "the pending row is deleted");
     // Replaying the callback creates nothing more.
@@ -173,8 +173,8 @@ describe("finishSignup: Instagram's callback", () => {
 
   it("refuses a state that doesn't match the cookie or the stored row", async () => {
     const store = new MemoryStore();
-    const a = await started(store, "a@example.com");
-    const b = await started(store, "b@example.com");
+    const a = await started(store, "alice");
+    const b = await started(store, "bob");
     const nonce = parseSignupState(a.state)!.nonce;
     const cases = [
       { cookieId: a.id, state: b.state }, // someone else's state
@@ -187,10 +187,10 @@ describe("finishSignup: Instagram's callback", () => {
       assert.equal(result.outcome, "error");
       assert.equal(connectCalled, false);
     }
-    // A mismatch never hands back another person's pending row (its email would fill the form).
+    // A mismatch never hands back another person's pending row (its username would fill the form).
     const leaked = await checkSignup(store, { cookieId: a.id, state: b.state }, NOW);
     assert.equal(leaked.ok, false);
-    assert.equal(leaked.pending?.email ?? null, "a@example.com");
+    assert.equal(leaked.pending?.username ?? null, "alice");
     assert.equal(store.users.length, 0);
   });
 
@@ -205,12 +205,12 @@ describe("finishSignup: Instagram's callback", () => {
     assert.equal(store.users.length, 0);
   });
 
-  it("an expired pending sign-up creates nothing (and keeps the email for the form)", async () => {
+  it("an expired pending sign-up creates nothing (and keeps the username for the form)", async () => {
     const store = new MemoryStore();
     const s = await started(store);
     const result = await finishSignup(store, { cookieId: s.id, state: s.state, error: null, connect: connected() }, later(PENDING_SIGNUP_TTL_MS + 1));
     assert.equal(result.outcome, "expired");
-    assert.equal(result.pending?.email, "owner@example.com");
+    assert.equal(result.pending?.username, "owner");
     assert.equal(store.users.length, 0);
     // Exactly at the expiry it's over too.
     const edge = await checkSignup(store, { cookieId: s.id, state: s.state }, later(PENDING_SIGNUP_TTL_MS));
@@ -224,7 +224,7 @@ describe("finishSignup: Instagram's callback", () => {
       let connectCalled = false;
       const result = await finishSignup(store, { cookieId: s.id, state: s.state, error, connect: async () => ((connectCalled = true), { kind: "account", account: account() }) }, NOW);
       assert.equal(result.outcome, error);
-      assert.equal(result.pending?.email, "owner@example.com");
+      assert.equal(result.pending?.username, "owner");
       assert.equal(connectCalled, false);
     }
     // Failures while connecting (Meta errors, no business account, declined permissions).
@@ -247,16 +247,16 @@ describe("finishSignup: Instagram's callback", () => {
     assert.equal(store.users.length, 0);
 
     // An account another sign-up has just created is taken too.
-    const other = await started(store, "other@example.com");
+    const other = await started(store, "other");
     assert.equal((await finishSignup(store, { cookieId: other.id, state: other.state, error: null, connect: connected("salmiya.sweets") }, NOW)).outcome, "connected");
-    const third = await started(store, "third@example.com");
+    const third = await started(store, "third");
     assert.equal((await finishSignup(store, { cookieId: third.id, state: third.state, error: null, connect: connected("salmiya.sweets") }, NOW)).outcome, "taken");
     assert.equal(store.users.length, 1);
   });
 
   it("maps races in the transaction to a clear outcome", async () => {
     const store = new MemoryStore();
-    for (const reason of ["taken", "email_taken"] as const) {
+    for (const reason of ["taken", "username_taken"] as const) {
       const s = await started(store);
       store.conflict = new SignupConflict(reason);
       const result = await finishSignup(store, { cookieId: s.id, state: s.state, error: null, connect: connected() }, NOW);

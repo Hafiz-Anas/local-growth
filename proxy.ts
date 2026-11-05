@@ -4,14 +4,14 @@ import { HOME_BY_ROLE } from "@/config/navigation";
 import { COOKIES } from "@/config/site";
 
 /** Pages reachable while logged out. Logged-in users are sent to their home page instead. */
-const PUBLIC_PATHS = new Set(["/login", "/signup", "/forgot-password", "/reset-password"]);
+const PUBLIC_PATHS = new Set(["/login", "/signup"]);
 /** "Add account" (account switcher): a signed-in client may open these with ?add=1 to log in or sign up another login. */
 const ADD_ACCOUNT_PATHS = new Set(["/login", "/signup"]);
 /**
- * Pages that work both logged in and logged out: the emailed verification link, and the demo Instagram
- * screen sign-up goes through with INSTAGRAM_PROVIDER=mock (also from "Add account" while signed in).
+ * Pages that work both logged in and logged out: the demo Instagram screen sign-up goes through with
+ * INSTAGRAM_PROVIDER=mock (also from "Add account" while signed in).
  */
-const OPEN_PATHS = new Set(["/verify-email", "/signup/demo-instagram"]);
+const OPEN_PATHS = new Set(["/signup/demo-instagram"]);
 
 /**
  * Route protection (Next.js 16 renamed `middleware.ts` to `proxy.ts`).

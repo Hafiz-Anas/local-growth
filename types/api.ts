@@ -34,7 +34,6 @@ export interface MeDto {
     avatarUrl: string | null;
     uiPreferences: UiPreferences;
     notifications: NotificationPrefs;
-    emailVerified: boolean;
   };
   business: BusinessSummaryDto | null;
   /** Effective feature keys (empty for admins). */
@@ -749,4 +748,29 @@ export interface AiChatAnswerDto {
   message: AiChatMessageDto | null;
   /** Post cards an action changed (AI4: a draft saved from a card), as saved: they replace the ones on screen. */
   updated?: AiChatMessageDto[];
+}
+
+// ─── AI keys (admin) ─────────────────────────────────────────────────────────
+
+/** A saved AI key as the browser sees it: never more than the last 4 characters. */
+export interface AiKeyStatusDto {
+  /** A key saved for this scope (platform or this business). */
+  set: boolean;
+  last4: string | null;
+  updatedAt: string | null;
+  updatedByName: string | null;
+  /** The key AI calls would use right now, and where it comes from. */
+  effective: { source: "business" | "plan" | "platform" | "env" | "none"; last4: string | null };
+  /** GEMINI_API_KEY is set in the environment (the last fallback). */
+  envConfigured: boolean;
+  /** ENCRYPTION_KEY is set and valid: without it a key can't be saved. */
+  encryptionReady: boolean;
+}
+
+export interface AiKeyTestDto {
+  ok: boolean;
+  /** TextFailureReason when it failed. */
+  reason: string | null;
+  message: string | null;
+  source: "typed" | "business" | "plan" | "platform" | "env";
 }

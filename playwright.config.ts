@@ -8,8 +8,7 @@ import { defineConfig } from "@playwright/test";
  *   DATABASE_URL=…/lge_e2e  npx prisma migrate deploy && npx prisma db seed
  *   DATABASE_URL=…/lge_e2e  npm run test:e2e
  *
- * The e2e server always runs with EMAIL_PROVIDER=console (and RESEND_API_BASE on a closed local
- * port), mock Instagram, local storage and Gemini pointed at the local stub — these win over
+ * The e2e server always runs with mock Instagram, local storage and Gemini pointed at the local stub — these win over
  * .env / .env.local, so tests never send real email or call Meta or Google. It never reuses a
  * server it didn't start: if the port (E2E_PORT, default 3001) is taken, the run stops.
  *
@@ -18,7 +17,7 @@ import { defineConfig } from "@playwright/test";
  * file order, and reports-notifications (the daily cron) must come after recommendations.
  * The tests change data (rules, permissions, chats, recommendations) and refuse any non-local database.
  * E2E_BROWSER_CHANNEL=chrome uses the installed Chrome instead of Playwright's Chromium;
- * E2E_SERVER_STDOUT=1 prints the server's log (e.g. the `[email:console]` lines).
+ * E2E_SERVER_STDOUT=1 prints the server's log.
  * On Windows, run it from the correctly-cased project path: a lowercase cwd makes Next load its internals twice.
  *
  * E2E_AI_PROVIDER=mock starts the app with the mock AI instead (no Gemini at all) for the specs that test
@@ -42,9 +41,6 @@ const aiProvider = process.env.E2E_AI_PROVIDER === "mock" ? "mock" : "gemini";
 /** The e2e server's environment. Next never overrides variables that are already set with .env values. */
 const E2E_SERVER_ENV: Record<string, string> = {
   DATABASE_URL: databaseUrl,
-  // Email: printed to the server log only. Even a misconfigured provider can't reach Resend.
-  EMAIL_PROVIDER: "console",
-  RESEND_API_BASE: "http://127.0.0.1:9",
   INSTAGRAM_PROVIDER: "mock",
   STORAGE_PROVIDER: "local",
   META_APP_SECRET: "e2e-secret",

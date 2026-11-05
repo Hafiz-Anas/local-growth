@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { logOutOf, useDeviceAccounts } from "@/lib/api/device-accounts";
 import { logoutAction } from "@/lib/auth/actions";
+import { loginName } from "@/lib/usernames";
 import { useI18n } from "@/lib/i18n/provider";
 import type { MediaTone, PlanId, Role } from "@/types";
 
@@ -69,7 +70,7 @@ function ProfileMenuBody({ user }: { user: MenuUser }) {
         <span className="min-w-0 flex-1">
           <span className="block truncate text-body font-semibold text-foreground">{user.name}</span>
           <span className="block truncate">
-            <bdi>{user.email}</bdi>
+            <bdi>{loginName(user.email)}</bdi>
           </span>
           <span className="mt-1.5 flex flex-wrap items-center gap-1.5">
             <Badge variant={user.role === "admin" ? "neutral" : "blue"} size="sm">

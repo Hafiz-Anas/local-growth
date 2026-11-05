@@ -2,6 +2,7 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
+import { AiKeyCard } from "@/components/admin/ai-key-card";
 import { Segmented } from "@/components/settings/segmented";
 import { Avatar } from "@/components/shared/avatar";
 import { FEATURE_KEYS } from "@/config/features";
@@ -68,6 +69,7 @@ export function SystemView() {
         </div>
       )}
 
+      <AiKeyCard scope={{ kind: "platform" }} />
       <SelfSignupCard />
       <PlanLimitsCard />
       <InstagramSettingsCard />

@@ -10,7 +10,6 @@ import type { CurrentAccount } from "@/components/layout/account-switcher";
 import { ActiveAccountSwitcher } from "@/components/layout/login-switcher";
 import { LanguageToggle, ThemeToggle } from "@/components/layout/toggles";
 import { ErrorState, Skeleton } from "@/components/shared/states";
-import { VerifyEmailBanner } from "@/components/shared/verify-email-banner";
 import { Button } from "@/components/ui/button";
 import { PROGRESS_STEPS, stepNumber, type OnboardingStepId } from "@/config/onboarding";
 import { beaconOnboardingEvent, reportOnboardingEvent, useOnboardingState } from "@/lib/api/brand";
@@ -37,16 +36,11 @@ import { WizardProvider } from "./wizard-context";
  */
 export function OnboardingWizard({
   userName,
-  verificationUnsent = false,
-  showVerifyBanner = false,
   account,
 }: {
   userName: string;
   /** Set when the login has other Instagram accounts: the switcher replaces the logo, so an added account's setup can be left for another account. */
   account?: CurrentAccount;
-  verificationUnsent?: boolean;
-  /** EMAIL_VERIFICATION_BANNER (lib/server/email-verification.ts). */
-  showVerifyBanner?: boolean;
 }) {
   const { t } = useI18n();
   const query = useOnboardingState();
@@ -95,7 +89,6 @@ export function OnboardingWizard({
 
   return (
     <div className="flex min-h-dvh flex-col">
-      {showVerifyBanner && query.data && <VerifyEmailBanner unverified={!query.data.emailVerified} email={query.data.email} sendFailed={verificationUnsent} />}
       <header className="sticky top-0 z-20 border-b border-border bg-background">
         <div className="mx-auto flex h-14 w-full max-w-[680px] items-center gap-2 px-4">
           {account ? (

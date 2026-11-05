@@ -6,6 +6,7 @@ import { verifyDeviceLogin } from "@/lib/auth/remembered";
 import { redeemSignupTicket } from "@/lib/auth/signup-ticket";
 import { db } from "@/lib/db";
 import { LOGIN_LIMIT, clientIp, getRateLimiter } from "@/lib/server/rate-limit";
+import { parseIdentifier } from "@/lib/usernames";
 import { loginSchema } from "@/lib/validation/auth";
 
 /** Error codes surfaced to the login form (`LoginState.error`). */
@@ -58,19 +59,21 @@ export const { handlers, auth, signIn, signOut, unstable_update: updateSession }
   pages: { signIn: "/login", error: "/login" },
   providers: [
     Credentials({
-      credentials: { email: {}, password: {} },
+      credentials: { identifier: {}, password: {} },
       async authorize(raw, request) {
         const parsed = loginSchema.safeParse(raw);
         if (!parsed.success) throw new InvalidCredentials();
-        const { email, password } = parsed.data;
+        const { identifier, password } = parsed.data;
 
-        // 5 failed attempts per 15 minutes per IP + email.
+        // 5 failed attempts per 15 minutes per IP + username/email.
         const limiter = getRateLimiter();
-        const limitKey = `${clientIp(request.headers)}:${email}`;
+        const limitKey = `${clientIp(request.headers)}:${identifier}`;
         if (await limiter.isLimited(LOGIN_LIMIT, limitKey)) throw new TooManyAttempts();
 
-        const user = await db.user.findUnique({ where: { email }, select: { id: true, passwordHash: true, status: true } });
-        // Always run bcrypt so unknown emails take as long as wrong passwords.
+        // A username, or the email of an older account (usernames cannot contain "@").
+        const who = parseIdentifier(identifier);
+        const user = await db.user.findUnique({ where: who.kind === "email" ? { email: who.value } : { username: who.value }, select: { id: true, passwordHash: true, status: true } });
+        // Always run bcrypt so unknown accounts take as long as wrong passwords.
         const valid = await verifyPassword(password, user?.passwordHash ?? DUMMY_HASH);
         if (!user || !valid) {
           await limiter.hit(LOGIN_LIMIT, limitKey);

@@ -8,8 +8,8 @@ import { startGeminiStub } from "./gemini-stub";
 
 /**
  * Sign-up and the five-step onboarding, end to end (see playwright.config.ts for how to run):
- * - sign-up is one page (email, password, "Continue with Instagram"); no account exists until Instagram
- *   connects (cancel → back with the email filled in; an account connected elsewhere is refused), then the
+ * - sign-up is one page (username, password, "Continue with Instagram"); no account exists until Instagram
+ *   connects (cancel → back with the username filled in; username rules and a taken username are refused; an account connected elsewhere is refused), then the
  *   business is named after it; a login without Instagram is still sent to the connect screen;
  * - the five steps with the AI pre-fill, picked posts + an upload for the style guide, goals,
  *   location and AI-suggested competitors, then "You're all set" → the Gallery; Settings shows the answers;
@@ -26,7 +26,8 @@ import { startGeminiStub } from "./gemini-stub";
 const RUN = randomUUID().slice(0, 6);
 const PASSWORD = "Growth2026!";
 const AR = JSON.parse(readFileSync(path.join(process.cwd(), "locales", "ar.json"), "utf8"));
-const email = (tag: string) => `onboard-${tag}-${RUN}@example.com`;
+const username = (tag: string) => `ob_${tag}_${RUN}`;
+const pendingEmail = (tag: string) => `${username(tag)}@users.invalid`;
 const handle = (tag: string) => `kbakes_${tag}_${RUN}`;
 
 test.describe.configure({ mode: "serial" });
@@ -47,12 +48,12 @@ test.afterAll(async () => {
 });
 
 /** The business of a login (its active Instagram account). */
-const businessOf = async (login: string) => (await pool.query<{ businessId: string }>(`SELECT "businessId" FROM "User" WHERE email = $1`, [login])).rows[0].businessId;
+const businessOf = async (login: string) => (await pool.query<{ businessId: string }>(`SELECT "businessId" FROM "User" WHERE username = $1 OR email = $1`, [login])).rows[0].businessId;
 
-/** Sign-up's one page: email + password, "Continue with Instagram" → the demo Instagram screen. */
+/** Sign-up's one page: username + password, "Continue with Instagram" → the demo Instagram screen. */
 async function startSignUp(page: Page, tag: string, continueLabel = "Continue with Instagram") {
   if (!page.url().includes("/signup")) await page.goto("/signup");
-  await page.locator('input[name="email"]').fill(email(tag));
+  await page.locator('input[name="username"]').fill(username(tag));
   await page.locator('input[name="password"]').fill(PASSWORD);
   await page.getByRole("button", { name: continueLabel }).click();
   await page.waitForURL(/\/signup\/demo-instagram/);
@@ -64,11 +65,11 @@ async function allowInstagram(page: Page, igHandle: string, allowLabel = "Allow 
   await page.getByRole("button", { name: allowLabel }).click();
 }
 
-const users = async (login: string) => (await pool.query(`SELECT 1 FROM "User" WHERE email = $1`, [login])).rowCount;
+const users = async (login: string) => (await pool.query(`SELECT 1 FROM "User" WHERE username = $1`, [login])).rowCount;
 
 async function logIn(page: Page, login: string, password = PASSWORD) {
   await page.goto("/login");
-  await page.getByLabel("Email").fill(login);
+  await page.getByLabel("Username or email").fill(login);
   await page.getByLabel("Password", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Log in" }).click();
   await page.waitForURL((url) => !url.pathname.startsWith("/login"));
@@ -80,30 +81,30 @@ const api = async (page: Page, url: string) => (await (await page.request.get(ur
 test("sign-up is one page, the account exists only once Instagram connects, and the five steps reach the AI", async ({ page }) => {
   test.setTimeout(300_000);
 
-  // One page: email, password and "Continue with Instagram" — no steps, no name fields.
+  // One page: username, password and "Continue with Instagram" — no steps, no name fields.
   await page.goto("/signup");
   await expect(page.getByText(/Step \d of \d/)).toHaveCount(0);
   await expect(page.getByLabel("Full name")).toHaveCount(0);
   await expect(page.getByLabel("Business name")).toHaveCount(0);
   await expect(page.getByText("You'll connect your Instagram business account to finish creating your account.")).toBeVisible();
   await startSignUp(page, "a");
-  expect(await users(email("a"))).toBe(0);
+  expect(await users(username("a"))).toBe(0);
 
-  // Cancel on Instagram: nothing is created; back on the same page with the email filled in.
+  // Cancel on Instagram: nothing is created; back on the same page with the username filled in.
   await page.getByRole("link", { name: "Cancel" }).click();
   await page.waitForURL(/\/signup\?instagram=cancelled/);
   await expect(page.getByTestId("signup-outcome")).toContainText("Instagram wasn't connected, please try again.");
-  await expect(page.locator('input[name="email"]')).toHaveValue(email("a"));
-  expect(await users(email("a"))).toBe(0);
-  expect((await pool.query(`SELECT 1 FROM "PendingSignup" WHERE email = $1`, [email("a")])).rowCount).toBe(1);
+  await expect(page.locator('input[name="username"]')).toHaveValue(username("a"));
+  expect(await users(username("a"))).toBe(0);
+  expect((await pool.query(`SELECT 1 FROM "PendingSignup" WHERE email = $1`, [pendingEmail("a")])).rowCount).toBe(1);
 
   // Try again: Instagram connects, the account is created and signed in → onboarding, step 1.
   await startSignUp(page, "a");
   const started = Date.now();
   await allowInstagram(page, handle("a"));
   await page.waitForURL(/\/onboarding/);
-  expect(await users(email("a"))).toBe(1);
-  expect((await pool.query(`SELECT 1 FROM "PendingSignup" WHERE email = $1`, [email("a")])).rowCount).toBe(0);
+  expect(await users(username("a"))).toBe(1);
+  expect((await pool.query(`SELECT 1 FROM "PendingSignup" WHERE email = $1`, [pendingEmail("a")])).rowCount).toBe(0);
 
   // 1 — Your business: filled in from the bio and recent posts.
   await expect(step(page)).toContainText("Step 1 of 5 · Your business");
@@ -195,12 +196,12 @@ test("sign-up is one page, the account exists only once Instagram connects, and 
 test("an Instagram account connected to another login is refused; every step can be skipped, and “Finish later” keeps the place", async ({ page }) => {
   test.setTimeout(180_000);
   await startSignUp(page, "b");
-  // Already connected to sign-up "a": refused, nothing created, the email still filled in.
+  // Already connected to sign-up "a": refused, nothing created, the username still filled in.
   await allowInstagram(page, handle("a"));
   await page.waitForURL(/\/signup\?instagram=taken/);
   await expect(page.getByTestId("signup-outcome")).toContainText("This Instagram account is already connected to another login.");
-  await expect(page.locator('input[name="email"]')).toHaveValue(email("b"));
-  expect(await users(email("b"))).toBe(0);
+  await expect(page.locator('input[name="username"]')).toHaveValue(username("b"));
+  expect(await users(username("b"))).toBe(0);
   // Back to Instagram (the same sign-up is still valid) with the right account.
   await page.goBack();
   await page.waitForURL(/\/signup\/demo-instagram/);
@@ -245,7 +246,7 @@ test("an Instagram account connected to another login is refused; every step can
   expect(await api(page, "/api/brand/style")).toMatchObject({ basis: "recent", summary: "Warm colors, close-up, top-down angle" });
 
   // A login whose business has no Instagram connection is still sent to the connect screen, as before.
-  const business = await businessOf(email("b"));
+  const business = await businessOf(username("b"));
   await pool.query(`DELETE FROM "InstagramConnection" WHERE "businessId" = $1`, [business]);
   await page.goto("/gallery");
   await page.waitForURL(/\/signup\/instagram/);
@@ -292,11 +293,11 @@ test("AI unavailable: the fields stay empty and onboarding carries on — in Ara
 test("existing clients get a one-time prompt for the new steps: skip it, or answer them", async ({ browser }) => {
   test.setTimeout(180_000);
   // Businesses that finished before the five-step wizard (as the migration leaves them).
-  const [a, b] = [await businessOf(email("a")), await businessOf(email("b"))];
+  const [a, b] = [await businessOf(username("a")), await businessOf(username("b"))];
   await pool.query(`UPDATE "Business" SET "setupPromptDoneAt" = NULL WHERE id = ANY($1)`, [[a, b]]);
 
   const first = await browser.newPage();
-  await logIn(first, email("a"));
+  await logIn(first, username("a"));
   await first.goto("/settings");
   const prompt = first.getByTestId("new-steps-prompt");
   await expect(prompt).toContainText("Help your AI know you better");
@@ -307,7 +308,7 @@ test("existing clients get a one-time prompt for the new steps: skip it, or answ
   await first.close();
 
   const second = await browser.newPage();
-  await logIn(second, email("b"));
+  await logIn(second, username("b"));
   await second.goto("/settings");
   await second.getByTestId("new-steps-prompt").getByRole("button", { name: "Answer now" }).click();
   await second.waitForURL(/\/onboarding/);

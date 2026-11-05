@@ -6,7 +6,6 @@ import { getActiveClientContext } from "@/lib/auth/server";
 import { db } from "@/lib/db";
 import { filterNav } from "@/lib/permissions";
 import { getClientView, getUiPreferences } from "@/lib/server/client-view";
-import { verificationBannerEnabled } from "@/lib/server/email-verification";
 import { needsInstagramConnection } from "@/lib/server/onboarding";
 import { ACCOUNT_META } from "@/lib/api/client";
 import { initials, toneFor } from "@/lib/utils";
@@ -18,10 +17,7 @@ export default async function UserLayout({ children }: LayoutProps<"/">) {
   // finished, the wizard is the only screen — unless the owner chose "Finish later" (the dashboard then
   // links back to it). Admins previewing see the app as is.
   if (!isPreview && (await needsInstagramConnection(clientId))) redirect("/signup/instagram");
-  const [business, user] = await Promise.all([
-    db.business.findUnique({ where: { id: clientId }, select: { onboardingStatus: true, onboardingDeferredAt: true } }),
-    isPreview ? null : db.user.findUnique({ where: { id: session.userId }, select: { emailVerifiedAt: true } }),
-  ]);
+  const business = await db.business.findUnique({ where: { id: clientId }, select: { onboardingStatus: true, onboardingDeferredAt: true } });
   if (!isPreview && business?.onboardingStatus === "IN_PROGRESS" && !business.onboardingDeferredAt) redirect("/onboarding");
 
   const [client, preferences] = await Promise.all([getClientView(clientId), getUiPreferences(session.userId)]);
@@ -45,7 +41,7 @@ export default async function UserLayout({ children }: LayoutProps<"/">) {
     <ActiveClientProvider client={client} permissions={permissions} isPreview={isPreview}>
       {/* The account this page shows; apiFetch sends it so a stale tab can't change another account. */}
       {!isPreview && <meta name={ACCOUNT_META} content={clientId} />}
-      <UserShell user={menuUser} nav={nav} preferences={preferences} emailUnverified={verificationBannerEnabled() && Boolean(user && !user.emailVerifiedAt)}>
+      <UserShell user={menuUser} nav={nav} preferences={preferences}>
         {children}
       </UserShell>
     </ActiveClientProvider>

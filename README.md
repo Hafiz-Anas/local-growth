@@ -2,7 +2,7 @@
 
 Instagram growth and management for local businesses, built by Raid Technologies. Business owners connect their Instagram account to manage a photo gallery, schedule and publish posts, reply to comments and DMs, and get AI-written captions, recommendations and reports. An admin area manages clients, plans and feature access.
 
-Instagram, AI, email and file storage sit behind service interfaces with mock or local implementations, so the app runs locally without any third-party accounts.
+Instagram, AI and file storage sit behind service interfaces with mock or local implementations, so the app runs locally without any third-party accounts.
 
 ## Tech stack
 
@@ -11,7 +11,7 @@ Instagram, AI, email and file storage sit behind service interfaces with mock or
 - Auth.js v5 (credentials, JWT sessions)
 - TanStack Query, Zustand, Zod
 - Tailwind CSS 4, Radix UI / Base UI
-- Integrations: Meta Graph API (Instagram), Google Gemini (text and images), Resend (email), Vercel Blob or DigitalOcean Spaces (storage)
+- Integrations: Meta Graph API (Instagram), Google Gemini (text and images), Vercel Blob or DigitalOcean Spaces (storage)
 - Tests: Node test runner (unit), Playwright (end-to-end)
 
 ## Local setup
@@ -33,7 +33,7 @@ Set `AUTH_SECRET` and `ENCRYPTION_KEY` in `.env`. Each is a random 32-byte base6
 node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 ```
 
-The defaults use the mock Instagram and AI services, console email and local file storage. Every variable is described in `.env.example`.
+The defaults use the mock Instagram and AI services and local file storage. Every variable is described in `.env.example`.
 
 ### Database
 
@@ -54,7 +54,6 @@ npm run build        # production build
 npm start            # serve the production build
 ```
 
-With `EMAIL_PROVIDER="console"`, verification and password-reset emails are printed to the server log.
 
 ### Test
 
@@ -83,7 +82,7 @@ lib/
   api/          browser API client and query hooks
   auth/         session helpers and server actions
   server/       server-only logic: guards, data access, background jobs
-  services/     Instagram, AI, image, email and storage services (mock and real)
+  services/     Instagram, AI, image and storage services (mock and real)
   analysis/     pure analytics used by insights and recommendations
 locales/        UI text (en.json, ar.json)
 mock-data/      data for the mock services and the seed

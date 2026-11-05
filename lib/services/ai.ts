@@ -18,7 +18,8 @@ import { TextGenerationError, sanitizeTextError, type TextFailureReason } from "
 import { TextRequestGate } from "./text/gate";
 import { SharedTextGate, type TextGate } from "./redis-stores";
 import { getRedis, redisEnabled } from "@/lib/server/redis";
-import { DEFAULT_GEMINI_TEXT_MODEL, DEFAULT_GEMINI_TEXT_RPD, DEFAULT_GEMINI_TEXT_RPM, generateGeminiText, readGeminiTextConfig } from "./text/gemini";
+import { resolveGeminiKey } from "@/lib/server/ai-keys";
+import { DEFAULT_GEMINI_TEXT_MODEL, DEFAULT_GEMINI_TEXT_RPD, DEFAULT_GEMINI_TEXT_RPM, generateGeminiText, readGeminiTextConfig, type GeminiTextConfig } from "./text/gemini";
 import type { EditExample, RegenerateTone } from "@/lib/replies";
 import type { Method } from "@/lib/analysis/methods";
 import { parseClassification, parseCompetitorInsight, parsePostInsight, type CompetitorInsight, type PostInsight } from "./text/analysis";
@@ -183,7 +184,7 @@ export interface AIService {
   /** "Regenerate": a new draft. Unlike draftReply, never template text from the real model — a failure says why. */
   rewriteReply(request: ReplyRewriteRequest): Promise<ReplyRewriteAnswer>;
   /** Whether text generation would be attempted right now (no call made): the queue disables Regenerate up front. */
-  textAvailability(): { available: true } | { available: false; reason: TextFailureReason };
+  textAvailability(businessId?: string | null): Promise<{ available: true } | { available: false; reason: TextFailureReason }>;
   /** Reads the onboarding inputs (business, posts, basics) and describes the brand. */
   buildBrandContext(input: BrandContextInput): Promise<BrandContextDraft>;
   /**
@@ -492,7 +493,7 @@ export class MockAIService implements AIService {
     return { ok: true, text, language };
   }
 
-  textAvailability() {
+  async textAvailability() {
     return { available: true as const };
   }
 
@@ -589,14 +590,24 @@ type AICall = "ai.captions" | "ai.reply.comment" | "ai.reply.dm" | "ai.reply.rew
  */
 export class GeminiAIService implements AIService {
   private readonly mock = new MockAIService();
-  private gate: TextGate | null = null;
+  /** One request budget per API key (the fingerprint, never the key): a client's own key has its own limits. */
+  private readonly gates = new Map<string, TextGate>();
 
   /** The request budget: per instance (memory), or shared by every instance when RATE_LIMIT_STORE="redis". */
-  private textGate(rpm: number, rpd: number): TextGate {
-    if (this.gate) return this.gate;
+  private textGate(fingerprint: string, rpm: number, rpd: number): TextGate {
+    const existing = this.gates.get(fingerprint);
+    if (existing) return existing;
     const local = new TextRequestGate(rpm, rpd);
-    this.gate = redisEnabled() ? new SharedTextGate(getRedis(), rpm, rpd, local) : local;
-    return this.gate;
+    const gate = redisEnabled() ? new SharedTextGate(getRedis(), rpm, rpd, local, Date.now, `gemini:${fingerprint}`) : local;
+    this.gates.set(fingerprint, gate);
+    return gate;
+  }
+
+  /** The config for this business's key (client key → platform key → environment), or null without any key. */
+  private async configFor(businessId: string | null | undefined): Promise<{ config: GeminiTextConfig | null; fingerprint: string }> {
+    const key = await resolveGeminiKey(businessId);
+    if (!key) return { config: null, fingerprint: "none" };
+    return { config: readGeminiTextConfig({ ...process.env, GEMINI_API_KEY: key.apiKey }), fingerprint: key.fingerprint };
   }
   private lastBudgetLog = 0;
   private dailyBudgetLoggedUntil = 0;
@@ -608,7 +619,7 @@ export class GeminiAIService implements AIService {
     toResult: (answer: string) => T | Promise<T>,
     fallback: (reason: TextFailureReason) => T | Promise<T>,
   ): Promise<T> {
-    const config = readGeminiTextConfig();
+    const { config, fingerprint } = await this.configFor(businessId);
     // What the user gets instead of a model answer, for the log.
     const instead =
       call === "ai.report" || call === "ai.competitor" || call === "ai.post" || call === "ai.monitor" || call === "ai.statistics" || call === "ai.shareability"
@@ -618,7 +629,7 @@ export class GeminiAIService implements AIService {
         : call === "ai.chat" || call === "ai.strategy" || call === "ai.prefill" || call === "ai.reply.rewrite" || call === "ai.style" || call === "ai.suggest"
           ? { text: "told the user the AI is unavailable", fallback: "unavailable" }
           : { text: "used the template text instead", fallback: "template" };
-    const gate = this.textGate(config?.rpm ?? DEFAULT_GEMINI_TEXT_RPM, config?.rpd ?? DEFAULT_GEMINI_TEXT_RPD);
+    const gate = this.textGate(fingerprint, config?.rpm ?? DEFAULT_GEMINI_TEXT_RPM, config?.rpd ?? DEFAULT_GEMINI_TEXT_RPD);
     const model = config?.model ?? DEFAULT_GEMINI_TEXT_MODEL;
     const decision = await gate.acquire();
     if (!decision.allowed) {
@@ -636,7 +647,7 @@ export class GeminiAIService implements AIService {
       return fallback(decision.reason);
     }
     try {
-      if (!config) throw new TextGenerationError("not_configured", "GEMINI_API_KEY is not set.");
+      if (!config) throw new TextGenerationError("not_configured", "No Gemini API key is set (client, platform or environment).");
       return await toResult(await generateGeminiText(config, prompt()));
     } catch (error) {
       const failure = error instanceof TextGenerationError ? error : new TextGenerationError("unavailable", sanitizeTextError((error as Error).message));
@@ -813,10 +824,10 @@ export class GeminiAIService implements AIService {
     );
   }
 
-  textAvailability(): { available: true } | { available: false; reason: TextFailureReason } {
-    const config = readGeminiTextConfig();
+  async textAvailability(businessId?: string | null): Promise<{ available: true } | { available: false; reason: TextFailureReason }> {
+    const { config, fingerprint } = await this.configFor(businessId);
     if (!config) return { available: false, reason: "not_configured" };
-    const decision = this.textGate(config.rpm, config.rpd).peek();
+    const decision = this.textGate(fingerprint, config.rpm, config.rpd).peek();
     return decision.allowed ? { available: true } : { available: false, reason: decision.reason };
   }
 

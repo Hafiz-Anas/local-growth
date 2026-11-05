@@ -6,7 +6,6 @@ import { requireSession } from "@/lib/auth/server";
 import { db } from "@/lib/db";
 import { setupSwitcherAccount } from "@/lib/server/accounts";
 import { getUiPreferences } from "@/lib/server/client-view";
-import { verificationBannerEnabled } from "@/lib/server/email-verification";
 import { getConnectionDto } from "@/lib/server/instagram-account";
 import { needsInstagramConnection } from "@/lib/server/onboarding";
 import { connectFlow } from "@/lib/services/meta/config";
@@ -25,8 +24,7 @@ export default async function ConnectInstagramPage({ searchParams }: PageProps<"
   const params = await searchParams;
   if (!(await needsInstagramConnection(session.businessId))) redirect(params.instagram === "connected" ? "/onboarding?instagram=connected" : "/onboarding");
 
-  const [user, connection, account, preferences, source] = await Promise.all([
-    db.user.findUnique({ where: { id: session.userId }, select: { email: true, emailVerifiedAt: true } }),
+  const [connection, account, preferences, source] = await Promise.all([
     getConnectionDto(session.businessId),
     setupSwitcherAccount(session.userId, session.businessId),
     getUiPreferences(session.userId),
@@ -40,9 +38,6 @@ export default async function ConnectInstagramPage({ searchParams }: PageProps<"
         connection={connection}
         account={account}
         addedAccount={source?.source === "ACCOUNT_ADDED"}
-        email={user?.email ?? session.email}
-        emailUnverified={verificationBannerEnabled() && Boolean(user && !user.emailVerifiedAt)}
-        verificationUnsent={params.verification === "unsent"}
         userName={session.name}
       />
     </>

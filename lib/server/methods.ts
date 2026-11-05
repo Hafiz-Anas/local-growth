@@ -44,7 +44,7 @@ async function classify(businessId: string, posts: ClassifiedPostInput[], handle
   if (!todo.length) return { rows, ai: { status: "not_needed", reason: null } };
   if (!useAi) return { rows, ai: { status: "pending", reason: null } };
   const ai = getAIService();
-  const availability = ai.textAvailability();
+  const availability = await ai.textAvailability(businessId);
   if (!availability.available) return { rows, ai: { status: "unavailable", reason: availability.reason } };
   if (!(await getRateLimiter().consume(METHODS_AI_LIMIT, businessId))) return { rows, ai: { status: "unavailable", reason: "rate_limited" } };
 

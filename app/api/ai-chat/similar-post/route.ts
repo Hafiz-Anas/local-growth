@@ -28,7 +28,7 @@ export const POST = handler(async (request) => {
   if (!post) throw new ApiError(404, "not_found", "Post not found.");
 
   const ai = getAIService();
-  if (!ai.textAvailability().available || !(await getRateLimiter().consume(AI_CHAT_LIMIT, businessId))) return ok<{ post: SimilarPostDto | null }>({ post: null });
+  if (!(await ai.textAvailability(businessId)).available || !(await getRateLimiter().consume(AI_CHAT_LIMIT, businessId))) return ok<{ post: SimilarPostDto | null }>({ post: null });
 
   const business = await db.business.findUniqueOrThrow({ where: { id: businessId }, select: { name: true, nameAr: true } });
   const answer = await ai.similarPost({

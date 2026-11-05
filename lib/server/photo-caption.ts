@@ -47,7 +47,7 @@ export async function photoCaption(businessId: string, input: { photoIds: string
   };
 
   const ai = getAIService();
-  if (!ai.textAvailability().available || !(await getRateLimiter().consume(PHOTO_CAPTION_LIMIT, businessId))) return template();
+  if (!(await ai.textAvailability(businessId)).available || !(await getRateLimiter().consume(PHOTO_CAPTION_LIMIT, businessId))) return template();
 
   const images = await loadImages(businessId, photos.slice(0, CAPTION_IMAGES));
   const answer = await ai.photoCaption({

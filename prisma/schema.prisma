@@ -260,6 +260,8 @@ enum MonitorInterval {
 model User {
   id            String     @id @default(cuid())
   email         String     @unique
+  /// Sign-in name (lower case; letters, numbers, _ and .). Null for accounts made before usernames; they log in with their email.
+  username      String?    @unique
   passwordHash  String
   name          String
   avatarUrl     String?
@@ -374,6 +376,8 @@ model Business {
   /// Users whose active account this is (User.businessId). Who belongs to it: `members`.
   users               User[]
   members             BusinessMember[]
+  /// This business's own AI key (overrides the platform key), see AiKey.
+  aiKeys              AiKey[]
   brandPosts          BrandPost[]
   brandContexts       BrandContext[]
   onboardingEvents    OnboardingEvent[]
@@ -1549,4 +1553,40 @@ model PendingSignup {
   createdAt            DateTime @default(now())
 
   @@index([expiresAt])
+}
+
+/// An AI provider key set by an admin, encrypted (lib/crypto.ts). `scopeKey` is "platform", "business:<id>" or, reserved
+/// for plan-based keys, "plan:<PLAN>". Resolution order: business → plan → platform → environment (lib/server/ai-keys.ts).
+model AiKey {
+  id           String   @id @default(cuid())
+  scopeKey     String   @unique
+  scope        String
+  businessId   String?
+  provider     String   @default("gemini")
+  /// Reserved for model choice per key; null = the default model.
+  model        String?
+  keyEncrypted String
+  /// The last 4 characters, the only part the browser ever sees.
+  last4        String
+  updatedById  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @default(now()) @updatedAt
+
+  business Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId])
+}
+
+/// Who set, cleared or tested an AI key and when (never the key).
+model AiKeyEvent {
+  id         String   @id @default(cuid())
+  scopeKey   String
+  businessId String?
+  /// SET | CLEARED | TESTED
+  action     String
+  ok         Boolean?
+  userId     String?
+  createdAt  DateTime @default(now())
+
+  @@index([scopeKey, createdAt])
 }

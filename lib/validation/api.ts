@@ -29,7 +29,7 @@ import { MAX_RULE_KEYWORDS, MAX_RULE_POSTS, PRIVATE_REPLY_MAX, PUBLIC_REPLY_MAX,
 import { AI_CHAT_MAX_QUESTION, AI_CHAT_MODES } from "@/lib/services/text/ai-chat";
 import { GALLERY_ALBUM_NAME_MAX, GALLERY_MAX_BATCH, GALLERY_UPLOAD_MAX_BYTES, GALLERY_UPLOAD_TYPES } from "@/lib/gallery/uploads";
 import { normalizeTheme } from "@/lib/theme-script";
-import { emailSchema, newPasswordSchema } from "./auth";
+import { emailSchema, newPasswordSchema, usernameSchema } from "./auth";
 
 /** Input schemas for the API routes (shared with the UI for form validation). */
 
@@ -259,7 +259,10 @@ export const createBusinessSchema = z.object({
   timezone: businessFields.timezone.default("Asia/Kuwait"),
   plan: planSchema,
   /** Optionally create the business's login in the same step. */
-  owner: z.object({ email: emailSchema, name: text(120), password: newPasswordSchema }).optional(),
+  owner: z
+    .object({ username: usernameSchema.optional(), email: emailSchema.optional(), name: text(120), password: newPasswordSchema })
+    .refine((v) => Boolean(v.username || v.email), { message: "A username or an email is required.", path: ["username"] })
+    .optional(),
 });
 
 export const updateBusinessSchema = z
@@ -294,7 +297,8 @@ export const adminListUsersQuery = z.object({
 
 export const createUserSchema = z
   .object({
-    email: emailSchema,
+    username: usernameSchema.optional(),
+    email: emailSchema.optional(),
     name: text(120),
     password: newPasswordSchema,
     role: z.enum(["admin", "user"]),
@@ -304,7 +308,8 @@ export const createUserSchema = z
   .refine((v) => (v.role === "user" ? Boolean(v.businessId) : !v.businessId), {
     message: "Users need a business; admins must not have one.",
     path: ["businessId"],
-  });
+  })
+  .refine((v) => Boolean(v.username || v.email), { message: "A username or an email is required.", path: ["username"] });
 
 export const updateUserSchema = z
   .object({
@@ -318,12 +323,8 @@ export const updateUserSchema = z
   .strict()
   .refine((v) => Object.keys(v).length > 0, "Nothing to update.");
 
-export const adminResetPasswordSchema = z.union([
-  /** Set a new password directly. */
-  z.object({ password: newPasswordSchema }),
-  /** Email the user a reset link instead. */
-  z.object({ sendEmail: z.literal(true) }),
-]);
+/** An admin sets a client's new password directly (there are no reset emails). */
+export const adminResetPasswordSchema = z.object({ password: newPasswordSchema });
 
 /** Per-plan limits an admin can set (System page). */
 const planLimitSchema = z
@@ -443,9 +444,9 @@ export const brandContextPatchSchema = z
   .strict()
   .refine((v) => Object.keys(v).length > 0, "Nothing to update.");
 
-/** Sign-up asks only for email and password; the business name comes from Instagram (connected next). */
+/** Sign-up asks only for a username and password; the business name comes from Instagram (connected next). */
 export const signupSchema = z.object({
-  email: emailSchema,
+  username: usernameSchema,
   password: newPasswordSchema,
 });
 
@@ -662,3 +663,9 @@ export const photoCaptionSchema = z
     request: z.string().trim().max(300).optional(),
   })
   .strict();
+
+// ─── AI keys (admin) ─────────────────────────────────────────────────────────
+
+/** The key itself is checked with keyProblem() (lib/services/ai-key-core.ts) so the message names the problem. */
+export const aiKeyBodySchema = z.object({ apiKey: z.string().max(400) });
+export const aiKeyTestSchema = z.object({ apiKey: z.string().max(400).optional(), businessId: z.string().max(64).optional() });

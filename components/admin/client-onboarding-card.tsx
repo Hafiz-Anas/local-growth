@@ -30,15 +30,14 @@ export function ClientOnboardingCard({ business }: { business: AdminBusinessDto 
   const n = Math.min(stepNumber(business.onboardingStep), PROGRESS_STEPS.length);
   const hasUsers = business.users.some((u) => u.status === "active");
 
-  const invite = useMutation<{ recipients: number; emailed: number; business: AdminBusinessDto }, ApiClientError>({
+  const invite = useMutation<{ recipients: number; business: AdminBusinessDto }, ApiClientError>({
     mutationFn: () => apiFetch(`/api/admin/businesses/${business.id}/onboarding-invite`, { method: "POST" }),
-    onSuccess: ({ recipients, emailed, business: updated }) => {
+    onSuccess: ({ recipients, business: updated }) => {
       queryClient.setQueryData(qk.admin.business(business.id), updated);
       queryClient.invalidateQueries({ queryKey: qk.admin.businesses });
       queryClient.invalidateQueries({ queryKey: qk.admin.onboarding });
       queryClient.invalidateQueries({ queryKey: qk.admin.activity(business.id) });
-      if (emailed < recipients) notify.error(t("admin.onboarding.inviteEmailFailed", { count: recipients - emailed }));
-      else notify.success(t("admin.onboarding.inviteSent", { count: recipients }));
+      notify.success(t("admin.onboarding.inviteSent", { count: recipients }));
     },
   });
 

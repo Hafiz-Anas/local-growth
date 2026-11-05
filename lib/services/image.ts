@@ -1,4 +1,5 @@
 import "server-only";
+import { resolveGeminiKey } from "@/lib/server/ai-keys";
 import { ImageGenerationError, IMAGE_FAILURE_REASONS, type ImageFailureReason } from "./images/errors";
 import { generateGeminiImage, readGeminiConfig } from "./images/gemini";
 import { placeholderPng } from "./images/placeholder";
@@ -20,6 +21,8 @@ export interface ImageRequest {
   colors: string[];
   /** Bump for a different result from the same prompt ("Regenerate"). */
   variant: number;
+  /** Whose key to use (client key → platform key → environment). */
+  businessId?: string | null;
 }
 
 export interface GeneratedImage {
@@ -60,8 +63,9 @@ export class GeminiImageService implements ImageService {
   readonly provider = "gemini" as const;
 
   async generate(request: ImageRequest): Promise<GeneratedImage> {
-    const config = readGeminiConfig();
-    if (!config) throw new ImageGenerationError("not_configured", "GEMINI_API_KEY is not set.");
+    const key = await resolveGeminiKey(request.businessId);
+    const config = key ? readGeminiConfig({ ...process.env, GEMINI_API_KEY: key.apiKey }) : null;
+    if (!config) throw new ImageGenerationError("not_configured", "No Gemini API key is set (client, platform or environment).");
     return generateGeminiImage(config, request.prompt);
   }
 }

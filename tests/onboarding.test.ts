@@ -18,13 +18,15 @@ const locale = (lang: string) => JSON.parse(readFileSync(path.join(process.cwd()
 const get = (obj: unknown, key: string) => key.split(".").reduce<unknown>((o, k) => (o as Record<string, unknown> | undefined)?.[k], obj);
 
 describe("Sign-up", () => {
-  it("asks only for email and password", () => {
-    const parsed = signupSchema.safeParse({ email: "owner@example.com", password: "Growth2026!" });
+  it("asks only for username and password", () => {
+    const parsed = signupSchema.safeParse({ username: "Owner_1", password: "Growth2026!" });
     assert.ok(parsed.success);
-    assert.deepEqual(Object.keys(parsed.data).sort(), ["email", "password"]);
+    assert.deepEqual(Object.keys(parsed.data).sort(), ["password", "username"]);
+    assert.equal(parsed.data.username, "owner_1");
     // A name or business name in the form is ignored, never required.
-    assert.ok(signupSchema.safeParse({ email: "owner@example.com", password: "Growth2026!", name: "x" }).success);
-    assert.equal(signupSchema.safeParse({ email: "not-an-email", password: "Growth2026!" }).success, false);
+    assert.ok(signupSchema.safeParse({ username: "owner", password: "Growth2026!", name: "x" }).success);
+    assert.equal(signupSchema.safeParse({ username: "not an username", password: "Growth2026!" }).success, false);
+    assert.equal(signupSchema.safeParse({ username: "ab", password: "Growth2026!" }).success, false);
   });
 
   it("names the person from their email, and the business from the Instagram username when it has no display name", () => {

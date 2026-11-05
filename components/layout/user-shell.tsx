@@ -14,7 +14,6 @@ import { GallerySync } from "@/components/gallery/gallery-sync";
 import { SheetHost } from "@/components/gallery/sheets/sheet-host";
 import { useActiveClient } from "@/components/providers/active-client-provider";
 import { InstagramIssueBanner } from "@/components/shared/instagram-issue-banner";
-import { VerifyEmailBanner } from "@/components/shared/verify-email-banner";
 import { EdgeSwipeBack } from "@/components/shell/edge-swipe";
 import { MenuUserProvider } from "@/components/shell/shell-context";
 import { TabBar } from "@/components/shell/tab-bar";
@@ -44,14 +43,12 @@ export function UserShell({
   user: base,
   nav,
   preferences,
-  emailUnverified = false,
   children,
 }: {
   user: MenuUserBase;
   nav: NavItem[];
   preferences: UiPreferences;
   /** Self sign-ups see a banner until they click the emailed link. */
-  emailUnverified?: boolean;
   children: ReactNode;
 }) {
   const { client, isPreview } = useActiveClient();
@@ -119,7 +116,6 @@ export function UserShell({
                 </div>
               )}
 
-              {!isPreview && <VerifyEmailBanner unverified={emailUnverified} email={base.email} />}
               {client.instagramIssue && !isPreview && <InstagramIssueBanner />}
 
               {/* The AI tab has its own header on phones; desktop keeps the regular one. */}

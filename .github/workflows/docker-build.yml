@@ -92,7 +92,7 @@ jobs:
             -e AUTH_URL=http://localhost:3000 \
             -e ENCRYPTION_KEY=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA= \
             -e CRON_SECRET=ci-cron \
-            -e EMAIL_PROVIDER=console -e INSTAGRAM_PROVIDER=mock -e AI_PROVIDER=mock -e IMAGE_PROVIDER=mock \
+            -e INSTAGRAM_PROVIDER=mock -e AI_PROVIDER=mock -e IMAGE_PROVIDER=mock \
             lge-web:ci
 
       - name: Liveness and readiness answer 200

@@ -151,6 +151,8 @@ export class SharedTextGate implements TextGate {
     private readonly rpd: number,
     private readonly local: TextRequestGate,
     private readonly now: () => number = Date.now,
+    /** Redis key namespace: one budget per API key ("gemini:<fingerprint>"). */
+    private readonly ns: string = "gemini",
   ) {}
 
   async acquire(): Promise<GateDecision> {
@@ -161,9 +163,9 @@ export class SharedTextGate implements TextGate {
       const [allowed, kind, pause] = (await this.redis.eval(
         ACQUIRE,
         3,
-        `${PREFIX}gemini:pause`,
-        `${PREFIX}gemini:m:${minute}`,
-        `${PREFIX}gemini:d:${dayEnd}`,
+        `${PREFIX}${this.ns}:pause`,
+        `${PREFIX}${this.ns}:m:${minute}`,
+        `${PREFIX}${this.ns}:d:${dayEnd}`,
         this.rpm,
         this.rpd,
         2 * MINUTE,
@@ -200,7 +202,7 @@ export class SharedTextGate implements TextGate {
     const until = this.now() + wait;
     this.seen = { allowed: false, reason, until, budget: false };
     try {
-      await this.redis.eval(PAUSE, 1, `${PREFIX}gemini:pause`, `${reason}|${until}`, until, wait);
+      await this.redis.eval(PAUSE, 1, `${PREFIX}${this.ns}:pause`, `${reason}|${until}`, until, wait);
     } catch (error) {
       warnOnce(this.warned, "Gemini budget store unavailable", error);
     }

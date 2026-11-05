@@ -41,6 +41,8 @@ import { createServer } from "node:http";
 export interface StubCall {
   system: string;
   turns: Array<{ role: string; text: string }>;
+  /** The x-goog-api-key the request carried (the admin AI-keys spec checks which key a call used). */
+  key?: string;
   kind: "strategy" | "report" | "monitor" | "statistics" | "shareability" | "prefill" | "style" | "suggest" | "reply" | "competitor" | "classify" | "postInsight" | "similar" | "caption" | "chat";
 }
 
@@ -148,7 +150,7 @@ export async function startGeminiStub(port = STUB_PORT) {
                   : system.includes("You reply on behalf of")
                     ? "reply"
                     : "chat";
-      calls.push({ system, turns, kind });
+      calls.push({ system, turns, kind, key: String(req.headers["x-goog-api-key"] ?? "") });
       const question = turns.at(-1)?.text ?? "";
       res.setHeader("content-type", "application/json");
       if (state.fail || question.includes("[down]")) {

@@ -1,14 +1,15 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import { normalizeUsername } from "@/lib/usernames";
 import { signupSchema } from "@/lib/validation/api";
 import { passwordProblems } from "@/lib/validation/password";
 
 /**
- * Sign-up in one page: email + password, then Instagram — the account exists only once Instagram is
+ * Sign-up in one page: username + password, then Instagram — the account exists only once Instagram is
  * connected. Pure (the store and the Instagram connect step are injected), tested in tests/signup-flow.test.ts;
  * the Prisma store, Meta/mock connect and sign-in live in lib/server/signup.ts.
  *
- *  1. startSignup     validates as before (format, password rules, email not registered), stores a
- *                     PendingSignup (password HASH only, 15 min, one per email — a second start replaces
+ *  1. startSignup     validates as before (username rules, password rules, username not taken), stores a
+ *                     PendingSignup (password HASH only, 15 min, one per username — a second start replaces
  *                     the first) and answers its id + the OAuth state `su.<id>.<nonce>` (the row keeps
  *                     the nonce's SHA-256).
  *  2. finishSignup    Instagram's callback: the cookie's id, the state and the row must match and the row
@@ -20,12 +21,12 @@ import { passwordProblems } from "@/lib/validation/password";
 export const PENDING_SIGNUP_TTL_MS = 15 * 60 * 1000;
 const STATE_PREFIX = "su";
 
-export type SignupField = "email" | "password";
-export type SignupStartError = "invalid" | "email_taken";
+export type SignupField = "username" | "password";
+export type SignupStartError = "invalid" | "username_taken";
 
 export interface PendingSignupRecord {
   id: string;
-  email: string;
+  username: string;
   passwordHash: string;
   language: "en" | "ar";
   stateHash: string;
@@ -33,11 +34,11 @@ export interface PendingSignupRecord {
 }
 
 /** What Instagram's side of the flow ends with (before any account exists). */
-export type SignupFailure = "cancelled" | "not_tester" | "expired" | "error" | "declined" | "no_account" | "taken" | "unavailable" | "email_taken";
+export type SignupFailure = "cancelled" | "not_tester" | "expired" | "error" | "declined" | "no_account" | "taken" | "unavailable" | "username_taken";
 export type SignupOutcome = SignupFailure | "connected" | "pick";
 
 /** What Instagram's callback can bring back to /signup (?instagram=…). */
-export const SIGNUP_PAGE_OUTCOMES: readonly (SignupFailure | "pick")[] = ["cancelled", "not_tester", "expired", "error", "declined", "no_account", "taken", "unavailable", "email_taken", "pick"];
+export const SIGNUP_PAGE_OUTCOMES: readonly (SignupFailure | "pick")[] = ["cancelled", "not_tester", "expired", "error", "declined", "no_account", "taken", "unavailable", "username_taken", "pick"];
 
 /** An Instagram account ready to be stored with the new business. `data` is opaque to this module. */
 export interface SignupInstagram<C> {
@@ -48,22 +49,23 @@ export interface SignupInstagram<C> {
 }
 
 export interface SignupStore<C> {
-  emailRegistered(email: string): Promise<boolean>;
-  /** Stores the pending sign-up, replacing any other one for the same email. */
+  /** The username is used by a login (it arrives normalized: lower case). */
+  usernameTaken(username: string): Promise<boolean>;
+  /** Stores the pending sign-up, replacing any other one for the same username. */
   replacePending(record: PendingSignupRecord): Promise<void>;
   findPending(id: string): Promise<PendingSignupRecord | null>;
   /** The Instagram account is already connected to another login. */
   instagramTaken(account: SignupInstagram<C>): Promise<boolean>;
   /**
    * User + business + Instagram connection in one transaction, deleting the pending row in it too.
-   * Throws `SignupConflict` when the email or the Instagram account was taken meanwhile (a race), or the
-   * pending row is gone (replaced by a newer start for the same email) — "expired".
+   * Throws `SignupConflict` when the username or the Instagram account was taken meanwhile (a race), or the
+   * pending row is gone (replaced by a newer start for the same username) — "expired".
    */
   createAccount(pending: PendingSignupRecord, account: SignupInstagram<C>): Promise<{ userId: string; businessId: string }>;
 }
 
 export class SignupConflict extends Error {
-  constructor(readonly reason: "email_taken" | "taken" | "expired") {
+  constructor(readonly reason: "username_taken" | "taken" | "expired") {
     super(reason);
   }
 }
@@ -93,7 +95,7 @@ const equal = (a: string, b: string) => {
 
 export type SignupCheck =
   | { ok: true; pending: PendingSignupRecord }
-  | { ok: false; reason: "missing" | "mismatch" | "expired"; /** For pre-filling the email on /signup. */ pending: PendingSignupRecord | null };
+  | { ok: false; reason: "missing" | "mismatch" | "expired"; /** For pre-filling the username on /signup. */ pending: PendingSignupRecord | null };
 
 /**
  * The callback's checks: the cookie's pending id, the state Meta sent back and the stored row agree, and
@@ -111,36 +113,36 @@ export async function checkSignup<C>(store: SignupStore<C>, input: { cookieId: s
 
 // Start ----------------------------------------------------------------------------
 
-export type StartResult = { ok: true; id: string; state: string; email: string } | { ok: false; error: SignupStartError; fields: SignupField[] };
+export type StartResult = { ok: true; id: string; state: string; username: string } | { ok: false; error: SignupStartError; fields: SignupField[] };
 
 /** Step 1: the same checks as before; nothing but the pending row is written. */
 export async function startSignup<C>(
   store: SignupStore<C>,
-  raw: { email: string; password: string; language: "en" | "ar" },
+  raw: { username: string; password: string; language: "en" | "ar" },
   deps: { hashPassword: (password: string) => Promise<string>; now?: Date; random?: (bytes: number) => string },
 ): Promise<StartResult> {
-  const parsed = signupSchema.safeParse({ email: raw.email, password: raw.password });
-  const weak = passwordProblems(raw.password, { email: raw.email, name: "" }).length > 0;
+  const parsed = signupSchema.safeParse({ username: raw.username, password: raw.password });
+  const weak = passwordProblems(raw.password, { email: normalizeUsername(raw.username), name: "" }).length > 0;
   if (!parsed.success || weak) {
     const fields = new Set<SignupField>(parsed.success ? [] : parsed.error.issues.map((i) => i.path[0] as SignupField));
     if (weak) fields.add("password");
     return { ok: false, error: "invalid", fields: [...fields] };
   }
-  const { email, password } = parsed.data;
-  if (await store.emailRegistered(email)) return { ok: false, error: "email_taken", fields: ["email"] };
+  const { username, password } = parsed.data;
+  if (await store.usernameTaken(username)) return { ok: false, error: "username_taken", fields: ["username"] };
 
   const random = deps.random ?? ((bytes: number) => randomBytes(bytes).toString("base64url"));
   const id = random(18);
   const nonce = random(24);
   await store.replacePending({
     id,
-    email,
+    username,
     passwordHash: await deps.hashPassword(password),
     language: raw.language,
     stateHash: hashNonce(nonce),
     expiresAt: new Date((deps.now ?? new Date()).getTime() + PENDING_SIGNUP_TTL_MS),
   });
-  return { ok: true, id, state: buildSignupState(id, nonce), email };
+  return { ok: true, id, state: buildSignupState(id, nonce), username };
 }
 
 // Finish ---------------------------------------------------------------------------

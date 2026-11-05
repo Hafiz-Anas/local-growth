@@ -90,7 +90,7 @@ async function main() {
     let user;
     try {
       user = await db.user.create({
-        data: { email, name, passwordHash, role: "ADMIN", status: "ACTIVE", emailVerifiedAt: new Date() },
+        data: { email, name, passwordHash, role: "ADMIN", status: "ACTIVE" },
         select: { id: true, email: true },
       });
     } catch (error) {

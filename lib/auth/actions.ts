@@ -9,6 +9,7 @@ import { COOKIES } from "@/config/site";
 import { db } from "@/lib/db";
 import { forgetLoginOnDevice, rememberLogin } from "@/lib/server/device-logins";
 import { getLocale } from "@/lib/i18n/server";
+import { parseIdentifier } from "@/lib/usernames";
 import { normalizeTheme } from "@/lib/theme-script";
 import { SIGNUP_LIMIT, clientIp, getRateLimiter } from "@/lib/server/rate-limit";
 import { startInstagramSignup } from "@/lib/server/signup";
@@ -18,27 +19,29 @@ export type LoginError = "invalid_credentials" | "missing_fields" | "suspended" 
 
 export interface LoginState {
   error: LoginError | null;
-  email: string;
+  /** What was typed in the username / email field, kept when the login fails. */
+  identifier: string;
 }
 
 const KNOWN_CODES: LoginError[] = ["invalid_credentials", "suspended", "rate_limited"];
 
 export async function loginAction(_prev: LoginState, formData: FormData): Promise<LoginState> {
-  const email = String(formData.get("email") ?? "").trim();
+  const identifier = String(formData.get("identifier") ?? "").trim();
   const password = String(formData.get("password") ?? "");
-  if (!email || !password) return { error: "missing_fields", email };
+  if (!identifier || !password) return { error: "missing_fields", identifier };
 
   (await cookies()).delete(COOKIES.preview);
   try {
-    await signIn("credentials", { email, password, redirect: false });
+    await signIn("credentials", { identifier, password, redirect: false });
   } catch (error) {
     if (error instanceof AuthError) {
       const code = error instanceof CredentialsSignin ? (error.code as LoginError) : null;
-      return { error: code && KNOWN_CODES.includes(code) ? code : "invalid_credentials", email };
+      return { error: code && KNOWN_CODES.includes(code) ? code : "invalid_credentials", identifier };
     }
     throw error;
   }
-  const user = await db.user.findUnique({ where: { email: email.toLowerCase() }, select: { id: true, role: true, uiPreferences: true } });
+  const who = parseIdentifier(identifier);
+  const user = await db.user.findUnique({ where: who.kind === "email" ? { email: who.value } : { username: who.value }, select: { id: true, role: true, uiPreferences: true } });
   // This browser remembers the login, so the person can switch back to it later without the password.
   if (user) await rememberLogin(user.id);
   // The saved language and theme apply from the first page (no flash); the sidebar is applied in the browser.
@@ -52,26 +55,26 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
   redirect(user?.role === "ADMIN" ? HOME_BY_ROLE.admin : "/dashboard");
 }
 
-export type SignupField = "email" | "password";
-export type SignupError = "invalid" | "email_taken" | "rate_limited" | "unavailable" | "generic";
+export type SignupField = "username" | "password";
+export type SignupError = "invalid" | "username_taken" | "rate_limited" | "unavailable" | "generic";
 
 export interface SignupState {
   error: SignupError | null;
   /** Fields the server rejected (the form also checks them before submitting). */
   fields: SignupField[];
-  values: { email: string };
+  values: { username: string };
 }
 
 /**
- * Public sign-up (one page): checks email and password as always, then sends the browser to connect
+ * Public sign-up (one page): checks username and password, then sends the browser to connect
  * Instagram. No account exists until Instagram is connected — see lib/server/signup.ts. Rate-limited per IP.
  */
 export async function signupAction(_prev: SignupState, formData: FormData): Promise<SignupState> {
   const raw = {
-    email: String(formData.get("email") ?? ""),
+    username: String(formData.get("username") ?? ""),
     password: String(formData.get("password") ?? ""),
   };
-  const values = { email: raw.email };
+  const values = { username: raw.username };
 
   if (!(await getRateLimiter().consume(SIGNUP_LIMIT, clientIp(await headers())))) return { error: "rate_limited", fields: [], values };
 

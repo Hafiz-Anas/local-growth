@@ -7,14 +7,9 @@ metadata:
   namespace: lge
 data:
   NODE_ENV: "production"
-  # The public address of the app (password-reset links, Auth.js, Meta login callback).
+  # The public address of the app (Auth.js, Meta login callback).
   AUTH_URL: "https://APP_DOMAIN"
   DEMO_ACCOUNTS_ENABLED: "false"
-  EMAIL_VERIFICATION_BANNER: "false"
-
-  # Email
-  EMAIL_PROVIDER: "resend"
-  EMAIL_FROM: "AI Growth Engine <noreply@APP_DOMAIN>"
 
   # Instagram (Meta)
   INSTAGRAM_PROVIDER: "meta"

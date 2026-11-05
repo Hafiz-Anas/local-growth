@@ -21,7 +21,8 @@ const BOUTIQUE = { email: "boutique@localgrowth.dev", password: "User@123", hand
 const OTHER = { email: "user@mathanetbaity.dev", password: "User@123" };
 const ADMIN = { email: "admin@localgrowth.dev", password: "Admin@123" };
 const RUN = randomUUID().slice(0, 6);
-const NEW = { email: `device-${RUN}@example.com`, password: "Growth2026!", handle: `devicebakes_${RUN}` };
+// Signed up with a username: its internal address is the placeholder <username>@users.invalid.
+const NEW = { username: `dev_${RUN}`, email: `dev_${RUN}@users.invalid`, password: "Growth2026!", handle: `devicebakes_${RUN}` };
 const NEW_PASSWORD = "Growth2027!new";
 const COOKIE = "lge_device_logins";
 
@@ -53,14 +54,14 @@ test.afterAll(async ({ browser }) => {
   await pool?.end();
 });
 
-async function fillLogin(p: Page, who: { email: string; password: string }) {
-  await p.getByLabel("Email").fill(who.email);
+async function fillLogin(p: Page, who: { email: string; username?: string; password: string }) {
+  await p.getByLabel("Username or email").fill(who.username ?? who.email);
   await p.getByLabel("Password", { exact: true }).fill(who.password);
   await p.getByRole("button", { name: "Log in" }).click();
   await p.waitForURL((url) => !url.pathname.startsWith("/login"));
 }
 
-async function signedIn(browser: Browser, who: { email: string; password: string }) {
+async function signedIn(browser: Browser, who: { email: string; username?: string; password: string }) {
   const context = await browser.newContext();
   const p = await context.newPage();
   await p.goto("/login");
@@ -79,7 +80,7 @@ async function openSwitcher(p: Page) {
   await expect(rows(p).first()).toBeVisible();
 }
 
-async function addByLogin(p: Page, who: { email: string; password: string; handle: string }) {
+async function addByLogin(p: Page, who: { email: string; username?: string; password: string; handle: string }) {
   await openSwitcher(p);
   await sheet(p).getByTestId("account-add").click();
   await sheet(p).getByTestId("account-add-login").click();
@@ -220,7 +221,7 @@ test("“Create a new account” runs sign-up, Instagram and onboarding; the oth
   await sheet(page).getByTestId("account-add-signup").click();
   await page.waitForURL(/\/signup\?add=1/);
   await expect(page.getByTestId("adding-account")).toBeVisible();
-  await page.getByLabel("Email").fill(NEW.email);
+  await page.getByLabel("Username").fill(NEW.username);
   await page.getByLabel("Password").fill(NEW.password);
   await page.getByRole("button", { name: "Continue with Instagram" }).click();
   // The single sign-up page goes straight to Instagram (the demo screen with mock Instagram); no

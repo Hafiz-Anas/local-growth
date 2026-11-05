@@ -20,11 +20,13 @@ import { businessToClient, useAdminBusiness, useAdminPermissions } from "@/lib/a
 import { apiFetch, type ApiClientError } from "@/lib/api/client";
 import { qk } from "@/lib/api/queries";
 import { startPreviewAction } from "@/lib/auth/actions";
+import { loginName } from "@/lib/usernames";
 import { useI18n } from "@/lib/i18n/provider";
 import { countEnabled, enabledFeatureKeys } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import type { AdminBusinessDto, FeatureKey, PermissionsDto, PlanId } from "@/types";
 import { ActivityFeed } from "./activity-feed";
+import { AiKeyCard } from "./ai-key-card";
 import { BusinessUsersCard } from "./business-users-card";
 import { ClientBrandCard, ClientOnboardingCard } from "./client-onboarding-card";
 import { DeleteBusinessDialog } from "./delete-business-dialog";
@@ -122,7 +124,7 @@ export function ClientPermissionsView({ clientId }: { clientId: string }) {
             {client.email && (
               <>
                 {" · "}
-                <bdi>{client.email}</bdi>
+                <bdi>{loginName(client.email)}</bdi>
               </>
             )}
           </p>
@@ -237,6 +239,8 @@ export function ClientPermissionsView({ clientId }: { clientId: string }) {
       {LOGIN_HAS_SEVERAL_ACCOUNTS && <InstagramAccountsCard businessId={clientId} />}
 
       <IntegrationCard businessId={clientId} />
+
+      <AiKeyCard scope={{ kind: "business", businessId: clientId }} />
 
       <ClientBrandCard businessId={clientId} />
 

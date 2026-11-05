@@ -143,8 +143,7 @@ function BusinessRow({ business: b }: { business: AdminOnboardingBusinessDto }) 
             <PlanBadge plan={b.plan} />
           </span>
           <span className="mt-0.5 block truncate text-caption text-muted">
-            {b.owner ? <bdi>{b.owner.email}</bdi> : "—"}
-            {b.owner && !b.owner.emailVerified && <span className="ms-1.5 text-warning">· {t("adminOnboarding.unverified")}</span>}
+            {b.owner ? <bdi>{b.owner.login}</bdi> : "—"}
             {" · "}
             {t("adminOnboarding.signedUp")} <TimeAgo iso={b.createdAt} />
             {b.lastEventAt && (

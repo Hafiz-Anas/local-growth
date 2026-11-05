@@ -2,7 +2,6 @@ import "server-only";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { Prisma } from "@/lib/generated/prisma/client";
-import { EmailSendError } from "@/lib/services/mail/types";
 
 /**
  * Consistent JSON envelope for every API route:
@@ -11,6 +10,7 @@ import { EmailSendError } from "@/lib/services/mail/types";
  */
 export type ApiErrorCode =
   | "validation_error"
+  | "encryption_not_configured"
   | "unauthorized"
   | "forbidden"
   | "not_found"
@@ -26,7 +26,6 @@ export type ApiErrorCode =
   | "instagram_error"
   | "ai_error"
   | "image_unavailable"
-  | "email_unavailable"
   /** details: [{ path: "reason", message: PublishReason }] (lib/server/publishing.ts) */
   | "publish_failed"
   /** The post is already scheduled (reschedule it instead). */
@@ -109,8 +108,6 @@ export function handler<C>(fn: (request: Request, context: C) => Promise<Respons
       return await fn(request, context);
     } catch (error) {
       if (error instanceof ApiError) return fail(error.status, error.code, error.message, error.details);
-      // Already logged (without secrets) by the email service.
-      if (error instanceof EmailSendError) return fail(503, "email_unavailable", "We couldn't send the email right now.", { reason: error.reason });
       if (error instanceof z.ZodError) return fail(400, "validation_error", "Invalid input.", zodDetails(error));
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === "P2002") return fail(409, "conflict", "A record with these values already exists.");

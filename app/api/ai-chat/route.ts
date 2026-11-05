@@ -33,7 +33,7 @@ export const POST = handler(async (request) => {
   const stored = chatId ? await chatMessagesForAi(businessId, chatId, CHAT_HISTORY_LIMIT + 1) : null;
   const none: AiChatAnswerDto = { text: null, message: null };
   const ai = getAIService();
-  if (!ai.textAvailability().available || !(await getRateLimiter().consume(AI_CHAT_LIMIT, businessId))) return ok(none);
+  if (!(await ai.textAvailability(businessId)).available || !(await getRateLimiter().consume(AI_CHAT_LIMIT, businessId))) return ok(none);
 
   // The question was saved in the chat just before: the history is what came before it.
   const before: StoredChatMessage[] = [...(stored?.messages ?? [])];

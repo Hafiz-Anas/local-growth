@@ -96,6 +96,7 @@ export const qk = {
     users: (businessId?: string) => ["admin", "users", businessId ?? "all"] as const,
     activity: (businessId?: string) => ["admin", "activity", businessId ?? "all"] as const,
     system: ["admin", "system"] as const,
+    aiKey: (businessId?: string) => ["admin", "ai-key", businessId ?? "platform"] as const,
   },
 };
 

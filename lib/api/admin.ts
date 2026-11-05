@@ -13,6 +13,7 @@ import type {
   AdminSettingsDto,
   AdminSystemDto,
   AdminUserDto,
+  AiKeyStatusDto,
   BrandProfileDto,
   Client,
   Paginated,
@@ -45,6 +46,13 @@ export const useAdminOnboarding = () =>
 
 export const useAdminSettings = () =>
   useQuery<AdminSettingsDto, ApiClientError>({ queryKey: qk.admin.settings, queryFn: () => apiFetch("/api/admin/settings") });
+
+/** The platform AI key (no id) or one client's own AI key: the last 4 characters and which key is in use. */
+export const useAdminAiKey = (businessId?: string) =>
+  useQuery<AiKeyStatusDto, ApiClientError>({
+    queryKey: qk.admin.aiKey(businessId),
+    queryFn: () => apiFetch(businessId ? `/api/admin/businesses/${businessId}/ai-key` : "/api/admin/ai-settings"),
+  });
 
 /** A client's Instagram connection details and Meta integration log. */
 export const useAdminIntegration = (id: string) =>

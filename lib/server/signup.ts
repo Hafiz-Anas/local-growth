@@ -1,5 +1,5 @@
 import "server-only";
-import { cookies, headers } from "next/headers";
+import { cookies } from "next/headers";
 import { CredentialsSignin } from "next-auth";
 import { signIn } from "@/auth";
 import { COOKIES } from "@/config/site";
@@ -7,7 +7,8 @@ import { hashPassword } from "@/lib/auth/password";
 import { getSession } from "@/lib/auth/server";
 import { signupTicket } from "@/lib/auth/signup-ticket";
 import { decrypt, encrypt } from "@/lib/crypto";
-import { displayNameFromHandle, nameFromEmail } from "@/lib/display-names";
+import { displayNameFromHandle } from "@/lib/display-names";
+import { placeholderEmail, usernameFromPlaceholder } from "@/lib/usernames";
 import { db } from "@/lib/db";
 import { Prisma, type Plan } from "@/lib/generated/prisma/client";
 import {
@@ -25,7 +26,6 @@ import {
   type SignupStore,
   type StartResult,
 } from "@/lib/signup-flow";
-import { EmailSendError } from "@/lib/services/email";
 import { getInstagramService } from "@/lib/services/instagram";
 import { buildDialogUrl, connectFlow, getMetaConfig } from "@/lib/services/meta/config";
 import { toPageOption, type PageCandidate } from "@/lib/services/meta/mappers";
@@ -33,7 +33,6 @@ import { handleSchema } from "@/lib/validation/api";
 import type { MetaPageOptionDto } from "@/types";
 import { logActivity } from "./activity";
 import { rememberLogin } from "./device-logins";
-import { sendVerificationEmail } from "./email-verification";
 import { logIntegration } from "./integration-log";
 import { afterMetaConnected, afterMetaConnectedDeferred, grantAndPages, metaAccountKey, metaConnectionData, reviveGrant, type UserGrant } from "./meta-connect";
 import { recordEvent } from "./onboarding";
@@ -41,10 +40,10 @@ import { presetRows } from "./permissions";
 import { getSelfSignupPlan } from "./settings";
 
 /**
- * Public sign-up, one page (/signup): email + password, then "Continue with Instagram". The user and the
+ * Public sign-up, one page (/signup): username + password, then "Continue with Instagram". The user and the
  * business are created together only once Instagram is connected (decisions in lib/signup-flow.ts):
  *
- *  - startInstagramSignup   validates, stores a PendingSignup (password hash only, 15 min, one per email),
+ *  - startInstagramSignup   validates, stores a PendingSignup (password hash only, 15 min, one per username),
  *                           puts only its id in a short-lived encrypted httpOnly cookie and in the OAuth
  *                           state, and answers where the browser goes: Facebook Login (INSTAGRAM_PROVIDER=meta)
  *                           or the demo Instagram screen (/signup/demo-instagram, mock).
@@ -73,8 +72,10 @@ type SignupConnection =
 
 const PENDING_SELECT = { id: true, email: true, passwordHash: true, language: true, stateHash: true, expiresAt: true } as const;
 
-const toRecord = (row: { id: string; email: string; passwordHash: string; language: string; stateHash: string; expiresAt: Date }): PendingSignupRecord => ({
+// A pending row keeps the username as its internal placeholder address (lib/usernames.ts): `email` is unique there.
+const toRecord = ({ email, ...row }: { id: string; email: string; passwordHash: string; language: string; stateHash: string; expiresAt: Date }): PendingSignupRecord => ({
   ...row,
+  username: usernameFromPlaceholder(email) ?? email,
   language: row.language === "ar" ? "ar" : "en",
 });
 
@@ -95,13 +96,14 @@ function connectionData(data: SignupConnection) {
 }
 
 export const signupStore: SignupStore<SignupConnection> = {
-  async emailRegistered(email) {
-    return Boolean(await db.user.findUnique({ where: { email }, select: { id: true } }));
+  async usernameTaken(username) {
+    // The placeholder address counts too, so a username cannot shadow an account that has it as its email.
+    return Boolean(await db.user.findFirst({ where: { OR: [{ username }, { email: placeholderEmail(username) }] }, select: { id: true } }));
   },
-  async replacePending(record) {
-    // One pending sign-up per email: starting again replaces the older one (its cookie/state stop matching).
-    const data = { ...record, credentialsEncrypted: null, options: Prisma.DbNull, createdAt: new Date() };
-    await db.pendingSignup.upsert({ where: { email: record.email }, create: data, update: data });
+  async replacePending({ username, ...record }) {
+    // One pending sign-up per username: starting again replaces the older one (its cookie/state stop matching).
+    const data = { ...record, email: placeholderEmail(username), credentialsEncrypted: null, options: Prisma.DbNull, createdAt: new Date() };
+    await db.pendingSignup.upsert({ where: { email: data.email }, create: data, update: data });
   },
   async findPending(id) {
     const row = await db.pendingSignup.findUnique({ where: { id }, select: PENDING_SELECT });
@@ -136,8 +138,9 @@ export const signupStore: SignupStore<SignupConnection> = {
         });
         const user = await tx.user.create({
           data: {
-            email: pending.email,
-            name: nameFromEmail(pending.email),
+            username: pending.username,
+            email: placeholderEmail(pending.username),
+            name: pending.username,
             passwordHash: pending.passwordHash,
             role: "USER",
             businessId: business.id,
@@ -154,10 +157,10 @@ export const signupStore: SignupStore<SignupConnection> = {
         return { userId: user.id, businessId: business.id };
       });
     } catch (error) {
-      // Two sign-ups racing for the same email or Instagram account.
+      // Two sign-ups racing for the same username or Instagram account.
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
         const target = JSON.stringify(error.meta ?? {});
-        throw new SignupConflict(target.includes("email") ? "email_taken" : "taken");
+        throw new SignupConflict(target.includes("email") || target.includes("username") ? "username_taken" : "taken");
       }
       throw error;
     }
@@ -184,11 +187,11 @@ async function clearSignupCookie() {
   (await cookies()).set(SIGNUP_COOKIE, "", { ...signupCookieOptions, maxAge: 0 });
 }
 
-/** What /signup shows: the email of this browser's pending sign-up (even expired), and whether a picker is open. */
-export async function signupPageState(): Promise<{ email: string; picking: boolean }> {
+/** What /signup shows: the username of this browser's pending sign-up (even expired), and whether a picker is open. */
+export async function signupPageState(): Promise<{ username: string; picking: boolean }> {
   const id = await readSignupCookie();
   const row = id ? await db.pendingSignup.findUnique({ where: { id }, select: { email: true, options: true, expiresAt: true } }) : null;
-  return { email: row?.email ?? "", picking: Boolean(row?.options && row.expiresAt > new Date()) };
+  return { username: row ? (usernameFromPlaceholder(row.email) ?? "") : "", picking: Boolean(row?.options && row.expiresAt > new Date()) };
 }
 
 // Start ------------------------------------------------------------------------------
@@ -196,7 +199,7 @@ export async function signupPageState(): Promise<{ email: string; picking: boole
 export type StartSignupResult = Exclude<StartResult, { ok: true }> | { ok: true; redirectTo: string } | { ok: false; error: "unavailable"; fields: [] };
 
 /** Step 1 (the sign-up form's server action). Nothing but the pending row is written. */
-export async function startInstagramSignup(raw: { email: string; password: string; language: "en" | "ar" }): Promise<StartSignupResult> {
+export async function startInstagramSignup(raw: { username: string; password: string; language: "en" | "ar" }): Promise<StartSignupResult> {
   const flow = connectFlow();
   const config = flow === "meta" ? getMetaConfig() : null;
   if (flow === "meta_unavailable" || (flow === "meta" && !config)) return { ok: false, error: "unavailable", fields: [] };
@@ -289,8 +292,8 @@ function metaAccount(grant: UserGrant, page: PageCandidate): SignupInstagram<Sig
 
 /**
  * Turns the outcome into the next page. Connected: sign in (ticket, never the password), remember the
- * login on this device, send the verification email, import the Instagram account (Meta) → onboarding.
- * Anything else: nothing was created; back to /signup with the email still filled in.
+ * login on this device, import the Instagram account (Meta) → onboarding.
+ * Anything else: nothing was created; back to /signup with the username still filled in.
  */
 async function settle(result: FinishResult, reason: string | null, account: SignupInstagram<SignupConnection> | null = null): Promise<string> {
   // Signed in ("Add account" → "Create a new account"): back to the sign-up page proxy.ts lets them open.
@@ -300,7 +303,7 @@ async function settle(result: FinishResult, reason: string | null, account: Sign
     if (result.outcome !== "cancelled") {
       await logIntegration({ businessId: null, level: result.outcome === "error" ? "warning" : "info", call: "oauth.signup", errorCode: result.outcome, message: `Sign-up didn't connect Instagram (${result.outcome}).${reason ? ` ${reason}` : ""}` });
     }
-    // Keep pointing at the pending row (its email fills the form again) for another 15 minutes.
+    // Keep pointing at the pending row (its username fills the form again) for another 15 minutes.
     if (result.pending) await setSignupCookie(result.pending.id);
     else await clearSignupCookie();
     return back(result.outcome);
@@ -325,17 +328,7 @@ async function settle(result: FinishResult, reason: string | null, account: Sign
     afterMetaConnectedDeferred(result.businessId);
   }
 
-  // A failed email shouldn't undo the account — the banner says so and offers "Resend".
-  await sendVerificationEmail(result.userId, await appOrigin()).catch((error) => {
-    if (!(error instanceof EmailSendError)) console.error("[signup] verification email failed", error);
-  });
   return "/onboarding";
-}
-
-/** Email links are built from AUTH_URL (as everywhere), else this request's host. */
-async function appOrigin() {
-  const requestHeaders = await headers();
-  return process.env.AUTH_URL ?? `${requestHeaders.get("x-forwarded-proto") ?? "http"}://${requestHeaders.get("host")}`;
 }
 
 // Picker (several Instagram accounts) -------------------------------------------------

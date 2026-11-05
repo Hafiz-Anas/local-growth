@@ -10,7 +10,6 @@ import { LogoMark, Wordmark } from "@/components/brand/logo";
 import type { CurrentAccount } from "@/components/layout/account-switcher";
 import { ActiveAccountSwitcher } from "@/components/layout/login-switcher";
 import { LanguageToggle, ThemeToggle } from "@/components/layout/toggles";
-import { VerifyEmailBanner } from "@/components/shared/verify-email-banner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { reportOnboardingEvent } from "@/lib/api/brand";
@@ -35,9 +34,6 @@ export function ConnectInstagram({
   connection,
   account,
   addedAccount,
-  email,
-  emailUnverified,
-  verificationUnsent,
   userName,
 }: {
   flow: ConnectFlow;
@@ -45,9 +41,6 @@ export function ConnectInstagram({
   account?: CurrentAccount;
   /** "Add account": connecting the new account rather than signing up. */
   addedAccount: boolean;
-  email: string;
-  emailUnverified: boolean;
-  verificationUnsent: boolean;
   userName: string;
 }) {
   const { t } = useI18n();
@@ -65,7 +58,6 @@ export function ConnectInstagram({
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <VerifyEmailBanner unverified={emailUnverified} email={email} sendFailed={verificationUnsent} />
       <header className="border-b border-border">
         <div className="mx-auto flex h-14 w-full max-w-[680px] items-center gap-2 px-4">
           {account ? (

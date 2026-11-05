@@ -37,14 +37,11 @@ Set these under **Project → Settings → Environment Variables**, scoped to **
 | `DATABASE_URL` | Neon **pooled** connection string (`…-pooler….neon.tech/…?sslmode=require`) |
 | `DIRECT_URL` | Neon **direct** connection string (used only by `prisma migrate deploy` during the build) |
 | `AUTH_SECRET` | New random secret: `npx auth secret`, or `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"` |
-| `AUTH_URL` | `https://<your-domain>`: your production URL, with no trailing slash. It's used for Auth.js and for links in emails. |
+| `AUTH_URL` | `https://<your-domain>`: your production URL, with no trailing slash. It's used for Auth.js and the Meta login callback. |
 | `ENCRYPTION_KEY` | New 32-byte base64 key (same command as above). It encrypts Instagram tokens. Keep it stable: changing it later breaks existing Instagram connections. |
 | `STORAGE_PROVIDER` | `vercel-blob` |
 | `BLOB_READ_WRITE_TOKEN` | Added automatically by step 2. |
 | `DEMO_ACCOUNTS_ENABLED` | `false` |
-| `EMAIL_PROVIDER` | `resend` (real email). `console` only writes links to the function logs. |
-| `RESEND_API_KEY` | Resend API key with *Sending access* (Resend → API Keys). Mark it **Sensitive**. |
-| `EMAIL_FROM` | A sender on your verified domain, e.g. `AI Growth Engine <no-reply@your-domain>` (see *Email sending domain* below) |
 | `INSTAGRAM_PROVIDER` | `meta` for real Instagram connections (`mock` = demo flow) |
 | `META_APP_ID` | Your Meta app ID |
 | `META_APP_SECRET` | Meta app secret (Meta for Developers → App settings → Basic) |
@@ -59,21 +56,10 @@ Set these under **Project → Settings → Environment Variables**, scoped to **
 | `CRON_SECRET` | New random secret (same command as `AUTH_SECRET`). Turns on scheduled publishing; see *Publishing to Instagram* below. Mark it **Sensitive**. |
 | `META_WEBHOOK_VERIFY_TOKEN` | New random string (same command as `AUTH_SECRET`). Entered again in Meta's webhook settings (section 5). Mark it **Sensitive**. |
 
-Optional: `COMPETITOR_CRON_BATCH` (AI competitor comparisons per daily run, default 10), `MONITOR_CRON_BATCH` (post-monitoring readings per run, default 100). The daily job also stores one follower count per business per day for the Statistics page; `GEMINI_IMAGE_MODEL`, `META_OAUTH_RESPONSE_TYPE` (defaults to `code`), and `EMAIL_VERIFICATION_BANNER` (`true` shows the "Verify your email" banner after login; leave it unset, which means off, until verification emails are really delivered).
+Optional: `COMPETITOR_CRON_BATCH` (AI competitor comparisons per daily run, default 10), `MONITOR_CRON_BATCH` (post-monitoring readings per run, default 100). The daily job also stores one follower count per business per day for the Statistics page; `GEMINI_IMAGE_MODEL` and `META_OAUTH_RESPONSE_TYPE` (defaults to `code`). The Gemini key can also be set in the admin panel (System → AI settings, or per client on its page); a key saved there wins over `GEMINI_API_KEY`, which stays as the fallback.
 
-**Don't set these on Vercel:** `UPLOAD_DIR` (local storage only), `GEMINI_API_BASE`, `META_GRAPH_BASE_URL` and `RESEND_API_BASE` (test stubs only), and `ADMIN_*` (used only by `create-admin` on your machine).
+**Don't set these on Vercel:** `UPLOAD_DIR` (local storage only), `GEMINI_API_BASE`, and `META_GRAPH_BASE_URL` (test stubs only), and `ADMIN_*` (used only by `create-admin` on your machine).
 
-### Email sending domain (Resend)
-
-Resend only sends from domains you have verified. Until then it rejects every message (the app logs `[email:resend] … failed (rejected, HTTP 403)` and shows users a friendly "couldn't send the email" message).
-
-1. In Resend, open **Domains → Add domain** and enter the domain used in `EMAIL_FROM` (a subdomain such as `mail.your-domain` is fine).
-2. Add the DNS records Resend shows (SPF/MX and DKIM, optionally DMARC) at your DNS provider, then click **Verify**. It usually takes a few minutes.
-3. Create an API key with *Sending access*, set `RESEND_API_KEY`, `EMAIL_FROM` and `EMAIL_PROVIDER=resend`, and redeploy.
-
-Without a verified domain, Resend's test sender `onboarding@resend.dev` can only deliver to the email address of your own Resend account. That is useful for a first local test, not for real users.
-
-Verification, password-reset and onboarding-invite links all use `AUTH_URL`, so set it to the live domain in production.
 
 ## 4. Build command and migrations
 
@@ -239,7 +225,6 @@ Then sign in at `https://<your-domain>/login`.
 | --- | --- | --- |
 | **Rate limiter** (`RATE_LIMIT_STORE="memory"`) | Counters live in each function instance's memory. Separate instances don't share them, and they reset on a cold start. Login, sign-up, reset, sync and image-generation limits become best-effort: an attacker can get more attempts than the limit allows. | **Yes, at low traffic.** Passwords are bcrypt-hashed and checked by policy. Before real growth, add a Redis/Upstash `RateLimiter` (`lib/server/rate-limit.ts`). Callers don't need to change. |
 | **Upload size** | Vercel rejects function request bodies over **4.5 MB**. **Gallery photos avoid it:** the browser makes them smaller (at most 2048 px, JPEG) and sends them straight to Blob with a one-file client token from `POST /api/gallery/uploads` (`BLOB_READ_WRITE_TOKEN` is required for this), then the server checks the stored file. Avatars and logos (2 MB) are fine. Post Generator images (up to 8 MB in the UI) and brand-post videos (up to 50 MB) still go through the API and fail above 4.5 MB with a 413 error. | **Yes for the Gallery.** Other uploads: typical phone photos fit; move them to the same direct upload when needed. |
-| **Email** | With `EMAIL_PROVIDER="resend"`, emails are sent during the request. If Resend fails, sign-up still succeeds and the banner offers "Resend verification email"; reset and invite show a friendly error. There is no retry queue. | **Yes.** Users can resend; failures are in the function logs as `[email:resend]`. |
 | **Background sync** (`after()`) | Instagram syncs after connecting and auto-syncs run after the response is sent, within the function's maximum duration. A very large account could be cut off. | **Yes.** Syncs are incremental, and "Sync now" picks up the rest. |
 | **Local file storage** | The disk is read-only and per-instance. With `STORAGE_PROVIDER="vercel-blob"`, nothing writes to disk. `/api/uploads/*` only serves `local` files and just returns 404 on Vercel. | **Yes**, as long as `STORAGE_PROVIDER` is `vercel-blob`. |
 | **Mock-media colour extraction** | Reads `public/mock-media/*.svg` from disk for demo (`mock`) Instagram data. Those files may not be inside the function bundle, so it falls back to no colours. | **Yes.** It's demo-only, and the failure is silent. |

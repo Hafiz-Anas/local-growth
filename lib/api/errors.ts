@@ -6,6 +6,7 @@ type Translate = (key: string, vars?: Record<string, string | number>) => string
 /** Codes with their own friendly message under `errors.*` in the locale files. */
 const KNOWN = new Set([
   "validation_error",
+  "encryption_not_configured",
   "unauthorized",
   "forbidden",
   "not_found",
@@ -25,7 +26,6 @@ const KNOWN = new Set([
   "recommendations_not_enough_data",
   "recommendations_week_set",
   "image_unavailable",
-  "email_unavailable",
   "dm_window_closed",
   "comment_unavailable",
   "regenerate_unavailable",

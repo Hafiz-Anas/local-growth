@@ -18,7 +18,7 @@ and `SPACES_BUCKET` in `k8s/` must be replaced (search the folder).
 
 | # | Item | Where it goes |
 | --- | --- | --- |
-| 1 | **Domain** for the app, e.g. `app.example.com` (`APP_DOMAIN`) | `k8s/ingress.yaml`, `k8s/configmap.yaml` (`AUTH_URL`, `META_REDIRECT_URI`, `EMAIL_FROM`) |
+| 1 | **Domain** for the app, e.g. `app.example.com` (`APP_DOMAIN`) | `k8s/ingress.yaml`, `k8s/configmap.yaml` (`AUTH_URL`, `META_REDIRECT_URI`) |
 | 2 | **DOKS cluster** name (Kubernetes 1.27 or newer) | GitHub variable `DOKS_CLUSTER` |
 | 3 | **Container Registry** name (`REGISTRY_NAME`), connected to the cluster | `k8s/kustomization.yaml`, GitHub variable `DOCR_REGISTRY` |
 | 4 | **Spaces** bucket name and region, e.g. `fra1` | `k8s/configmap.yaml` (`SPACES_ENDPOINT`, `SPACES_REGION`, `SPACES_BUCKET`) |
@@ -27,7 +27,6 @@ and `SPACES_BUCKET` in `k8s/` must be replaced (search the folder).
 | 7 | **Managed Valkey** (Redis-compatible) | Secret `REDIS_URL` |
 | 8 | **ingress-nginx** and **cert-manager** in the cluster, with a ClusterIssuer (default name `letsencrypt-prod`) | `k8s/ingress.yaml` annotation |
 | 9 | **DNS**: an `A` record for the domain → the ingress load balancer's IP | DNS provider |
-| 10 | **Resend** API key and a verified sending domain | Secret `RESEND_API_KEY`, ConfigMap `EMAIL_FROM` |
 | 11 | **Gemini** API key | Secret `GEMINI_API_KEY` |
 | 12 | **Meta app**: app ID, app secret, webhook verify token | ConfigMap `META_APP_ID`; Secret `META_APP_SECRET`, `META_WEBHOOK_VERIFY_TOKEN` |
 | 13 | A **DigitalOcean API token** for GitHub Actions (registry write + Kubernetes) | GitHub secret `DIGITALOCEAN_ACCESS_TOKEN` |
@@ -112,7 +111,6 @@ and `SPACES_BUCKET` in `k8s/` must be replaced (search the folder).
 | `CRON_SECRET` | `openssl rand -base64 32` |
 | `SPACES_KEY`, `SPACES_SECRET` | Spaces access key pair |
 | `REDIS_URL` | Managed Valkey URL (`rediss://…`) |
-| `RESEND_API_KEY` | Resend API key |
 | `GEMINI_API_KEY` | Google AI Studio key |
 | `META_APP_SECRET`, `META_WEBHOOK_VERIFY_TOKEN` | Meta app secret; any long random string for the webhook |
 

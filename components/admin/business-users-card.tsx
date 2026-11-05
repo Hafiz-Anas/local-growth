@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { KeyRound, Loader2, Mail, MoreHorizontal, UserCheck, UserRound, UserX } from "lucide-react";
+import { KeyRound, Loader2, MoreHorizontal, UserCheck, UserRound, UserX } from "lucide-react";
 import { Avatar } from "@/components/shared/avatar";
 import { EmptyState, ErrorState, SkeletonList } from "@/components/shared/states";
 import { TimeAgo } from "@/components/shared/time-ago";
@@ -17,6 +17,7 @@ import { useAdminUsers } from "@/lib/api/admin";
 import { apiFetch, type ApiClientError } from "@/lib/api/client";
 import { errorMessage } from "@/lib/api/errors";
 import { qk } from "@/lib/api/queries";
+import { loginName } from "@/lib/usernames";
 import { useI18n } from "@/lib/i18n/provider";
 import { initials, toneFor } from "@/lib/utils";
 import { newPasswordSchema } from "@/lib/validation/auth";
@@ -41,13 +42,6 @@ export function BusinessUsersCard({ businessId }: { businessId: string }) {
     onSuccess: (user, { suspend }) => {
       refresh();
       notify.success(t(suspend ? "admin.users.suspended" : "admin.users.reactivated", { name: user.name }));
-    },
-  });
-  const sendLink = useMutation<unknown, ApiClientError, AdminUserDto>({
-    mutationFn: (user) => apiFetch(`/api/admin/users/${user.id}/reset-password`, { method: "POST", body: { sendEmail: true } }),
-    onSuccess: (_d, user) => {
-      refresh();
-      notify.success(t("admin.users.linkSent", { email: user.email }));
     },
   });
 
@@ -78,7 +72,7 @@ export function BusinessUsersCard({ businessId }: { businessId: string }) {
                     {suspended && <Badge variant="neutral" size="sm">{t("admin.users.suspendedBadge")}</Badge>}
                   </p>
                   <p className="truncate text-caption text-muted">
-                    <bdi>{user.email}</bdi> ·{" "}
+                    <bdi>{loginName(user.email)}</bdi> ·{" "}
                     {user.lastLoginAt ? (
                       <>
                         {t("admin.users.lastLogin")} <TimeAgo iso={user.lastLoginAt} />
@@ -96,10 +90,6 @@ export function BusinessUsersCard({ businessId }: { businessId: string }) {
                   </DropdownMenuTrigger>
                   {/* Items open dialogs: keep focus from jumping back to the trigger, which can dismiss them. */}
                   <DropdownMenuContent align="end" onCloseAutoFocus={(e) => e.preventDefault()}>
-                    <DropdownMenuItem onSelect={() => sendLink.mutate(user)}>
-                      <Mail />
-                      {t("admin.users.sendLink")}
-                    </DropdownMenuItem>
                     <DropdownMenuItem onSelect={() => setSettingPassword(user)}>
                       <KeyRound />
                       {t("admin.users.setPassword")}

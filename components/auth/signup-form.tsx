@@ -10,37 +10,37 @@ import { Button } from "@/components/ui/button";
 import { signupAction, type SignupField, type SignupState } from "@/lib/auth/actions";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
-import { emailSchema } from "@/lib/validation/auth";
+import { USERNAME_MAX, USERNAME_MIN, usernameProblem } from "@/lib/usernames";
 import { PASSWORD_RULES, passwordProblems, passwordScore } from "@/lib/validation/password";
 import type { SignupFailure } from "@/lib/signup-flow";
 import type { MetaConnectOutcome } from "@/types";
 import { AuthFooter, FloatingInput, ShowPasswordToggle } from "./auth-parts";
 import { AddingNotice } from "./login-form";
 
-const initialState: SignupState = { error: null, fields: [], values: { email: "" } };
+const initialState: SignupState = { error: null, fields: [], values: { username: "" } };
 
 /**
- * Public sign-up, one page in the same Instagram-style card as the login screen: email, password and
+ * Public sign-up, one page in the same Instagram-style card as the login screen: username, password and
  * "Continue with Instagram". The server checks them, keeps a pending sign-up and sends the browser to
  * connect Instagram; the account is created only once that succeeds (lib/server/signup.ts). Back here
- * with ?instagram=<outcome> otherwise, the email filled in again (`initialEmail`).
+ * with ?instagram=<outcome> otherwise, the username filled in again (`initialUsername`).
  * `adding`: "Add account" → "Create a new account" — the signed-in login stays remembered on this device.
  */
 export function SignupForm({
   adding = false,
-  initialEmail = "",
+  initialUsername = "",
   outcome = null,
   picking = false,
 }: {
   adding?: boolean;
-  initialEmail?: string;
+  initialUsername?: string;
   outcome?: SignupFailure | "pick" | null;
   picking?: boolean;
 }) {
   const { t } = useI18n();
   const router = useRouter();
   const [state, formAction, pending] = useActionState(signupAction, initialState);
-  const [email, setEmail] = useState(initialEmail);
+  const [username, setUsername] = useState(initialUsername);
   const [notice, setNotice] = useState<SignupFailure | null>(outcome === "pick" ? null : outcome);
   // Back from Instagram via the browser's back button restores this page from cache: re-enable the button.
   const [leaving, setLeaving] = useState(false);
@@ -54,11 +54,12 @@ export function SignupForm({
   const [showPassword, setShowPassword] = useState(false);
   const [touched, setTouched] = useState<Partial<Record<SignupField, boolean>>>({});
 
-  const personal = { email, name: "" };
+  const personal = { email: username, name: "" };
   const problems = passwordProblems(password, personal);
   const score = passwordScore(password, personal);
-  const emailValid = emailSchema.safeParse(email).success;
-  const valid = emailValid && problems.length === 0;
+  const usernameCode = usernameProblem(username);
+  const usernameValid = usernameCode === null;
+  const valid = usernameValid && problems.length === 0;
   const serverInvalid = (field: SignupField) => state.fields.includes(field);
   const invalid = (field: SignupField, ok: boolean) => (touched[field] && !ok) || serverInvalid(field);
   const touch = (field: SignupField) => () => setTouched((v) => ({ ...v, [field]: true }));
@@ -78,15 +79,26 @@ export function SignupForm({
 
             <form action={formAction} onSubmit={() => setLeaving(true)} className="space-y-1.5" noValidate>
               <FloatingInput
-                name="email"
-                type="email"
-                autoComplete="email"
-                label={t("auth.email")}
-                value={email}
-                onChange={setEmail}
-                onBlur={touch("email")}
-                invalid={invalid("email", emailValid)}
+                name="username"
+                type="text"
+                autoComplete="username"
+                autoCapitalize="none"
+                spellCheck={false}
+                maxLength={USERNAME_MAX + 10}
+                label={t("auth.username")}
+                value={username}
+                onChange={setUsername}
+                onBlur={touch("username")}
+                invalid={invalid("username", usernameValid)}
+                aria-describedby="username-hint"
               />
+              <p
+                id="username-hint"
+                data-testid="username-hint"
+                className={cn("px-0.5 pt-0.5 pb-1 text-caption", touched.username && usernameCode ? "text-danger" : "text-muted")}
+              >
+                {touched.username && usernameCode ? t(`signup.usernameErrors.${usernameCode}`) : t("signup.usernameHint", { min: USERNAME_MIN, max: USERNAME_MAX })}
+              </p>
               <FloatingInput
                 name="password"
                 type={showPassword ? "text" : "password"}
@@ -125,16 +137,7 @@ export function SignupForm({
 
             {state.error && (
               <p role="alert" className="mt-5 text-center text-body text-danger">
-                {state.error === "email_taken" ? (
-                  <>
-                    {t("signup.errors.email_taken")}{" "}
-                    <Link href="/forgot-password" className="font-semibold text-link hover:underline">
-                      {t("auth.forgot")}
-                    </Link>
-                  </>
-                ) : (
-                  t(`signup.errors.${state.error}`)
-                )}
+                {t(`signup.errors.${state.error}`)}
               </p>
             )}
           </div>
@@ -172,14 +175,6 @@ function OutcomeNotice({ outcome, onDismiss }: { outcome: SignupFailure; onDismi
       {calm ? <Info className="mt-px size-4 shrink-0 text-muted" aria-hidden="true" /> : <AlertTriangle className="mt-px size-4 shrink-0 text-danger" aria-hidden="true" />}
       <p className="min-w-0 flex-1">
         {t(`signup.instagram.${outcome}`)}
-        {outcome === "email_taken" && (
-          <>
-            {" "}
-            <Link href="/forgot-password" className="font-semibold text-link hover:underline">
-              {t("auth.forgot")}
-            </Link>
-          </>
-        )}
       </p>
       <button type="button" onClick={onDismiss} className="shrink-0 font-semibold text-primary hover:text-link">
         {t("common.dismiss")}

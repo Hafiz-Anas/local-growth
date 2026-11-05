@@ -10,7 +10,7 @@ export const GET = handler(async () => {
   const session = await requireAuth();
   const user = await db.user.findUnique({
     where: { id: session.userId },
-    select: { id: true, email: true, name: true, role: true, avatarUrl: true, uiPreferences: true, notificationPrefs: true, emailVerifiedAt: true, business: { select: BUSINESS_SUMMARY_SELECT } },
+    select: { id: true, email: true, name: true, role: true, avatarUrl: true, uiPreferences: true, notificationPrefs: true, business: { select: BUSINESS_SUMMARY_SELECT } },
   });
   if (!user) throw notFound("User");
   const me: MeDto = {
@@ -22,7 +22,6 @@ export const GET = handler(async () => {
       avatarUrl: user.avatarUrl,
       uiPreferences: uiPreferencesSchema.catch(uiPreferencesSchema.parse({})).parse(user.uiPreferences ?? {}),
       notifications: notificationPrefsSchema.catch(notificationPrefsSchema.parse({})).parse(user.notificationPrefs ?? {}),
-      emailVerified: Boolean(user.emailVerifiedAt),
     },
     business: user.business ? toBusinessSummary(user.business) : null,
     features: session.features,

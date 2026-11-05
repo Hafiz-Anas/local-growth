@@ -16,7 +16,6 @@ import { db } from "@/lib/db";
 import type { CompetitorValidation as DbCompetitorValidation, OnboardingEventType as DbEventType, Prisma } from "@/lib/generated/prisma/client";
 import { displayNameFromHandle } from "@/lib/display-names";
 import { aimFromTargets, readTargets } from "@/lib/onboarding-answers";
-import { EmailSendError, emailLocale, getEmailService } from "@/lib/services/email";
 import { getInstagramService } from "@/lib/services/instagram";
 import type {
   AdminOnboardingBusinessDto,
@@ -197,7 +196,7 @@ export async function getOnboardingState(businessId: string, userId: string): Pr
         onboardingStep: true,
       },
     }),
-    db.user.findUnique({ where: { id: userId }, select: { email: true, emailVerifiedAt: true } }),
+    db.user.findUnique({ where: { id: userId }, select: { id: true } }),
     listOnboardingCompetitors(businessId),
     listBrandPosts(businessId),
     getBrandBasics(businessId),
@@ -209,8 +208,6 @@ export async function getOnboardingState(businessId: string, userId: string): Pr
   return {
     status: lower(business.onboardingStatus),
     step: stepId(business.onboardingStep),
-    email: user.email,
-    emailVerified: Boolean(user.emailVerifiedAt),
     business: {
       name: business.name,
       businessType: (business.businessType as BusinessType | null) ?? null,
@@ -409,13 +406,13 @@ export async function addOnboardingCompetitor(businessId: string, handle: string
 // Admin --------------------------------------------------------------------------
 
 /** Admin: ask an existing (admin-created) client to go through onboarding. */
-export async function inviteToOnboarding(businessId: string, actorId: string, baseUrl: string) {
+export async function inviteToOnboarding(businessId: string, actorId: string) {
   const business = await db.business.findUnique({
     where: { id: businessId },
     select: {
       name: true,
       onboardingStatus: true,
-      members: { where: { user: { role: "USER", status: "ACTIVE" } }, select: { user: { select: { email: true, name: true, uiPreferences: true } } } },
+      members: { where: { user: { role: "USER", status: "ACTIVE" } }, select: { user: { select: { id: true } } } },
     },
   });
   if (!business) throw notFound("Business");
@@ -429,18 +426,8 @@ export async function inviteToOnboarding(businessId: string, actorId: string, ba
     });
     await logActivity({ businessId, userId: actorId, action: "onboarding.invited", details: { recipients: users.length } }, tx);
   });
-  const loginUrl = new URL("/login", baseUrl).toString();
-  // The invite itself is saved; a failed email (already logged) only lowers the count the admin sees.
-  let emailed = 0;
-  for (const user of users) {
-    try {
-      await getEmailService().sendOnboardingInvite({ to: user.email, name: user.name, locale: emailLocale(user.uiPreferences), businessName: business.name, loginUrl });
-      emailed++;
-    } catch (error) {
-      if (!(error instanceof EmailSendError)) throw error;
-    }
-  }
-  return { recipients: users.length, emailed };
+  // No email goes out: they are taken through the wizard the next time they open the app.
+  return { recipients: users.length };
 }
 
 const FUNNEL_STEPS = [...EVENT_STEPS, "completed"] as const;
@@ -459,7 +446,7 @@ export async function getAdminOnboarding(): Promise<AdminOnboardingDto> {
       createdAt: true,
       onboardingStatus: true,
       onboardingStep: true,
-      members: { where: { user: { role: "USER" } }, select: { user: { select: { name: true, email: true, emailVerifiedAt: true } } }, orderBy: { createdAt: "asc" }, take: 1 },
+      members: { where: { user: { role: "USER" } }, select: { user: { select: { name: true, username: true, email: true } } }, orderBy: { createdAt: "asc" }, take: 1 },
       onboardingEvents: { select: { id: true, step: true, event: true, details: true, durationMs: true, createdAt: true }, orderBy: { createdAt: "asc" } },
       feedback: { select: { id: true, step: true, note: true, createdAt: true, user: { select: { name: true } } }, orderBy: { createdAt: "desc" } },
       integrationEvents: { select: INTEGRATION_EVENT_SELECT, orderBy: { createdAt: "desc" }, take: 20 },
@@ -488,7 +475,7 @@ export async function getAdminOnboarding(): Promise<AdminOnboardingDto> {
       id: b.id,
       name: b.name,
       avatarUrl: b.avatarUrl,
-      owner: owner ? { name: owner.name, email: owner.email, emailVerified: Boolean(owner.emailVerifiedAt) } : null,
+      owner: owner ? { name: owner.name, login: owner.username ?? owner.email } : null,
       source: lower(b.source),
       status: lower(b.onboardingStatus),
       step: stepId(b.onboardingStep),

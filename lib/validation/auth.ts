@@ -1,11 +1,23 @@
 import { z } from "zod";
+import { usernameProblem } from "@/lib/usernames";
 
 /** Shared by the API routes (server) and the forms (client). */
 
 export const emailSchema = z.string().trim().toLowerCase().pipe(z.email()).pipe(z.string().max(254));
 
+/** The username rules (lib/usernames.ts); the refinement's message is the problem code the forms translate. */
+export const usernameSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .superRefine((value, ctx) => {
+    const problem = usernameProblem(value);
+    if (problem) ctx.addIssue({ code: "custom", message: problem });
+  });
+
+/** Log in with a username, or the email of an older account (one field). */
 export const loginSchema = z.object({
-  email: emailSchema,
+  identifier: z.string().trim().toLowerCase().min(1).max(254),
   password: z.string().min(1).max(200),
 });
 
@@ -17,9 +29,3 @@ export const newPasswordSchema = z
   .regex(/[A-Za-z]/)
   .regex(/\d/);
 
-export const resetRequestSchema = z.object({ email: emailSchema });
-
-export const resetConfirmSchema = z.object({
-  token: z.string().min(20).max(200),
-  password: newPasswordSchema,
-});

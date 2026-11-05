@@ -15,6 +15,13 @@ function key(): Buffer {
   return buf;
 }
 
+/** Whether secrets can be encrypted here: "missing" (ENCRYPTION_KEY unset) or "invalid" (not 32 bytes, base64). */
+export function encryptionKeyProblem(): "missing" | "invalid" | null {
+  const raw = process.env.ENCRYPTION_KEY;
+  if (!raw) return "missing";
+  return Buffer.from(raw, "base64").length === 32 ? null : "invalid";
+}
+
 export function encrypt(plaintext: string): string {
   const iv = randomBytes(12);
   const cipher = createCipheriv("aes-256-gcm", key(), iv);

@@ -31,7 +31,7 @@ export const PATCH = handler(async (request) => {
   // Every existing session is now revoked, including this one — issue a fresh cookie for it.
   let signedIn = true;
   try {
-    await signIn("credentials", { email: user.email, password: newPassword, redirect: false });
+    await signIn("credentials", { identifier: user.email, password: newPassword, redirect: false });
     await rememberLogin(session.userId);
   } catch {
     signedIn = false;

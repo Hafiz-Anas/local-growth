@@ -110,7 +110,7 @@ export async function regenerateReply(businessId: string, id: string, tone: Rege
   const reply = await findPendingReply(businessId, id);
   if (reply.ruleId) throw new ApiError(409, "conflict", "Keyword replies use the rule's text; edit it instead.");
   const ai = getAIService();
-  const availability = ai.textAvailability();
+  const availability = await ai.textAvailability(businessId);
   if (!availability.available) throw regenerateUnavailable(availability.reason);
   if (!(await getRateLimiter().consume(REPLY_REGENERATE_LIMIT, businessId))) {
     throw new ApiError(429, "regenerate_limit", "You've asked for many new drafts in the last hour. Edit this one, or try again later.");
@@ -164,7 +164,7 @@ export async function replySummary(businessId: string, kinds: { ai: boolean; key
   const keyword = kinds.keyword ? await db.replyDraft.count({ where: { businessId, status: "POSTED", sentAt: { gte: since }, ruleId: { not: null } } }) : 0;
   const count = (o: string) => (kinds.ai ? (groups.find((g) => g.outcome === o)?._count._all ?? 0) : 0);
   const ai = { as_is: count("AS_IS"), edited: count("EDITED"), manual: count("MANUAL") };
-  const availability = kinds.ai ? getAIService().textAvailability() : { available: false as const, reason: "not_configured" as const };
+  const availability = kinds.ai ? await getAIService().textAvailability(businessId) : { available: false as const, reason: "not_configured" as const };
   return {
     days,
     ai,

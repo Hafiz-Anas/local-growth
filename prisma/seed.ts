@@ -125,7 +125,6 @@ async function seedBusiness(client: Client, index: number, passwordHash: string,
           role: "USER",
           notificationPrefs: { ...pack.settings.notifications },
           lastLoginAt: shift(client.lastActivityAt),
-          emailVerifiedAt: new Date(Date.now() - (120 - index * 30) * DAY),
         },
       },
       permissions: {
@@ -427,7 +426,6 @@ async function main() {
       avatarUrl: adminAccount.avatarUrl,
       role: "ADMIN",
       lastLoginAt: new Date(Date.now() - 3 * 60 * 60 * 1000),
-      emailVerifiedAt: new Date(Date.now() - 200 * DAY),
     },
   });
 

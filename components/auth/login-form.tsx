@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 import { AppShowcase } from "./app-showcase";
 import { AuthFooter, FloatingInput, ShowPasswordToggle } from "./auth-parts";
 
-const initialState: LoginState = { error: null, email: "" };
+const initialState: LoginState = { error: null, identifier: "" };
 
 const ERROR_MESSAGES: Record<LoginError, string> = {
   missing_fields: "auth.missing",
@@ -25,18 +25,18 @@ const ERROR_MESSAGES: Record<LoginError, string> = {
 /**
  * Login screen following Instagram's web login layout (showcase + narrow
  * bordered card), with our own logo and name throughout — never Instagram's or Meta's marks.
- * Email and password only: Instagram is connected later, in onboarding.
+ * Username (or the email of an older account) and password: Instagram is connected during sign-up.
  * `adding`: "Add account" from the switcher — the signed-in login stays remembered on this device.
  */
 export function LoginForm({ demoAccounts, sessionExpired = false, adding = false }: { demoAccounts: DemoAccount[]; sessionExpired?: boolean; adding?: boolean }) {
   const { t } = useI18n();
   const [state, formAction, pending] = useActionState(loginAction, initialState);
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showDemo, setShowDemo] = useState(true);
 
-  const canSubmit = email.trim().length > 0 && password.length > 0 && !pending;
+  const canSubmit = identifier.trim().length > 0 && password.length > 0 && !pending;
   // Wrong-password style errors mark the fields; account-level ones don't.
   const fieldsInvalid = state.error === "invalid_credentials" || state.error === "missing_fields";
 
@@ -64,12 +64,14 @@ export function LoginForm({ demoAccounts, sessionExpired = false, adding = false
 
               <form action={formAction} className="space-y-1.5">
                 <FloatingInput
-                  name="email"
-                  type="email"
+                  name="identifier"
+                  type="text"
                   autoComplete="username"
-                  label={t("auth.email")}
-                  value={email}
-                  onChange={setEmail}
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  label={t("auth.identifier")}
+                  value={identifier}
+                  onChange={setIdentifier}
                   invalid={fieldsInvalid}
                 />
                 <FloatingInput
@@ -93,9 +95,7 @@ export function LoginForm({ demoAccounts, sessionExpired = false, adding = false
                 </p>
               )}
 
-              <Link href="/forgot-password" className="mx-auto mt-5 block w-fit text-body text-link hover:underline">
-                {t("auth.forgot")}
-              </Link>
+              <p className="mx-auto mt-5 text-center text-caption text-muted">{t("auth.forgotHint")}</p>
             </div>
 
             <div className="mt-2.5 border-border py-5 text-center text-body sm:rounded-[1px] sm:border">
@@ -109,7 +109,7 @@ export function LoginForm({ demoAccounts, sessionExpired = false, adding = false
               <DemoAccounts
                 accounts={demoAccounts}
                 onPick={(a) => {
-                  setEmail(a.email);
+                  setIdentifier(a.email);
                   setPassword(a.password);
                 }}
                 onDismiss={() => setShowDemo(false)}

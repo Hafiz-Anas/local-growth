@@ -84,7 +84,7 @@ const UNAVAILABLE_MESSAGES: Record<string, string> = {
   rate_limited: "Too many images were requested. Wait a minute and try again.",
   billing: "The image model needs billing enabled on the Google AI account.",
   invalid_key: "The Gemini API key is missing, invalid or not allowed to use this API.",
-  not_configured: "Image generation isn't set up (GEMINI_API_KEY is missing).",
+  not_configured: "Image generation isn't set up (no Gemini API key is set).",
   region: "Image generation isn't available in this region.",
   model_unavailable: "The configured image model isn't available.",
   blocked: "The image was blocked by the provider's safety filters.",
@@ -104,7 +104,7 @@ export async function generateDraftImage(businessId: string, userId: string, dra
 
   let image;
   try {
-    image = await service.generate({ prompt, colors, variant: randomInt(1, 1000) });
+    image = await service.generate({ prompt, colors, variant: randomInt(1, 1000), businessId });
   } catch (error) {
     if (!(error instanceof ImageGenerationError)) throw error;
     await logIntegration({

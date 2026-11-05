@@ -14,6 +14,7 @@ import { PLAN_IDS } from "@/config/plans";
 import { apiFetch, ApiClientError } from "@/lib/api/client";
 import { errorMessage } from "@/lib/api/errors";
 import { useI18n } from "@/lib/i18n/provider";
+import { usernameProblem } from "@/lib/usernames";
 import { emailSchema, newPasswordSchema } from "@/lib/validation/auth";
 import { notify } from "@/store/ui-store";
 import type { AdminBusinessDto, PlanId } from "@/types";
@@ -37,7 +38,7 @@ function NewClientForm({ onDone }: { onDone: () => void }) {
   const { t } = useI18n();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const [form, setForm] = useState({ name: "", handle: "", location: "", ownerName: "", ownerEmail: "", ownerPassword: "" });
+  const [form, setForm] = useState({ name: "", handle: "", location: "", ownerName: "", ownerUsername: "", ownerEmail: "", ownerPassword: "" });
   const [plan, setPlan] = useState<PlanId>("starter");
   const [withOwner, setWithOwner] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -52,7 +53,7 @@ function NewClientForm({ onDone }: { onDone: () => void }) {
           instagramHandle: form.handle,
           location: form.location,
           plan,
-          ...(withOwner && { owner: { name: form.ownerName || form.name, email: form.ownerEmail, password: form.ownerPassword } }),
+          ...(withOwner && { owner: { name: form.ownerName || form.name, username: form.ownerUsername.trim(), ...(form.ownerEmail.trim() && { email: form.ownerEmail.trim() }), password: form.ownerPassword } }),
         },
       }),
     meta: { handlesErrors: true },
@@ -70,7 +71,9 @@ function NewClientForm({ onDone }: { onDone: () => void }) {
     if (!form.name.trim() || !form.location.trim()) return setError(t("admin.newClient.required"));
     if (!/^@?[a-zA-Z0-9._]{1,30}$/.test(form.handle.trim())) return setError(t("competitors.invalidHandle"));
     if (withOwner) {
-      if (!emailSchema.safeParse(form.ownerEmail).success) return setError(t("auth.reset.errors.invalidEmail"));
+      const problem = usernameProblem(form.ownerUsername);
+      if (problem) return setError(t(`signup.usernameErrors.${problem}`));
+      if (form.ownerEmail.trim() && !emailSchema.safeParse(form.ownerEmail).success) return setError(t("auth.reset.errors.invalidEmail"));
       if (!newPasswordSchema.safeParse(form.ownerPassword).success) return setError(t("auth.reset.errors.weak"));
     }
     setError(null);
@@ -107,7 +110,10 @@ function NewClientForm({ onDone }: { onDone: () => void }) {
             <Field id="nc-owner-name" label={t("admin.newClient.ownerName")}>
               <Input id="nc-owner-name" value={form.ownerName} onChange={set("ownerName")} placeholder={form.name} />
             </Field>
-            <Field id="nc-owner-email" label={t("auth.email")}>
+            <Field id="nc-owner-username" label={t("auth.username")} hint={t("signup.usernameHint", { min: 3, max: 30 })}>
+              <Input id="nc-owner-username" value={form.ownerUsername} onChange={set("ownerUsername")} dir="ltr" autoComplete="off" autoCapitalize="none" />
+            </Field>
+            <Field id="nc-owner-email" label={t("admin.newClient.emailOptional")}>
               <Input id="nc-owner-email" type="email" value={form.ownerEmail} onChange={set("ownerEmail")} dir="ltr" autoComplete="off" />
             </Field>
             <Field id="nc-owner-password" label={t("admin.newClient.ownerPassword")} hint={t("auth.reset.rule")}>

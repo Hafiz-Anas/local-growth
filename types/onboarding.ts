@@ -136,8 +136,6 @@ export interface OnboardingCompetitorDto {
 export interface OnboardingStateDto {
   status: OnboardingStatus;
   step: OnboardingStepId;
-  email: string;
-  emailVerified: boolean;
   business: BusinessProfileDto;
   instagram: InstagramConnectionDto & { handle: string | null };
   competitors: OnboardingCompetitorDto[];
@@ -203,7 +201,7 @@ export interface AdminOnboardingBusinessDto {
   id: string;
   name: string;
   avatarUrl: string | null;
-  owner: { name: string; email: string; emailVerified: boolean } | null;
+  owner: { name: string; /** Username, or the email of an older account. */ login: string } | null;
   source: BusinessSource;
   status: OnboardingStatus;
   step: OnboardingStepId;
